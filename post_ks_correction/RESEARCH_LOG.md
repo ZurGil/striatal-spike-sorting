@@ -712,10 +712,56 @@ This pair should NOT be merged; template similarity and score behavior
 alone were not sufficient to establish that, which is exactly why this
 direct test was needed rather than stopping at the earlier inference.
 
-**Bottom line:** four pairs (332/333, 342/341, 303/306, 306/305) pass a
-real, quantitative merge test and are strong candidates for manual review
-in Phy. This remains "suggest, don't auto-merge" per the design doc --
-nothing here has changed any Kilosort/Phy output.
+**Bottom line (SUPERSEDED by 5k below):** four pairs (332/333, 342/341,
+303/306, 306/305) pass a real, quantitative merge test and are strong
+candidates for manual review in Phy. This remains "suggest, don't
+auto-merge" per the design doc -- nothing here has changed any Kilosort/
+Phy output.
+
+## 5k. A real statistical flaw caught in 5j, and the "merge candidates" don't survive the proper test
+
+Flagged directly: 5j's "chance expectation" (`n_a*n_b*2w/T`) assumes each
+unit fires at a CONSTANT rate across the whole 3-hour session. Real
+neurons don't -- up/down states, bursting, task modulation all make true
+firing rate non-stationary. Two genuinely independent neurons that are
+simply co-modulated by the same slow process (busier during the same
+behavioral epochs, say) could show an "excess" of near-simultaneous
+spikes with nothing to do with being the same cell, and with small spike
+counts, an apparently clean dip could just be a low-count fluke -- the
+closed-form Poisson approximation can't tell the difference.
+
+**Fix: a jitter-based permutation test** (`demo_merge_candidate_jitter_test.py`,
+standard method for CCG significance, e.g. Fujisawa et al. 2008). For each
+pair, jittered every spike of the smaller-count unit by a random offset
+within +/-10ms (much bigger than the 1.5ms refractory window -- destroys
+any genuine fine-timescale relationship while preserving each unit's real,
+slow-timescale rate structure, so real shared comodulation is preserved in
+the null too) and rebuilt the null 1000 times, comparing the REAL
+cross-refractory-window count against this empirical distribution instead
+of a formula.
+
+**Result: none of the four "clean merge candidates" from 5j survive.**
+306-305 (observed 37 vs null 31.5±4.9), 332-333 (11 vs 11.3±3.2), 303-306
+(35 vs 30.9±5.0), and 342-341 (93 vs 96.3±8.9) are all statistically
+indistinguishable from the rate-matched chance null (p_depleted > 0.3 for
+all four) -- the dip-ratio metric in 5j was not properly accounting for
+each unit's actual firing-rate structure, exactly the gap flagged. The
+other four pairs (306-298, 333-334, 303-299, 313-318) instead show a
+significant EXCESS over the jittered null (p_elevated < 0.01 for all
+four, 313-318 extremely so at z=16.6) -- the opposite of a merge
+signature, more consistent with the giant hash clusters (298, 299, 334)
+partially containing real spikes that also belong to the smaller, cleaner
+nearby units (contamination) rather than genuine shared identity.
+
+**Corrected bottom line: with a properly rate-matched null, ZERO of the 9
+candidate pairs tested are statistically supported merge candidates.**
+The 5j conclusion was wrong -- not because the pairs are proven to be
+genuinely separate neurons, but because the evidence for merging any of
+them does not hold up once tested rigorously. This is a real, useful
+negative result: the template-similarity + naive-CCG-shape approach from
+5i/5j is not sufficient on its own and produces false positives; a
+rate-preserving permutation test is necessary before treating any
+candidate pair as a real merge suggestion.
 
 ---
 
