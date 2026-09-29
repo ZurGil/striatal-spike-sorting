@@ -491,6 +491,67 @@ big is the signal relative to background noise." That's a useful,
 non-obvious finding on its own, but 8 units is a small sample — this
 is a real pattern worth taking seriously, not yet a settled rule.
 
+## 5g. Using the RIGHT quality metric, a simpler comparison metric, and a cross-check against Kilosort's own scoring — all three requested directly, and the result is much cleaner
+
+Three corrections to 5f, all prompted directly:
+
+1. **Wrong metric source.** 5f used bombcell's SNR by mistake. This
+   project already has its own quality metric from earlier work: `sep_vs_noise`
+   (shown as "Sep. vs noise (p80)" in `outputs/unit_review_pipeline.html`,
+   underlying data in `outputs/pipeline_review_data.json`) — a completely
+   different, project-specific measure, not bombcell's.
+2. **Is R² even the right metric?** It's not something built new for this
+   check — it's `nuisance_model.fit_nuisance_prealigned`'s R², the same
+   fit-quality number used throughout this project since pillar 2. Worth
+   checking whether a much simpler, more standard metric tells the same
+   story: added plain **cosine similarity** between each aligned spike and
+   the template (one dot-product ratio, no stretch parameter, no
+   regression) alongside R².
+3. **Cross-check against Kilosort's own scoring.** These spikes were
+   already accepted by Kilosort's own matching-pursuit process, which has
+   its own per-spike amplitude score (`amplitudes.npy`). For a genuinely
+   good unit, Kilosort's own scoring shouldn't be unstable either. Computed
+   the coefficient of variation of Kilosort's own amplitude for the exact
+   same sampled spikes, fully independent of anything built in this
+   project.
+
+`demo_multiunit_metric_comparison.py`: selected 16 units evenly spaced
+across the real range of `sep_vs_noise` (0.72 to 12.19), not hand-picked.
+One bug caught mid-run and fixed: the review JSON is from an earlier
+curation stage than this session's final output — unit 12 no longer
+exists at all in `spike_clusters.npy` (0 spikes, absent from
+`cluster_info.tsv` too, presumably merged away before finalization),
+which crashed the first attempt. Fixed by filtering candidates to only
+unit_ids that actually exist in the final data, not assumed to carry over.
+
+**Real result, and it's a clean one this time:**
+- **R² and cosine similarity both split cleanly** on `sep_vs_noise`: the
+  11 units below ~2.2 (all labeled MUA/MUA+NON-SOMA in the review data)
+  score R²=0.27-0.48, cosine similarity=0.39-0.66. The 5 units above ~2.4
+  (all labeled GOOD/GOOD+NON-SOMA) score R²=0.73-0.90, cosine
+  similarity=0.84-0.93. The two metrics agree with each other closely —
+  the simpler, more standard one tells the same story as the more
+  complex one, which is reassuring rather than a reason to prefer one
+  over the other.
+- **Kilosort's own amplitude CV shows no such split** — scattered
+  0.074-0.170 with no visible relationship to `sep_vs_noise` at all (one
+  of the GOOD units, 332, has the single *highest* CV of all 16 units).
+  Plotted directly against our R² (panel 4 of `multiunit_04_metric_comparison.png`),
+  there's no relationship there either.
+- This generalizes what unit 342 vs 307 first suggested by hand: Kilosort's
+  own amplitude scoring, based on a rigid single-shape template match with
+  no phase/shape sensitivity, does not catch the same distinction our
+  wavelet-aligned shape/similarity check does. `sep_vs_noise` — a
+  metric built earlier in this project — tracks our result far better
+  than either bombcell's SNR or Kilosort's own per-spike amplitude does.
+
+**Honest reading:** this is a real, clean, generalized result across 16
+properly-selected units (not 2 hand-picked ones), and it converges with
+the MUA/GOOD labels already present in the review data — which is a good
+sign this metric is measuring something real, not an artifact. Still
+worth keeping in mind this uses the SAME session's own labels as a
+soft validation, not truly independent ground truth.
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
