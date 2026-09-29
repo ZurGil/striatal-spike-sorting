@@ -324,6 +324,74 @@ moderate-selectivity 3-cycle probe), or could indicate the scan is coarser
 or more degenerate than assumed. Not investigated further this pass —
 flagged here so it isn't lost.
 
+## 5d. Following up on unit 307's "missed spike" candidates — three real checks, one real mistake caught
+
+Prompted directly by the user asking three concrete questions about the
+unit-307 candidates from 5c: (1) is their score even above what pure noise
+achieves by chance, (2) could they actually belong to a spatially nearby
+unit instead — including "did Kilosort's own threshold already catch this,
+just jittered/mis-assigned", and (3) is whitening itself what's making them
+pass. All three checked directly on real data
+(`demo_unit307_candidate_validation.py`).
+
+**First, a visual check that walked back the original "these are probably
+junk" framing** (`demo_show_unit307_threshold_problem.py`): plotted 6 real
+detected spikes against 6 of the candidates side by side. They look
+similarly spike-shaped — the candidates are not obviously noise by eye.
+Guessing they were junk without looking was a mistake; correcting course
+here rather than letting that guess stand.
+
+**Q1 — noise-only null**, same channel, identical pipeline, 150 pure-noise
+locations: median R²=0.13, 90th percentile=0.30, 99th percentile=0.49. The
+bar actually used to flag candidates (0.30) sits almost exactly AT noise's
+own 90th percentile — meaning "passing the bar" is only barely better than
+chance for most candidates. Of the 58 that passed: only 10/58 clear noise's
+99th percentile, which is a real, meaningfully-above-chance signal; most of
+the rest are not distinguishable from noise by this check alone.
+
+**Q2 — spatial provenance, and a real mistake caught along the way.** First
+attempt checked whether each candidate coincided (within 15 samples) with
+an already-detected spike from ANY other cluster on the whole 384-channel
+probe — got 56/58. That number is **meaningless and was reported in error
+before being checked**: this session has 41 million spikes across 181
+minutes of recording, dense enough that a *uniformly random* time point
+already lands within 15 samples of *some* cluster's spike 98.2% of the time
+purely by population base rate — confirmed directly with a random-time
+control. Redone correctly, restricted to only the units that are
+spatially close enough to physically matter (302 and 311, which share unit
+307's exact peak channel, and 299, a large MUA cluster 25.6um away): only
+**6 of 58** candidates coincide with an existing detection, and all six
+coincide specifically with unit 299 (never with 302 or 311). The other 52
+do not correspond to any nearby unit's existing detection at all — for
+those, the "Kilosort already caught it, just jittered elsewhere" story the
+user proposed does not apply; they are genuinely undetected locations, not
+reassigned ones. Separately: for **20 of 58**, a spatially nearby unit's
+own template (302, 311, or 299) fits the candidate's raw snippet better
+than unit 307's own template does (checked via each neighbor's own
+matched-filter score at the same alignment — an approximation, not a full
+independent re-alignment per neighbor, noted as a limitation) — a real
+signal that some of these candidates may be a neighboring neuron's spike
+rather than a missed unit-307 spike.
+
+**Q3 — is whitening responsible?** No. Recomputed every candidate's fit
+without whitening: 0 of 58 would have failed the bar without it — the
+unwhitened score was consistently as high or slightly higher than the
+whitened one for every single candidate. Whitening is not manufacturing
+these; if anything it makes the fit slightly more conservative here.
+
+**Honest bottom line:** of the 58 original candidates, roughly 10 are
+statistically convincing on their own, a different ~20 look like they may
+actually belong to a neighboring unit rather than 307, only 6 coincide with
+an already-known nearby detection, and whitening isn't the cause either
+way. This is not a clean resolved story — the groups overlap and weren't
+fully cross-tabulated this pass. What it does clearly show: the current
+"possibly missed spike" flag (a relative percentile of the unit's own,
+possibly-already-poor fit quality) is not trustworthy as implemented on a
+weak unit, and needs, at minimum, (a) an absolute noise-floor-referenced
+bar instead of a relative percentile, and (b) a same-time cross-check
+against spatially relevant neighboring units built in automatically, not
+run as a manual follow-up after the fact.
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
