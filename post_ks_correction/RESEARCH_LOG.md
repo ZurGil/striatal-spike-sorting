@@ -445,6 +445,52 @@ the averaging step) — a natural next test, kept separate deliberately so
 its effect can be measured on its own rather than mixed in with this
 result.
 
+## 5f. Template rebuild across 8 units spanning independent SNR — our metric tracks something SNR doesn't
+
+Found this session's independent quality metrics: `outputs/bombcell_results/templates._bc_qMetrics.csv`
+(bombcell, a standard spike-sorting QC toolbox), confirmed to match this
+session by exact `n_spikes` agreement with `cluster_info.tsv`. Picked 6
+more units by bombcell's own `signalToNoiseRatio` column, deliberately
+spanning its range (~26 to ~182, the weakest to the strongest "good" units
+available), plus kept 342 and 307 as anchors — notably, bombcell rates
+342 and 307 as nearly identical (SNR 79 vs 77) despite this project's own
+diagnostics treating them completely differently.
+
+Ran the same iterative rebuild (`demo_multiunit_template_rebuild_snr_spread.py`,
+100 spikes/unit, up to 4 iterations). Real result, and it does not track
+bombcell's SNR at all:
+
+| unit | bombcell SNR | shape corr (rebuilt vs KS4) | R² change from rebuilding |
+|---|---|---|---|
+| 336 | 26.5 (lowest) | 0.97 | +0.020 |
+| 6 | 36.8 | 0.61 | -0.071 |
+| 397 | 50.4 | 0.94 | -0.056 |
+| 171 | 67.4 | 0.69 | **-0.120 (worst)** |
+| 307 | 77.0 | 0.75 | -0.034 |
+| 342 | 79.2 | 0.98 | +0.010 |
+| 313 | 99.8 | 0.98 | +0.003 |
+| 135 | 181.7 (highest) | 0.98 | +0.020 |
+
+The lowest-SNR unit in the set (336) behaves like the cleanest ones
+(336, 342, 313, 135 all have shape correlation 0.97-0.98 and flat-to-
+positive R² change from rebuilding). The worst-behaved unit (171) has a
+solidly middling SNR, not the lowest. There is no visible trend between
+bombcell's SNR and either shape stability or the rebuild's effect on fit
+quality — plotted directly, panel 3 of `template_rebuild_02_snr_spread.png`
+shows no relationship at all. The split instead falls cleanly into two
+groups (336/342/313/135 stable; 6/397/171/307 unstable) that cut straight
+across the SNR range. One exception, noted rather than smoothed over: unit
+397 has a fairly high shape correlation (0.94) but still lands in the
+"rebuild hurts" group on R² — doesn't fit the pattern perfectly.
+
+**Honest reading:** whatever this project's fit-quality/convergence
+diagnostic is sensitive to is a genuinely different property than
+amplitude-based SNR — most likely something closer to "do this unit's
+spikes actually share one consistent shape" (cluster coherence) than "how
+big is the signal relative to background noise." That's a useful,
+non-obvious finding on its own, but 8 units is a small sample — this
+is a real pattern worth taking seriously, not yet a settled rule.
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
