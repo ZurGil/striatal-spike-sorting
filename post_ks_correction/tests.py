@@ -31,6 +31,7 @@ from nuisance_model import (build_basis, check_basis_geometry, fit_nuisance,
 from spatial_footprint import unit_footprint, spatial_energy_vector, footprint_similarity
 from wavelet_features import (make_morlet, wavelet_transform_at, calibrate_reference_phase,
                                sub_sample_shift_from_phase, coarse_then_fine_shift)
+from noise_whitening import fit_ar_model, ar_autocovariance, whitening_operator
 
 FS = 30000.0
 N = 61
@@ -452,6 +453,95 @@ def test_unit_footprint_selects_channels_within_radius():
     assert np.argmax(result["footprint"]) == list(result["channels"]).index(peak_ch)
 
 
+# ============================================================
+# noise_whitening.py
+# ============================================================
+
+def test_ar_autocovariance_matches_ar1_closed_form():
+    """For an AR(1) process, gamma[k] = sigma2/(1-phi^2) * phi^k is a known
+    closed-form result -- checks ar_autocovariance's general (p-th order)
+    linear-system solver reduces to that exact formula at p=1, before
+    trusting it at higher order where no simple closed form exists to
+    check against."""
+    phi = np.array([0.7])
+    sigma2 = 4.0
+    n = 10
+    gamma = ar_autocovariance(phi, sigma2, n)
+    expected = sigma2 / (1 - phi[0] ** 2) * phi[0] ** np.arange(n)
+    assert np.allclose(gamma, expected, rtol=1e-9), (
+        f"AR(1) autocovariance mismatch: got {gamma[:4]}, expected {expected[:4]}")
+
+
+def test_ar_fit_recovers_known_process():
+    """fit_ar_model, run on a long simulation of a KNOWN AR(2) process, should
+    recover coefficients close to the true ones -- sanity check on the
+    Yule-Walker solver itself, independent of any real recording data."""
+    rng = np.random.default_rng(4)
+    true_phi = np.array([0.6, -0.2])
+    n = 200000
+    x = np.zeros(n)
+    innovations = rng.normal(0, 1.0, size=n)
+    for t in range(2, n):
+        x[t] = true_phi[0] * x[t - 1] + true_phi[1] * x[t - 2] + innovations[t]
+    fitted_phi, fitted_sigma2 = fit_ar_model(x[1000:], order=2)  # drop burn-in
+    assert np.allclose(fitted_phi, true_phi, atol=0.02), (
+        f"fitted phi {fitted_phi} too far from true {true_phi}")
+    assert abs(fitted_sigma2 - 1.0) < 0.05, f"fitted sigma2 {fitted_sigma2:.3f} far from true 1.0"
+
+
+def test_whitening_operator_decorrelates_known_process():
+    """The core claim behind noise_whitening.py: applying the whitening
+    operator built from a KNOWN AR process's own autocovariance to FRESH
+    noise from that same process should leave near-zero autocorrelation at
+    every nonzero lag -- checked on synthetic data with a known ground
+    truth process, separately from the real-data validation in
+    demo_noise_whitening_validation.py."""
+    rng = np.random.default_rng(5)
+    true_phi = np.array([0.8, -0.3, 0.1])
+    sigma2 = 2.0
+    n = 61
+    gamma = ar_autocovariance(true_phi, sigma2, n)
+    W = whitening_operator(gamma)
+
+    n_sim = 5000
+    burn_in = 500
+    x = np.zeros(n_sim)
+    innovations = rng.normal(0, np.sqrt(sigma2), size=n_sim)
+    for t in range(3, n_sim):
+        x[t] = true_phi[0] * x[t - 1] + true_phi[1] * x[t - 2] + true_phi[2] * x[t - 3] + innovations[t]
+    x = x[burn_in:]
+
+    n_windows = 300
+    starts = rng.integers(0, len(x) - n, size=n_windows)
+    raw_windows = np.array([x[s:s + n] for s in starts])
+    white_windows = raw_windows @ W.T
+
+    def mean_lag1_autocorr(windows):
+        return np.nanmean([np.corrcoef(w[:-1], w[1:])[0, 1] for w in windows])
+
+    raw_ac1 = mean_lag1_autocorr(raw_windows)
+    white_ac1 = mean_lag1_autocorr(white_windows)
+    assert abs(raw_ac1) > 0.3, f"test setup issue: raw process barely correlated ({raw_ac1:.3f})"
+    assert abs(white_ac1) < 0.15, (
+        f"whitened lag-1 autocorrelation {white_ac1:.3f} too far from 0 -- whitening didn't work")
+
+
+def test_fit_nuisance_prealigned_whitening_matches_unweighted_when_identity():
+    """whitening_matrix=identity must reproduce the exact same result as
+    whitening_matrix=None (the default) -- guards against the optional
+    parameter silently changing behavior for existing callers that don't
+    pass it."""
+    template = _synthetic_template()
+    s0, s0p, q = build_basis(template)
+    rng = np.random.default_rng(8)
+    x = synthesize_deformed_spike(template, a=0.85, tau=0.0, beta=0.05,
+                                   noise_sigma=0.05 * 150.0, rng=rng)
+    result_default = fit_nuisance_prealigned(x, s0, q)
+    result_identity = fit_nuisance_prealigned(x, s0, q, whitening_matrix=np.eye(len(template)))
+    assert abs(result_default["a"] - result_identity["a"]) < 1e-9
+    assert abs(result_default["beta"] - result_identity["beta"]) < 1e-9
+
+
 ALL_TESTS = [
     test_s0_orthogonal_to_sprime,
     test_s0_dot_q_matches_half_energy_prediction,
@@ -470,6 +560,10 @@ ALL_TESTS = [
     test_sparse_coarse_uses_fewer_evaluations_than_exhaustive,
     test_footprint_similarity_math_sanity,
     test_unit_footprint_selects_channels_within_radius,
+    test_ar_autocovariance_matches_ar1_closed_form,
+    test_ar_fit_recovers_known_process,
+    test_whitening_operator_decorrelates_known_process,
+    test_fit_nuisance_prealigned_whitening_matches_unweighted_when_identity,
 ]
 
 if __name__ == "__main__":

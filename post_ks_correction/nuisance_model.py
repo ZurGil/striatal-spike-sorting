@@ -147,11 +147,22 @@ def fit_nuisance(x, s0, s0_prime, q):
                 residual=residual, r_squared=r_squared)
 
 
-def fit_nuisance_prealigned(x, s0, q):
+def fit_nuisance_prealigned(x, s0, q, whitening_matrix=None):
     """THE RECOMMENDED fit when the snippet has ALREADY been sub-sample
     aligned by an independent method (pillar 1b's coarse_then_fine_shift)
     before this is called -- fits only (a, beta), 2 parameters, dropping
     s0_prime (and therefore tau) from the regression entirely.
+
+    whitening_matrix : optional (n, n) operator from noise_whitening.py
+        (build_whitening_from_noise, on this unit's own channel). When
+        given, both the design matrix and x are pre-multiplied by it before
+        the least-squares solve -- this turns plain OLS (implicitly
+        assuming white, equal-variance noise) into the generalized-
+        least-squares fit that correctly accounts for real, correlated
+        background noise (pillar 1a's `Sigma^-1` piece, per the design
+        doc). Default None reproduces the exact original behavior
+        (equivalent to whitening_matrix=identity) -- existing callers and
+        tests are unaffected.
 
     WHY: fit_nuisance's 3-vector basis [s0, s0_prime, q] has a severe,
     unfixable-by-reformulation problem -- s0_prime (drives tau) and q
@@ -194,9 +205,14 @@ def fit_nuisance_prealigned(x, s0, q):
     """
     x = np.asarray(x, dtype=np.float64)
     design = np.column_stack([s0, q])
-    coeffs, _, _, _ = np.linalg.lstsq(design, x, rcond=None)
+    if whitening_matrix is not None:
+        design_solve = whitening_matrix @ design
+        x_solve = whitening_matrix @ x
+    else:
+        design_solve, x_solve = design, x
+    coeffs, _, _, _ = np.linalg.lstsq(design_solve, x_solve, rcond=None)
     c0, c2 = coeffs
-    fit = design @ coeffs
+    fit = design @ coeffs  # residual reported in the ORIGINAL (unwhitened) units
     residual = x - fit
 
     ss_res = float(np.dot(residual, residual))

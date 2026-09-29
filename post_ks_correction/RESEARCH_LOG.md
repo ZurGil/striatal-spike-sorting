@@ -235,11 +235,102 @@ and channel-selection logic.
 
 ---
 
+## 5b. Temporal noise whitening — built, validated on real data, wired in
+
+**Built:** `noise_whitening.py`. Fits a low-order (p=4) autoregressive model
+to a real, spike-free stretch of a unit's own channel via the Yule-Walker
+equations, derives the autocovariance that AR model implies over a
+61-sample window, and builds a whitening operator (the inverse of that
+covariance's Cholesky factor). This is the design doc's step-A "temporal
+whitening" piece, and it addresses a genuine gap: Kilosort4's own whitening
+is *spatial* (its ZCA transform decorrelates nearby channels at one time
+sample) — it does not touch correlation across nearby time samples on one
+channel, which real background noise clearly has.
+
+**Validated on real data, two ways** (`demo_noise_whitening_validation.py`,
+unit 342's channel, AR model fit on one real noise segment, checked on a
+different held-out one):
+- Real background noise is genuinely far from white: raw lag-1
+  autocorrelation 0.72. After whitening: -0.09 at lag 1, 0.007 at lag 5 —
+  substantially flattened.
+- Injected the unit's own real template into real held-out noise at a
+  modest amplitude (0.35x the template's own scale) and measured signal-vs-
+  noise separation (d') for a plain matched filter vs. the whitened version
+  of the same comparison: d'=0.032 plain, d'=0.102 whitened — roughly a 3x
+  improvement in discriminability from whitening alone, on real noise, at
+  matched signal amplitude.
+
+**Wired in:** `fit_nuisance_prealigned` (the recommended fit) now takes an
+optional `whitening_matrix` parameter; passing one turns the plain
+least-squares fit into the noise-aware (generalized least squares) version.
+Default `None` reproduces the exact old behavior — existing callers/tests
+unaffected (`test_fit_nuisance_prealigned_whitening_matches_unweighted_when_identity`).
+4 new tests added (AR fit correctness against a known synthetic process,
+the AR(1) closed-form check, whitening actually decorrelating a known
+synthetic process, and the identity-equivalence regression guard) — 21/21
+tests passing.
+
+**Not yet done:** whitening is only wired into the nuisance-model fit, not
+into the wavelet coarse/fine timing search or the spatial footprint
+comparison — both still implicitly assume white noise. Natural next
+integration step, not done in this pass.
+
+## 5c. Multi-unit generalization sanity check — real result, and a real gap it surfaced
+
+**Built:** `demo_multiunit_sanity_check.py`, run per the user's explicit
+request to check this isn't just tuned to unit 342. Ran the full pipeline
+(per-unit frequency selection, wavelet coarse+fine alignment, whitened
+amplitude/stretch fit) on unit 342 (the reference unit everything was built
+against) plus three ordinary "good" units picked only by spike count (240 -
+sparse, 307 - dense, 325 - medium), on a 40-spike sample each. Also added,
+directly on the same real data: (a) flagging currently-detected spikes
+whose fit quality is anomalously poor relative to that unit's own
+distribution ("possibly doesn't belong"), and (b) scanning shortly after
+each sampled spike for un-detected candidate events, exactly as done for
+unit 342 earlier but now applied generically to any unit, not burst-gated.
+
+**Real result — mixed, and informative:**
+
+| unit | width (samp) | amplitude (uV) | mean R² | flagged low-quality | "promising" missed candidates |
+|---|---|---|---|---|---|
+| 342 (reference) | 8 | 16.7 | 0.82 | 4/40 | 0/15 scanned |
+| 240 | 14 | 10.4 | 0.82 | 4/40 | 0/15 scanned |
+| 307 | 7 | 4.7 | **0.41** | 12/40 | **14/15 scanned** |
+| 325 | 14 | 5.4 | 0.57 | 4/40 | 7/15 scanned |
+
+The pipeline generalizes cleanly to unit 240. It does **not** generalize
+cleanly to units 307 and 325 — both are visibly lower-amplitude units, and
+their fit quality is much worse even on Kilosort's own already-detected
+spikes. Because the "possibly missed" flag is currently defined *relative
+to each unit's own R² distribution* (10th percentile of that unit's own
+detected spikes), a unit with generally poor fit quality gets a very
+lenient bar (0.30 for unit 307), so nearly every scanned candidate clears
+it (14/15) — this is very unlikely to mean "14 real missed spikes" and much
+more likely means **the relative-threshold approach itself breaks down on
+noisier units** — exactly the gap that pillar 3's not-yet-built reliability
+calibration (an absolute, per-unit noise-floor-referenced bar, not a
+relative percentile of possibly-already-poor fits) exists to close. This
+sanity check is useful precisely because it demonstrates, on real data, why
+that missing piece matters, rather than leaving it as a theoretical
+concern.
+
+**One more honest observation, not yet explained:** three of the four units
+(342, 240, 325 — real widths 8, 14, and 14 samples, real amplitudes 16.7,
+10.4, and 5.4 uV) landed on the *exact same* best-fit frequency
+(753.061... Hz) from the per-unit frequency scan, despite visibly different
+template shapes. This could be a real, broad low-frequency plateau in the
+scan (plausible given a 50-point grid across 300-4000Hz and a
+moderate-selectivity 3-cycle probe), or could indicate the scan is coarser
+or more degenerate than assumed. Not investigated further this pass —
+flagged here so it isn't lost.
+
+---
+
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
 
-- **Noise whitening / precision matrix** (design doc's step A, meant to come
-  *first*): comparisons currently treat every timepoint/channel as equally
-  reliable. Not built.
+- ~~Noise whitening / precision matrix~~ — **built and validated**, see
+  section 5b. Only wired into the nuisance-model fit so far, not into
+  wavelet timing or spatial footprint.
 - **Burst-history amplitude-recovery curve** `E[a|deltaT]` and the associated
   gating (only trust weak/deformed states near a confirmed anchor spike): not
   built.
