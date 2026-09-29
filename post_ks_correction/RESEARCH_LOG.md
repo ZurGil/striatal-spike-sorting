@@ -659,6 +659,64 @@ combined spike train show a genuine refractory violation, the way two
 real distinct neurons should, or does it look like one coherent unit) --
 not yet built.
 
+## 5j. The actual merge test — cross-correlograms, and a real correction to 5i
+
+Built the real test 5i called for (`demo_merge_candidate_ccg_test.py`):
+a single real neuron cannot fire twice within its own absolute refractory
+period (1.5ms used here) -- that is a hard biophysical limit, not a
+clustering choice. So if two clusters are really one neuron Kilosort
+split apart, MERGING their spike trains should still show a clean
+refractory gap at short lag in the combined autocorrelogram. If merging
+instead creates an excess of very-short-latency pairs between the two
+clusters, that is evidence against them being one neuron.
+
+Computed, for all 9 candidate pairs from 5i: each cluster's own
+refractory violation rate, the merged train's violation rate, and --
+more rigorously -- the chance-expected number of sub-1.5ms coincidences
+two truly INDEPENDENT clusters would produce given their firing rates and
+this session's 181-minute duration (standard point-process calculation:
+`n_a * n_b * 2w / T`). Every pair showed MORE such coincidences than
+chance predicts (1.7x to 20x excess) -- ruling out "these are just two
+unrelated neurons that happen to fire near each other sometimes."
+
+**The decisive test is the SHAPE of the merged autocorrelogram**, not just
+the raw violation count: computed a "dip ratio" (density of merged-train
+spike pairs inside the 1.5ms refractory zone, divided by the baseline
+density from 5-25ms lag). 0 = a clean single-neuron refractory gap, 1 = no
+dip at all, above 1 = an actual PEAK at short lag -- which a real single
+neuron cannot produce.
+
+| pair | dip ratio | reading |
+|---|---|---|
+| 332-333 | 0.10 | clean dip -- strong merge candidate |
+| 342-341 | 0.16 | clean dip -- strong merge candidate |
+| 303-306 | 0.27 | good dip -- merge candidate |
+| 306-305 | 0.28 | good dip -- merge candidate |
+| 332-334 | 0.48 | shallow -- ambiguous |
+| 333-334 | 0.48 | shallow -- ambiguous |
+| 306-298 | 0.63 | weak -- ambiguous |
+| 303-299 | 0.70 | weak -- ambiguous |
+| 313-318 | **1.46** | **an actual PEAK, not a dip** |
+
+The four ambiguous pairs all involve one of three huge clusters (298:
+188,492 spikes; 299: 176,743; 334: 93,459) that are almost certainly
+multi-source hash clusters on their own, not clean single neurons -- the
+real relationship there is more likely "a clean unit's spikes sit inside a
+much bigger catch-all cluster" than a simple two-cluster merge.
+
+**313-318 is a real correction to 5i's inference.** It had a plausible
+(0.88) template correlation and was flagged as a collision candidate, but
+the actual merged autocorrelogram shows a PEAK at short lag rather than a
+dip -- the opposite of what one real neuron's spike train should produce.
+This pair should NOT be merged; template similarity and score behavior
+alone were not sufficient to establish that, which is exactly why this
+direct test was needed rather than stopping at the earlier inference.
+
+**Bottom line:** four pairs (332/333, 342/341, 303/306, 306/305) pass a
+real, quantitative merge test and are strong candidates for manual review
+in Phy. This remains "suggest, don't auto-merge" per the design doc --
+nothing here has changed any Kilosort/Phy output.
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
