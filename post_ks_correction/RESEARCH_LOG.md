@@ -603,6 +603,62 @@ were checked); distinguishing "collision with a real neighbor spike" from
 "genuine isolated jitter miss" systematically rather than case by case;
 any attempt at joint refitting for the collision cases.
 
+## 5i. Before/after correction, and template shape — the story shifts again, from "collision" to "probable oversplit"
+
+Two follow-ups requested directly: (1) don't assume the already-assigned
+unit is correctly assigned — check whether the two units might actually be
+the same neuron split in two; (2) show the match score BEFORE any wavelet
+correction (as close as achievable to what a rigid, non-phase-tolerant
+matcher like Kilosort's own matching pursuit would see) versus AFTER, to
+test the jitter hypothesis directly (`demo_candidate_before_after_and_provenance.py`).
+
+One implementation bug caught and fixed before trusting the numbers: the
+first version compared a raw, unnormalized dot-product score ("before") to
+an R² fraction ("after") — different scales entirely, not a fair
+comparison. Fixed to compute the SAME whitened R² fit on both the
+uncorrected and corrected snippet, so before/after are on the same 0-1
+scale.
+
+**Result 1 — alignment usually makes the fit WORSE, not better, on this
+candidate population.** Across all 150 candidates (25 per unit x 6
+units): applying the full coarse+fine wavelet search made R² worse 63% of
+the time, better only 37% of the time, mean change -0.05. This is the
+opposite of what happens on real confirmed spikes throughout this
+project, where alignment reliably helps. Most likely explanation: the
+±25-sample search radius is free to lock onto a different nearby feature
+within its window (noise, or a genuinely different real event) rather
+than refining a true but jittered spike of this unit — which argues
+against "jitter alone caused these to be missed."
+
+**Result 2 — every single spatially-close "other unit" match has a
+near-identical template shape.** Computed shape correlation directly for
+all 8 unit-neighbor pairs found in 5h: 306-vs-305 (same channel) 0.996,
+306-vs-298 0.977, 303-vs-299 0.980, 303-vs-306 0.979, 332-vs-333 (same
+channel) 0.956, 332-vs-334 (same channel) 0.984, 342-vs-341 0.955,
+313-vs-318 0.884. Every one is at or above 0.88 — higher than the 0.93
+footprint similarity that first flagged the original 342-vs-347
+investigation much earlier in this project as a plausible split.
+
+**Revised, honest interpretation:** this combination — realignment not
+reliably helping, plus every "colliding" neighbor having an almost
+identical template — points away from both "isolated jitter miss" and
+"two neurons colliding," and toward **Kilosort having over-split one real
+neuron into multiple clusters** (e.g. 306/305, 332/333/334, 303/299/306,
+342/341 each look like duplicates of one neuron, not two distinct ones).
+That would explain both findings at once: a "candidate" is often a
+genuinely real spike that correctly belongs to the OTHER (near-duplicate)
+cluster, which is exactly why realignment doesn't reliably improve its
+match to THIS cluster's template, and exactly why it was never assigned
+here in the first place.
+
+**Not yet done:** this is still an inference from template similarity and
+score behavior, not a direct merge test. The natural next step, per the
+original design doc's own "Stage 2: suggest, don't auto-merge" plan, is a
+real cross-correlogram check between each candidate pair (does the
+combined spike train show a genuine refractory violation, the way two
+real distinct neurons should, or does it look like one coherent unit) --
+not yet built.
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
