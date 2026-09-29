@@ -807,6 +807,50 @@ refractory veto.** These are suggestions for manual review in Phy, per
 the design doc's "suggest, don't auto-merge" plan -- nothing here changes
 any Kilosort/Phy output.
 
+## 5m. Checking the location score itself — cosine similarity vs. real correlation
+
+Asked directly how the "location" score actually works, and whether plain
+correlation (not just cosine similarity) had been checked between the two
+units' per-channel amplitudes. It hadn't -- only cosine similarity
+(`footprint_similarity`: each unit's per-channel peak-to-trough amplitude,
+L2-normalized, compared by `dot(v1,v2)/(||v1||*||v2||)`) had been used.
+Cosine similarity doesn't subtract each vector's own mean first, so for
+two all-positive, single-peaked vectors it can look more similar than a
+proper (mean-subtracted) correlation would find. Computed Pearson
+correlation on the same channel sets directly.
+
+**Real result, and it's stricter than the cosine number suggested:**
+
+| pair | cosine sim | Pearson r | p-value |
+|---|---|---|---|
+| 306-305 | 0.83 | 0.52 | 0.13 (not significant, only 10 channels) |
+| 332-333 | 0.90 | 0.74 | 0.015 |
+| 303-306 | 0.83 | 0.47 | 0.17 (not significant) |
+| 342-341 | 0.60 | 0.13 | 0.70 (essentially no correlation) |
+| 333-334 (excluded) | 0.96 | 0.89 | 0.0005 |
+| 303-299 (excluded) | 0.95 | 0.79 | 0.006 |
+| 306-298 (excluded) | 0.79 | 0.50 | 0.10 |
+| 313-318 (excluded) | 0.84 | 0.70 | 0.012 |
+
+Two honest findings: (1) 342-341's spatial support essentially disappears
+under real correlation (r=0.13) -- cosine similarity's 0.60 was
+misleadingly generous because both vectors are positive and roughly
+co-peaked, not because the channel-by-channel pattern actually tracks.
+Downgraded from "plausible" to not well-supported spatially. (2) plain
+correlation does not cleanly separate the retained candidates from the
+excluded ones -- two of the refractory-vetoed pairs (333-334, 303-299)
+have STRONGER, more statistically significant spatial correlation than
+any retained candidate. This isn't a contradiction (those stay excluded on
+refractory grounds regardless), but it shows spatial similarity alone,
+with only 10-12 overlapping channels, is a fairly weak/noisy test here,
+not a strong independent discriminator.
+
+**Further-corrected bottom line: 332-333 is the only pair with solid,
+statistically meaningful support on all three criteria at once. 306-305
+and 303-306 have real shape support and reasonable but not statistically
+significant spatial support. 342-341 is dropped from the candidate list --
+its spatial case does not hold up under real correlation.**
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
