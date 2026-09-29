@@ -753,15 +753,59 @@ signature, more consistent with the giant hash clusters (298, 299, 334)
 partially containing real spikes that also belong to the smaller, cleaner
 nearby units (contamination) rather than genuine shared identity.
 
-**Corrected bottom line: with a properly rate-matched null, ZERO of the 9
-candidate pairs tested are statistically supported merge candidates.**
-The 5j conclusion was wrong -- not because the pairs are proven to be
-genuinely separate neurons, but because the evidence for merging any of
-them does not hold up once tested rigorously. This is a real, useful
-negative result: the template-similarity + naive-CCG-shape approach from
-5i/5j is not sufficient on its own and produces false positives; a
-rate-preserving permutation test is necessary before treating any
-candidate pair as a real merge suggestion.
+**Corrected bottom line (ITSELF SUPERSEDED by 5l below): with a properly
+rate-matched null, ZERO of the 9 candidate pairs tested are statistically
+supported merge candidates.** The 5j conclusion was wrong -- not because
+the pairs are proven to be genuinely separate neurons, but because the
+evidence for merging any of them does not hold up once tested rigorously.
+
+## 5l. A second, more fundamental correction: the refractory test can only DISPROVE a merge, never prove one
+
+Directly corrected: the right criteria for merging two units are (1)
+similar waveform shape, (2) similar spatial footprint across nearby
+channels (unless probe drift separated them in time, in which case they
+should fire in complementary, non-overlapping time windows instead), and
+(3) no excess of refractory-period violations when merged. Critically,
+**(3) is a one-directional test** -- a significant EXCESS of
+short-latency cross-unit spikes is real disproof (a single neuron cannot
+violate its own refractory period, so an excess rules out "same neuron").
+But the ABSENCE of a significant excess is not positive evidence for
+merging -- it just means the refractory test doesn't rule the merge out.
+5k's conclusion ("zero candidates supported") incorrectly treated a
+NON-significant jitter-test result as if it disproved the merge, which is
+the same category of error as 5j's original mistake (treating a clean dip
+as proof), just in the opposite direction.
+
+Re-applied the three criteria properly to all 9 pairs, adding a real
+spatial-footprint check (`spatial_footprint.py`'s actual footprint vector,
+not just peak-channel distance) and a presence-over-time check (10
+deciles across the session) to test for the drift-separated-time-windows
+case:
+
+| pair | shape corr | footprint sim | refractory veto (5k)? | verdict |
+|---|---|---|---|---|
+| 306-305 | 0.996 | 0.83 | no | **good merge candidate** |
+| 332-333 | 0.956 | 0.90 | no | **good merge candidate** |
+| 303-306 | 0.979 | 0.83 | no | **good merge candidate** |
+| 342-341 | 0.955 | 0.60 (weaker) | no | plausible, weaker spatial support |
+| 306-298 | 0.977 | 0.79 | **yes** (p=0.001) | excluded |
+| 333-334 | 0.942 | 0.96 | **yes** (p=0.002) | excluded |
+| 303-299 | 0.980 | 0.95 | **yes** (p=0.001) | excluded |
+| 313-318 | 0.884 | 0.84 | **yes** (p=0.001, z=16.6) | excluded -- weakest shape match too |
+
+None of the four surviving pairs showed the anti-correlated,
+complementary-time-window presence pattern that genuine drift separation
+would produce -- all four instead show mild positive co-variation in
+firing rate across the session (most likely a shared session-wide trend,
+not evidence either way for merging).
+
+**Corrected, final bottom line for this batch: 306-305, 332-333, and
+303-306 are well-supported merge candidates (strong shape and spatial
+match, not vetoed by the refractory test); 342-341 is plausible but weaker
+on spatial grounds; the other four pairs remain properly excluded by the
+refractory veto.** These are suggestions for manual review in Phy, per
+the design doc's "suggest, don't auto-merge" plan -- nothing here changes
+any Kilosort/Phy output.
 
 ---
 
