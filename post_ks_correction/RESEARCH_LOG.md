@@ -392,6 +392,59 @@ bar instead of a relative percentile, and (b) a same-time cross-check
 against spatially relevant neighboring units built in automatically, not
 run as a manual follow-up after the fact.
 
+## 5e. Iterative wavelet-realigned template rebuild — a real bug caught, and a real, useful signal found
+
+Built per the user's explicit description of the order: start from
+Kilosort's own template, pick the matching frequency, coarse (sparse) +
+fine wavelet-align every sampled real spike, average the aligned snippets
+into a new template, repeat using the new template as reference and check
+for convergence -- whitening intentionally left OUT of this loop (used
+only afterward, to score spikes against the final template), so the two
+ideas stay separately attributable (`demo_iterative_template_rebuild.py`).
+Run on unit 342 (control, already known to work) and unit 307 (the weak
+unit from 5c/5d).
+
+**A real bug caught before it became a false claim:** the first run
+reported the rebuilt template as 9-19x bigger in amplitude than Kilosort's
+own template for both units. That number is wrong and was caught by
+plotting the two templates together: Kilosort's `templates.npy` is not
+stored in real microvolts -- it's in Kilosort's own internal working
+scale, different from the real voltage read directly from the raw `.dat`
+file. Every fit in this project lets amplitude float freely, so this
+never broke any actual result, but the raw amplitude-ratio number itself
+is meaningless and is retracted. Shape correlation (scale-invariant) is
+unaffected and remains valid.
+
+**Unit 342 (control):** converged after 2 rounds, final shape 98%
+correlated with Kilosort's own template -- realignment sharpened it
+slightly without reshaping it, and fit quality improved a little (mean R²
+0.82 → 0.84). This is what a genuinely clean, single, well-isolated
+neuron should do under this procedure.
+
+**Unit 307:** did not converge within 5 rounds -- the matching frequency
+kept drifting round to round (980 → 904 → 829 → 753 → 678 Hz) with no
+sign of settling, unlike 342's immediate lock-in. The final rebuilt shape
+is only 67% correlated with Kilosort's own template -- a real, visible
+difference, not just sharpening. And counterintuitively, scoring the same
+40 real spikes against this "improved" template made fit quality WORSE,
+not better (mean R² 0.41 → 0.21).
+
+**Honest interpretation:** if the spikes Kilosort grouped into unit 307
+genuinely shared one true waveform shape, refining toward the best average
+should have helped everyone, the way it did for 342. Instead refining made
+the average fit the population worse and never stabilized -- consistent
+with the spikes not actually sharing one shape, i.e. unit 307 being a
+mixed/hash cluster rather than one coherent neuron. This is a second,
+independent line of evidence pointing the same direction as 5c/5d's
+findings (poor fit quality even on Kilosort's own confident spikes), not
+proof on its own.
+
+**Open, not yet done:** whitening the alignment search itself (currently
+only the final scoring fit is whitened, not the coarse/fine alignment or
+the averaging step) — a natural next test, kept separate deliberately so
+its effect can be measured on its own rather than mixed in with this
+result.
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
