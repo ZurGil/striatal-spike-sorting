@@ -552,6 +552,57 @@ sign this metric is measuring something real, not an artifact. Still
 worth keeping in mind this uses the SAME session's own labels as a
 soft validation, not truly independent ground truth.
 
+## 5h. First real missed-spike search on VALIDATED good units — real signal, but mostly collisions, not clean misses
+
+Direct test of the user's hypothesis: Kilosort's matching-pursuit detector
+is a rigid template match with no sub-sample tolerance, so a real spike
+from an otherwise clean, well-isolated neuron could still get missed
+purely from landing at an awkward timing phase. Restricted this test to
+the 6 units already validated as trustworthy in 5g (303, 313, 245, 332,
+306, 342 — high `sep_vs_noise`, high R²/similarity), specifically so the
+"what does a real spike score" reference distribution used as the bar is
+itself trustworthy, unlike the fragile relative bar that broke down on
+unit 307 in 5d (`demo_missed_spike_search_good_units.py`).
+
+Method: for each unit, scanned a window both before and after 60 sampled
+real spikes for un-detected local-maximum events (coarse matched-filter
+score first, cheap), refined the top 25 candidates per unit through the
+full wavelet-align + whitened-fit pipeline, and compared each candidate's
+R² against that SAME unit's own real-spike R² distribution (25th/10th
+percentile).
+
+**Real result:** small but consistent — 7 of 150 candidates (across all 6
+units) clear the real-spike 25th percentile, 20 of 150 clear the 10th
+percentile, and every single unit has at least one candidate at or above
+its own real-spike quality bar. Visually, plotting the best candidate per
+unit against the template, 4 of 6 (306, 332, 342, 303) look genuinely
+spike-shaped, closely tracking the template — not noise.
+
+**Then checked provenance, exactly as in 5d, and it changed the
+interpretation:** of those same 6 best candidates, 5 coincide (within 15
+samples / 0.5ms) with an ALREADY-DETECTED spike from a spatially relevant
+neighboring unit (two — 306's and 332's candidates — coincide with a
+neighbor sharing the exact same peak channel). The single candidate with
+no nearby match (unit 245's) was also the visually weakest, least
+convincing one of the six.
+
+**Honest interpretation:** this batch of candidates looks much more like
+genuine COLLISIONS (two nearby neurons firing close together in time, one
+neuron's real spike bleeding onto the other's channel and partially
+matching its template) than clean, isolated misses caused by timing
+jitter alone. This is a real, different, harder problem than plain
+missed-detection — exactly the "collision/joint-refitting" gap the
+original design doc flagged as needed but not designed. The jitter
+hypothesis isn't disproven (some fraction of the 150 candidates weren't
+checked for provenance, and jitter and collisions aren't mutually
+exclusive in a dense recording), but the clearest, most convincing
+examples found so far are better explained as collisions.
+
+**Not yet done:** provenance-checking all 150 candidates (only the top 6
+were checked); distinguishing "collision with a real neighbor spike" from
+"genuine isolated jitter miss" systematically rather than case by case;
+any attempt at joint refitting for the collision cases.
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
