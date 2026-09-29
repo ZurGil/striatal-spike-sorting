@@ -851,6 +851,38 @@ and 303-306 have real shape support and reasonable but not statistically
 significant spatial support. 342-341 is dropped from the candidate list --
 its spatial case does not hold up under real correlation.**
 
+## 5n. Closing insight for the 5h-5m arc: this was a detection-recall search that found a precision problem instead
+
+Stepping back: the whole arc from 5h onward set out to answer "does
+Kilosort miss real spikes on otherwise good units due to timing jitter"
+(Stage 3 of the original design doc -- recovery). It didn't find that.
+Every candidate with enough signal to look credible turned out, on
+investigation, to already exist in the spike list -- just assigned to a
+different, almost always near-identical, unit. Not one of the ~150
+scanned candidates across 6 validated units turned into a confirmed
+genuinely-new detection.
+
+**That is itself the finding, and it changes what the open problem
+actually is.** If real, credible spikes are essentially always already
+present in the combined spike list under some cluster label, then
+detection recall is not where this session's problem lives -- Kilosort's
+own threshold/matching is already catching what's really there. The
+problem that kept surfacing instead, every time, was cluster PRECISION:
+whether the right spikes are grouped under the right label (Stage 2 of the
+design doc -- burst-split/oversplit reconciliation), not whether spikes
+are missing (Stage 3). Section 5h's "missed spike search" became, in
+effect, a burst-split/oversplit finder, and that shift was not the
+original plan -- it's what the evidence actually supported.
+
+**Practical implication for what to build next:** prioritize Stage 2
+(automatic detection of candidate split/duplicate cluster pairs, and the
+three-part test worked out in 5i-5m -- shape, spatial correlation,
+refractory-veto) over further Stage 3 (missed-spike recovery) work,
+unless a future test on a different unit/session actually turns up a
+genuinely novel, non-duplicate detection. Real, usable output from this
+whole arc: two to three concrete merge candidates (332-333 solid;
+306-305 and 303-306 plausible) ready for manual Phy review.
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
