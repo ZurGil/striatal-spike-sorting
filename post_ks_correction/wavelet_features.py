@@ -193,6 +193,74 @@ def sub_sample_shift_from_phase(phase_at_t0, f0_hz, fs, reference_phase=0.0):
     return delta_samples
 
 
+def select_probe_frequency(template, fs, n_cycles=3.0, nt0min=None,
+                            f_lo=300.0, f_hi=4000.0, n_grid=60, criterion="timing"):
+    """Choose this unit's probe frequency f0.
+
+    criterion="strength" -- argmax |W(f0)|. Picks whichever frequency the
+        template matches most strongly. This was the rule used everywhere in
+        this project until it was found to be actively harmful, and WHY it
+        is harmful is worth stating, because it is not obvious:
+
+        The fine stage converts a measured phase into a time shift via
+        delta = -delta_phi/omega, i.e.
+
+            timing_error  ~=  phase_error * (fs/f0) / 360   [samples per degree]
+
+        so the cycle length (fs/f0) is a straight multiplier on any phase
+        measurement error. At f0=800Hz one cycle spans ~37 samples, so a
+        10-degree phase error -- easily produced by ordinary noise on a real
+        spike -- becomes a FULL SAMPLE of spurious shift. Measured on real
+        unit-440 spikes with this criterion: median spurious shift 0.72
+        samples, 34% of known-correctly-placed spikes moved by more than a
+        sample, and template fit got WORSE than doing no alignment at all
+        (mean R2 0.780 -> 0.737).
+
+    criterion="timing" (default) -- argmax f0*|W(f0)|. Minimizes the
+        expected TIMING error rather than maximizing match strength. The
+        phase error scales roughly as 1/|W(f0)| (less signal at that
+        frequency, noisier phase), so
+
+            timing_error  ~  fs / (f0 * |W(f0)|)
+
+        which is minimized by maximizing f0*|W(f0)|. This is a genuine
+        optimum, not "pick a higher frequency": push f0 too high and |W|
+        collapses, making the phase noisier faster than the shorter cycle
+        helps. Measured on the same real spikes: median spurious shift
+        drops 0.72 -> 0.33 samples, spikes moved >1 sample drop 34% -> 2.8%,
+        and alignment goes from harmful to mildly helpful
+        (mean R2 0.780 -> 0.787).
+
+        Side benefit: |W(f0)| alone is broad and flat across low
+        frequencies, so argmax lands in the same plateau for many different
+        units -- which is why several units with visibly different waveform
+        widths kept selecting the identical f0 earlier in this project.
+        Weighting by f0 sharpens the peak and gives genuinely per-unit
+        frequencies.
+
+    Returns (f0_hz, f_grid, scores) -- scores is the criterion actually
+    maximized, exposed so a caller can inspect how peaked the choice is.
+    """
+    template = np.asarray(template, dtype=np.float64)
+    n = len(template)
+    if nt0min is None:
+        nt0min = n // 2
+    f_grid = np.linspace(f_lo, f_hi, n_grid)
+    pad = int(np.ceil(n_cycles * fs / (2 * f_grid.min()))) + 20
+    trace = np.zeros(n + 2 * pad)
+    center = pad + nt0min
+    trace[center - nt0min: center - nt0min + n] = template
+    mags = np.array([abs(wavelet_transform_at(trace, make_morlet(f, fs, n_cycles)[1], center))
+                     for f in f_grid])
+    if criterion == "strength":
+        scores = mags
+    elif criterion == "timing":
+        scores = mags * f_grid
+    else:
+        raise ValueError(f"unknown criterion {criterion!r} (use 'timing' or 'strength')")
+    return float(f_grid[int(np.nanargmax(scores))]), f_grid, scores
+
+
 def coarse_then_fine_shift(trace, center_index, template, psi, f0_hz, fs,
                             reference_phase=0.0, search_radius=25, nt0min=None,
                             coarse_step=None, safety_fraction=0.5):

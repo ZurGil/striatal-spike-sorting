@@ -30,7 +30,8 @@ from nuisance_model import (build_basis, check_basis_geometry, fit_nuisance,
                              fit_nuisance_prealigned, synthesize_deformed_spike)
 from spatial_footprint import unit_footprint, spatial_energy_vector, footprint_similarity
 from wavelet_features import (make_morlet, wavelet_transform_at, calibrate_reference_phase,
-                               sub_sample_shift_from_phase, coarse_then_fine_shift)
+                               sub_sample_shift_from_phase, coarse_then_fine_shift,
+                               select_probe_frequency)
 from noise_whitening import fit_ar_model, ar_autocovariance, whitening_operator
 
 FS = 30000.0
@@ -453,6 +454,62 @@ def test_unit_footprint_selects_channels_within_radius():
     assert np.argmax(result["footprint"]) == list(result["channels"]).index(peak_ch)
 
 
+def test_timing_criterion_picks_higher_frequency_than_strength():
+    """The timing criterion (argmax f0*|W|) must pick a HIGHER frequency than
+    the strength criterion (argmax |W|), because it trades some match
+    strength for a shorter cycle and therefore better phase-to-time
+    leverage. If this ever reverses, the weighting has been dropped or
+    inverted somewhere."""
+    template = _synthetic_template()
+    f_strength, _, _ = select_probe_frequency(template, FS, n_cycles=3.0, nt0min=NT0MIN,
+                                               criterion="strength")
+    f_timing, _, _ = select_probe_frequency(template, FS, n_cycles=3.0, nt0min=NT0MIN,
+                                             criterion="timing")
+    assert f_timing > f_strength, (
+        f"timing criterion picked {f_timing:.0f}Hz, not above strength criterion's "
+        f"{f_strength:.0f}Hz -- the f0 weighting is missing or inverted")
+
+
+def test_timing_criterion_reduces_noise_induced_spurious_shift():
+    """THE reason select_probe_frequency exists. With the true shift held at
+    ZERO and only noise added, the fine stage still reports a shift -- pure
+    error, produced by noise perturbing the measured phase. The timing
+    criterion must produce a SMALLER spurious shift than the strength
+    criterion, because the phase-to-time multiplier (one cycle = fs/f0
+    samples) is smaller at its higher frequency.
+
+    Measured on real data when this was found: median spurious shift 0.72 ->
+    0.33 samples, and fraction of correctly-placed spikes moved by more than
+    a sample 34% -> 2.8%."""
+    template = _synthetic_template()
+    amp = template.max() - template.min()
+    rng = np.random.default_rng(0)
+    pad = 200
+
+    def median_spurious_shift(f0):
+        _, psi = make_morlet(f0, FS, n_cycles=3.0)
+        ref = calibrate_reference_phase(template, psi, FS, align_index=NT0MIN)
+        shifts = []
+        for _ in range(60):
+            trace = np.zeros(N + 2 * pad)
+            trace[pad:pad + N] = template
+            trace = trace + rng.normal(0, 0.20 * amp, size=len(trace))
+            r = coarse_then_fine_shift(trace, pad + NT0MIN, template, psi, f0, FS,
+                                        reference_phase=ref, search_radius=25, nt0min=NT0MIN)
+            shifts.append(abs(r["total_shift"]))   # true shift is 0, so this IS the error
+        return float(np.median(shifts))
+
+    f_strength, _, _ = select_probe_frequency(template, FS, n_cycles=3.0, nt0min=NT0MIN,
+                                               criterion="strength")
+    f_timing, _, _ = select_probe_frequency(template, FS, n_cycles=3.0, nt0min=NT0MIN,
+                                             criterion="timing")
+    err_strength = median_spurious_shift(f_strength)
+    err_timing = median_spurious_shift(f_timing)
+    assert err_timing < err_strength, (
+        f"timing criterion gave median spurious shift {err_timing:.3f} samples, not better than "
+        f"strength criterion's {err_strength:.3f} -- the whole basis for preferring it is gone")
+
+
 # ============================================================
 # noise_whitening.py
 # ============================================================
@@ -560,6 +617,8 @@ ALL_TESTS = [
     test_sparse_coarse_uses_fewer_evaluations_than_exhaustive,
     test_footprint_similarity_math_sanity,
     test_unit_footprint_selects_channels_within_radius,
+    test_timing_criterion_picks_higher_frequency_than_strength,
+    test_timing_criterion_reduces_noise_induced_spurious_shift,
     test_ar_autocovariance_matches_ar1_closed_form,
     test_ar_fit_recovers_known_process,
     test_whitening_operator_decorrelates_known_process,

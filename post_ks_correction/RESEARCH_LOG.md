@@ -883,6 +883,97 @@ genuinely novel, non-duplicate detection. Real, usable output from this
 whole arc: two to three concrete merge candidates (332-333 solid;
 306-305 and 303-306 plausible) ready for manual Phy review.
 
+## 5o. The frequency-selection rule was wrong, and it made the wavelet fine stage actively harmful
+
+Found while answering a direct question -- not just "how many detections
+does each configuration produce", but "are they the SAME events, and could
+the weaker configuration's extras simply be noise". Measuring set overlap
+rather than counts is what exposed this.
+
+**Overlap, unit 440 (session 20260916_110311, 20-min window):** the four
+configurations do NOT find the same events. Jaccard overlap of full vs
+no_wavelet was only 0.69; full vs no_whiten 0.93 (whitening barely changes
+membership, consistent with its ~1% count effect). Only 470 events were
+found by all four. So the near-identical detection COUNTS reported in 5n
+were hiding substantial membership differences.
+
+**Then the events themselves showed the problem.** Plotting events found
+only WITHOUT corrections: large, clean, neighbour-corroborated spikes
+(258-266uV) that the wavelet stage had shifted by -1.8 to -2.2 samples,
+pushing them off the template and collapsing their fit (R2 0.80->0.50,
+0.73->0.44, 0.77->0.47). The raw trace was already correctly aligned; the
+correction broke it.
+
+**Quantified on 300 known-real spikes** (Kilosort's own detections for unit
+440, already correctly placed, so any large shift is by definition an
+error): median |shift| applied was 0.95 samples, 48% moved >1 sample, max
+26 samples. Mean R2 went 0.777 (no alignment) -> 0.707 (with alignment);
+p25 0.747 -> 0.624. Damage was entirely in the spikes it moved: R2 change
+-0.142 for |shift|>1, -0.002 for |shift|<=1.
+
+**Diagnosis, in three steps:**
+1. NOT the coarse search locking onto neighbours -- narrowing search_radius
+   from 25 to 2 changed nothing (median shift still ~0.97, R2 still 0.704).
+2. NOT a broken method -- on ground truth (this unit's own template,
+   injected at known shifts, no noise) recovery was accurate to 0.024
+   samples.
+3. It is noise being converted into spurious timing. With the true shift
+   held at ZERO and only noise added: 0% noise -> 0.02 samples spurious,
+   5% -> 0.17, 20% -> 0.79, 30% -> 1.18. Real spikes' observed 0.95 median
+   corresponds to ~20-25% noise, which is ordinary for extracellular data.
+
+**Root cause, which is arithmetic:** the fine stage converts phase to time
+via delta = -delta_phi/omega, so timing_error ~= phase_error * (fs/f0)/360.
+The cycle length is a straight multiplier on phase error. These striatal
+units selected f0 ~800Hz, where one cycle spans 37 samples -- so a
+10-degree phase error, easily produced by noise, becomes a FULL SAMPLE of
+spurious shift.
+
+**The rule was optimizing the wrong thing.** f0 was chosen as
+argmax |W(f0)| -- maximum match strength, ignoring that the same f0 sets
+timing precision. Since phase error scales as ~1/|W(f0)|, the expected
+timing error goes as fs/(f0*|W(f0)|), which is minimized by maximizing
+**f0*|W(f0)|**, not |W(f0)|. This is a real optimum, not "pick a higher
+frequency" -- too high and |W| collapses faster than the shorter cycle
+helps.
+
+**Fix implemented and validated** (`wavelet_features.select_probe_frequency`,
+two new tests, 23/23 passing):
+
+| unit | rule | f0 | median spurious shift | frac >1 samp | mean R2 | p25 |
+|---|---|---|---|---|---|---|
+| 440 | no alignment | -- | -- | -- | 0.780 | 0.743 |
+| 440 | argmax \|W\| (old) | 802 Hz | 0.72 | 34% | 0.737 | 0.691 |
+| 440 | argmax f0·\|W\| (new) | 2620 Hz | 0.33 | 2.8% | 0.787 | 0.743 |
+| 408 | no alignment | -- | -- | -- | 0.732 | 0.636 |
+| 408 | argmax \|W\| (old) | 802 Hz | 0.86 | 46% | 0.713 | 0.547 |
+| 408 | argmax f0·\|W\| (new) | 1742 Hz | 0.43 | 20% | 0.740 | 0.633 |
+
+Alignment goes from actively harmful to mildly helpful. Honest caveat: the
+gain over NO alignment is small (0.780 -> 0.787), because Kilosort already
+places its own detections well -- little real misalignment is left to fix.
+The benefit should be larger on candidate events that are not already
+well-placed, which this test does not measure.
+
+**This also explains the anomaly logged in 5f** ("three of four units landed
+on the exact same best-fit frequency despite visibly different waveform
+shapes"): |W(f0)| alone is broad and flat across low frequencies, so argmax
+lands in the same plateau for many units. Weighting by f0 sharpens the peak
+-- units 440 and 408 separate to 2620 and 1742 Hz instead of both sitting
+at 802.
+
+**What this invalidates:** the "wavelet alignment contributes +14% more
+detections" claim in 5n was an artifact. Those extra detections came from a
+corrupted, lowered threshold (the damaged spikes dragged the reference
+distribution's p25 from 0.747 down to 0.624, making the bar more
+permissive), not from better sensitivity. Any detection count in 5n/5m that
+used the full pipeline with the old frequency rule is affected.
+
+**What it confirms:** sub-sample phase genuinely matters for detection --
+alignment changed ~30% of the detection set membership, and a ~1 sample
+misalignment costs 0.14 R2. That was this project's founding premise and it
+holds; it was the implementation, not the premise, that was wrong.
+
 ---
 
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
