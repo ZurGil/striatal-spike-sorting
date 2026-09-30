@@ -1,0 +1,4 @@
+unit,peak_ch,f0_hz,n_spikes,picard_floor,anderson_floor,templates_agree_r,rebuilt_vs_ks_r,rebuilt_vs_ks_ptp_ratio,picard_tol1em02,anderson_tol1em02,speedup_tol1em02,picard_tol3em03,anderson_tol3em03,speedup_tol3em03,picard_tol1em03,anderson_tol1em03,speedup_tol1em03,picard_tol3em04,anderson_tol3em04,speedup_tol3em04,picard_tol1em04,anderson_tol1em04,speedup_tol1em04,picard_tol1em06,anderson_tol1em06,speedup_tol1em06
+440,23,2772.8,250,0.0006034695086265665,4.413371990195789e-05,0.92753,0.9882,0.9806,2,2,1.0,39,9,4.333,55,29,1.897,,33,,,35,,,,
+408,44,1730.0,250,0.00036453989874866754,1.930521315867424e-08,0.999986,0.9611,1.0085,11,7,1.571,29,11,2.636,46,12,3.833,,12,,,12,,,15.0,
+439,19,1724.5,250,0.0006225397260634631,8.952620363229643e-05,0.86158,0.9774,0.9825,18,8,2.25,37,9,4.111,53,10,5.3,,11,,,13,,,,

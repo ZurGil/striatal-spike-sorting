@@ -26,6 +26,8 @@ pytest is installed in whatever env is used).
 """
 import numpy as np
 
+import fixed_point_acceleration as fpa
+
 from nuisance_model import (build_basis, check_basis_geometry, fit_nuisance,
                              fit_nuisance_prealigned, synthesize_deformed_spike)
 from spatial_footprint import (unit_footprint, spatial_energy_vector, footprint_similarity,
@@ -679,6 +681,79 @@ def test_fit_nuisance_prealigned_whitening_matches_unweighted_when_identity():
     assert abs(result_default["beta"] - result_identity["beta"]) < 1e-9
 
 
+# ---------------------------------------------------------------------------
+# Fixed-point acceleration (stage 3) -- for the template-rebuild loop.
+# ---------------------------------------------------------------------------
+
+def test_aitken_finds_limit_of_linear_sequence_exactly():
+    """A sequence with x_k - L = C*r^k is exactly the case Aitken's method
+    is derived for, so on such a sequence it should land on the limit to
+    machine precision from only three terms -- not merely closer."""
+    L, C, r = 2.5, 0.8, 0.6
+    xs = [L + C * r ** k for k in range(3)]
+    est = fpa.aitken_delta2(*xs)
+    assert abs(est - L) < 1e-12, f"Aitken gave {est}, limit is {L}"
+    # and it must beat the last raw iterate by a wide margin
+    assert abs(est - L) < 1e-6 * abs(xs[-1] - L)
+
+
+def test_aitken_is_safe_on_a_stalled_sequence():
+    """Once a sequence stops moving the second difference is ~0, and
+    dividing by it would produce garbage. The guard must return the last
+    iterate instead of extrapolating off numerical noise."""
+    v = 1.234567
+    est = fpa.aitken_delta2(v, v, v)
+    assert np.isfinite(est) and abs(est - v) < 1e-15, f"got {est}"
+
+
+def _linear_fixed_point_problem(n=25, seed=3):
+    """A contraction x -> A x + b with spectral radius < 1, so a unique
+    fixed point exists and plain Picard converges linearly (slowly, because
+    the radius is deliberately close to 1)."""
+    rng = np.random.default_rng(seed)
+    A = rng.normal(size=(n, n))
+    A = A / (np.abs(np.linalg.eigvals(A)).max() / 0.92)   # radius 0.92
+    b = rng.normal(size=n)
+    G = lambda x: A @ x + b
+    x_star = np.linalg.solve(np.eye(n) - A, b)
+    return G, x_star, np.zeros(n)
+
+
+def test_anderson_depth_zero_reproduces_plain_iteration():
+    """depth=0 must be the plain iteration exactly -- this is what makes the
+    accelerated-vs-plain comparison honest, since both run the same code."""
+    G, _, x0 = _linear_fixed_point_problem()
+    acc = fpa.AndersonAccelerator(depth=0)
+    x_acc, x_manual = x0.copy(), x0.copy()
+    for _ in range(12):
+        x_acc = acc.step(x_acc, G(x_acc))
+        x_manual = G(x_manual)
+        assert np.allclose(x_acc, x_manual, atol=1e-12), "depth=0 diverged from Picard"
+
+
+def test_anderson_converges_in_fewer_evaluations_than_picard():
+    """The actual point of the module: on a slowly-converging contraction,
+    Anderson must reach the same tolerance in strictly fewer evaluations
+    of G (G is the expensive part -- one disk read and one wavelet
+    alignment per spike)."""
+    G, _, x0 = _linear_fixed_point_problem()
+    _, n_plain = fpa.iterate_to_fixed_point(G, x0, depth=0, tol=1e-10, max_iter=500)
+    _, n_acc = fpa.iterate_to_fixed_point(G, x0, depth=5, tol=1e-10, max_iter=500)
+    assert n_plain < 500 and n_acc < 500, f"one of them failed to converge: {n_plain}, {n_acc}"
+    assert n_acc < n_plain, f"Anderson used {n_acc} evals, Picard used {n_plain}"
+
+
+def test_anderson_reaches_the_same_fixed_point_as_picard():
+    """Speed is worthless if it changes the answer. Both must land on the
+    true fixed point of the map."""
+    G, x_star, x0 = _linear_fixed_point_problem()
+    x_plain, _ = fpa.iterate_to_fixed_point(G, x0, depth=0, tol=1e-12, max_iter=2000)
+    x_acc, _ = fpa.iterate_to_fixed_point(G, x0, depth=5, tol=1e-12, max_iter=2000)
+    assert np.allclose(x_plain, x_star, atol=1e-7), "Picard missed the fixed point"
+    assert np.allclose(x_acc, x_star, atol=1e-7), "Anderson missed the fixed point"
+    assert np.allclose(x_acc, x_plain, atol=1e-7), "the two disagree"
+
+
 ALL_TESTS = [
     test_s0_orthogonal_to_sprime,
     test_s0_dot_q_matches_half_energy_prediction,
@@ -706,6 +781,11 @@ ALL_TESTS = [
     test_ar_fit_recovers_known_process,
     test_whitening_operator_decorrelates_known_process,
     test_fit_nuisance_prealigned_whitening_matches_unweighted_when_identity,
+    test_aitken_finds_limit_of_linear_sequence_exactly,
+    test_aitken_is_safe_on_a_stalled_sequence,
+    test_anderson_depth_zero_reproduces_plain_iteration,
+    test_anderson_converges_in_fewer_evaluations_than_picard,
+    test_anderson_reaches_the_same_fixed_point_as_picard,
 ]
 
 if __name__ == "__main__":
