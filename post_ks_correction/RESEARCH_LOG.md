@@ -1025,6 +1025,58 @@ obvious thing that would address it, and has not been tried.
 
 ---
 
+## 5q. Pillar 1c integrated into scoring -- and it solves the specificity blocker
+
+The blocker identified in 5p: on session 20260916_110311, ~99% of
+everything scoring as a unit-440 spike on its peak channel was already a
+detected spike of unit 439. Those two units peak on DIFFERENT channels
+(440 on ch23, 439 on ch19/21) with genuinely different spatial footprints,
+so they should NOT be merged -- but their waveforms on the one channel they
+share correlate at 0.972, so a single-channel template cannot separate them.
+
+**Built** (`spatial_footprint.py`): `multichannel_template` (the template
+concatenated channel-major across the whole footprint),
+`multichannel_snippet_concat` (same layout for observed data), and
+`block_diagonal_whitening` (each channel whitened with its OWN temporal
+noise operator, channels kept independent -- cross-channel structure is
+Kilosort's spatial whitening's job and modelling it again here would
+double-count). Two new layout/independence tests; 25/25 passing.
+
+**The decisive test** (`demo_pillar1c_integration_test.py`): score 250 real
+unit-440 spikes and 250 real unit-439 spikes (the impostors a 440-detector
+must reject) three ways, and measure separation as AUC.
+
+| scorer | unit 440 mean | unit 439 mean | AUC |
+|---|---|---|---|
+| single-channel R2 (what the pipeline does today) | 0.782 | 0.698 | 0.749 |
+| multi-channel R2 (1c, concatenated fit) | 0.501 | 0.333 | 0.897 |
+| **footprint similarity (1c's original metric)** | **0.928** | **0.705** | **0.999** |
+
+**Footprint similarity separates them essentially perfectly** (AUC 0.999 --
+a random 440 spike outscores a random 439 spike 99.9% of the time), where
+the current single-channel score is a heavily overlapping mess (0.749).
+
+**Design conclusion worth recording:** the concatenated multi-channel FIT
+(0.897) is clearly better than single-channel but clearly worse than the
+plain footprint-similarity metric (0.999). Two reasons: the concatenated
+fit is dominated by the peak channel (amplitude 9.46 there vs 0.82-4.35
+elsewhere) which is exactly where the two units look alike, and the
+low-amplitude channels contribute mostly noise that no template can explain
+-- which is why even unit 440's own spikes only reach R2=0.501 on the
+concatenated fit. Footprint similarity instead compares the SHAPE of the
+amplitude profile across channels, normalized, which is precisely where the
+two units differ. So the right integration is footprint similarity as the
+discriminator, not a bigger least-squares fit -- validating pillar 1c as
+originally formulated over the "concatenate and fit" instinct.
+
+**Caveat:** alignment for both populations was done with unit 440's own
+template on its peak channel, so unit 439's spikes are aligned by a
+template that isn't theirs. Peak-to-trough amplitude over a 61-sample
+window is deliberately alignment-insensitive (1c was designed that way), so
+this should not drive the result, but it has not been separately controlled.
+
+---
+
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
 
 - ~~Noise whitening / precision matrix~~ — **built and validated**, see

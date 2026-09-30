@@ -90,6 +90,84 @@ def spatial_energy_vector(multichannel_snippet):
     return amp_per_channel / norm if norm > 0 else amp_per_channel
 
 
+def multichannel_template(templates, unit_id, channel_positions, radius_um=60.0,
+                           min_amplitude_fraction=0.0):
+    """The unit's template across its whole informative footprint, as ONE
+    concatenated vector -- the object needed to score a candidate spike on
+    every channel at once instead of only its peak channel.
+
+    WHY THIS EXISTS: single-channel scoring was measured to be the binding
+    limitation. On session 20260916_110311, ~99% of everything that scored
+    as a unit-440 spike on channel 23 was in fact an already-detected spike
+    of unit 439 -- a unit which peaks on a DIFFERENT channel (19/21) and
+    has a genuinely different spatial footprint, so the two should not be
+    merged. Their single-channel waveforms on the one channel they share
+    correlate at 0.972, which is why one channel cannot separate them. The
+    spatial pattern across channels is the information that can.
+
+    Returns dict(channels, template_concat, per_channel_amplitude,
+                 peak_channel, n_channels, n_samples) where template_concat
+    is (n_channels * n_samples,) laid out channel-major, i.e.
+    [ch0 samples..., ch1 samples..., ...] -- the same order
+    multichannel_snippet_concat produces, so they can be fit directly
+    against each other.
+
+    min_amplitude_fraction: drop channels whose template amplitude is below
+    this fraction of the peak channel's. 0.0 keeps every channel in radius;
+    a small value (e.g. 0.05) drops channels carrying essentially nothing,
+    which only add noise to the fit.
+    """
+    templ_all = templates[unit_id]
+    amp_per_channel = templ_all.max(axis=0) - templ_all.min(axis=0)
+    peak_channel = int(np.argmax(amp_per_channel))
+
+    dist = np.sqrt(((channel_positions - channel_positions[peak_channel]) ** 2).sum(axis=1))
+    channels = np.where(dist <= radius_um)[0]
+    if min_amplitude_fraction > 0:
+        keep = amp_per_channel[channels] >= min_amplitude_fraction * amp_per_channel[peak_channel]
+        channels = channels[keep]
+    channels = np.sort(channels)
+
+    template_concat = np.concatenate([templ_all[:, ch] for ch in channels])
+    return dict(channels=channels, template_concat=template_concat,
+                per_channel_amplitude=amp_per_channel[channels],
+                peak_channel=peak_channel, n_channels=len(channels),
+                n_samples=templ_all.shape[0])
+
+
+def multichannel_snippet_concat(multichannel_snippet):
+    """Flatten an observed (n_samples, n_channels) snippet into the same
+    channel-major layout multichannel_template produces, so the two can be
+    compared or fit directly.
+
+    The channel SET and ORDER must already match multichannel_template's
+    `channels` output -- this function cannot check that for you.
+    """
+    return np.concatenate([multichannel_snippet[:, i]
+                           for i in range(multichannel_snippet.shape[1])])
+
+
+def block_diagonal_whitening(per_channel_operators):
+    """Assemble per-channel whitening operators into one block-diagonal
+    operator matching the channel-major concatenation above.
+
+    Each channel gets its OWN temporal noise model (noise differs channel
+    to channel), and channels are treated as independent blocks -- this
+    does NOT model cross-channel noise correlation. Kilosort's own spatial
+    whitening already addresses that part, and modelling it here as well
+    would double-count it.
+
+    per_channel_operators: list of (n_samples, n_samples) arrays, in the
+        same channel order as the concatenation.
+    """
+    n_ch = len(per_channel_operators)
+    n = per_channel_operators[0].shape[0]
+    W = np.zeros((n_ch * n, n_ch * n))
+    for i, op in enumerate(per_channel_operators):
+        W[i * n:(i + 1) * n, i * n:(i + 1) * n] = op
+    return W
+
+
 def footprint_similarity(observed_vector, expected_footprint):
     """Cosine similarity between an observed spike's spatial pattern and
     a unit's expected footprint -- 1.0 = identical shape (regardless of

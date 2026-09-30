@@ -28,7 +28,9 @@ import numpy as np
 
 from nuisance_model import (build_basis, check_basis_geometry, fit_nuisance,
                              fit_nuisance_prealigned, synthesize_deformed_spike)
-from spatial_footprint import unit_footprint, spatial_energy_vector, footprint_similarity
+from spatial_footprint import (unit_footprint, spatial_energy_vector, footprint_similarity,
+                                multichannel_template, multichannel_snippet_concat,
+                                block_diagonal_whitening)
 from wavelet_features import (make_morlet, wavelet_transform_at, calibrate_reference_phase,
                                sub_sample_shift_from_phase, coarse_then_fine_shift,
                                select_probe_frequency)
@@ -454,6 +456,51 @@ def test_unit_footprint_selects_channels_within_radius():
     assert np.argmax(result["footprint"]) == list(result["channels"]).index(peak_ch)
 
 
+def test_multichannel_concat_layout_matches_between_template_and_snippet():
+    """multichannel_template and multichannel_snippet_concat must lay out
+    channels in the SAME order, or the fit silently compares channel i's
+    template against channel j's data -- which would produce plausible-
+    looking but meaningless numbers rather than an error."""
+    n_channels, n_t = 7, 61
+    positions = np.array([[i * 20.0, 0.0] for i in range(n_channels)])
+    templ = np.zeros((1, n_t, n_channels))
+    t = np.arange(n_t) - 20
+    base = np.exp(-0.5 * (t / 3.0) ** 2)
+    for ch in range(n_channels):
+        templ[0, :, ch] = (ch + 1) * base       # distinct amplitude per channel
+    mct = multichannel_template(templ, 0, positions, radius_um=45.0)
+
+    # an "observed" snippet that IS the template, channel for channel
+    observed = np.stack([templ[0, :, ch] for ch in mct["channels"]], axis=1)
+    concat = multichannel_snippet_concat(observed)
+
+    assert concat.shape == mct["template_concat"].shape
+    assert np.allclose(concat, mct["template_concat"]), (
+        "channel ordering differs between multichannel_template and "
+        "multichannel_snippet_concat -- the concatenated fit would be misaligned")
+    assert mct["n_channels"] * mct["n_samples"] == len(concat)
+
+
+def test_block_diagonal_whitening_keeps_channels_independent():
+    """The block-diagonal operator must whiten each channel with its OWN
+    operator and never mix channels -- cross-channel structure is Kilosort's
+    spatial whitening's job, and modelling it here too would double-count."""
+    n, n_ch = 5, 3
+    ops = [np.full((n, n), float(k + 1)) for k in range(n_ch)]
+    W = block_diagonal_whitening(ops)
+    assert W.shape == (n * n_ch, n * n_ch)
+    for k in range(n_ch):
+        blk = W[k * n:(k + 1) * n, k * n:(k + 1) * n]
+        assert np.allclose(blk, ops[k])
+    # everything off the diagonal blocks must be exactly zero
+    for k in range(n_ch):
+        for j in range(n_ch):
+            if k == j:
+                continue
+            off = W[k * n:(k + 1) * n, j * n:(j + 1) * n]
+            assert np.all(off == 0.0), "block-diagonal operator is mixing channels"
+
+
 def test_timing_criterion_picks_higher_frequency_than_strength():
     """The timing criterion (argmax f0*|W|) must pick a HIGHER frequency than
     the strength criterion (argmax |W|), because it trades some match
@@ -617,6 +664,8 @@ ALL_TESTS = [
     test_sparse_coarse_uses_fewer_evaluations_than_exhaustive,
     test_footprint_similarity_math_sanity,
     test_unit_footprint_selects_channels_within_radius,
+    test_multichannel_concat_layout_matches_between_template_and_snippet,
+    test_block_diagonal_whitening_keeps_channels_independent,
     test_timing_criterion_picks_higher_frequency_than_strength,
     test_timing_criterion_reduces_noise_induced_spurious_shift,
     test_ar_autocovariance_matches_ar1_closed_form,
