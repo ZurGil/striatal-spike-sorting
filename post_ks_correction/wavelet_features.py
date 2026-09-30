@@ -193,8 +193,39 @@ def sub_sample_shift_from_phase(phase_at_t0, f0_hz, fs, reference_phase=0.0):
     return delta_samples
 
 
+def _golden_section_max(func, lo, hi, tol_hz=5.0, max_iter=60):
+    """Maximize a 1-D function on [lo, hi] by golden-section search.
+
+    ONLY valid when the function is unimodal on that interval -- which is
+    why this is never called on the full frequency range. Measured on 20
+    real units, f0*|W(f0)| has a median of 2 local maxima across 300-8000Hz
+    (max 5), and only 10/20 units are strictly unimodal, so a bracket-and-
+    narrow search run over the whole range would sometimes converge onto
+    the wrong peak. It is called only to refine INSIDE a bracket the coarse
+    grid has already localized the global peak to.
+    """
+    invphi = (np.sqrt(5.0) - 1.0) / 2.0
+    a, b = lo, hi
+    c = b - invphi * (b - a)
+    d = a + invphi * (b - a)
+    fc, fd = func(c), func(d)
+    for _ in range(max_iter):
+        if b - a < tol_hz:
+            break
+        if fc > fd:
+            b, d, fd = d, c, fc
+            c = b - invphi * (b - a)
+            fc = func(c)
+        else:
+            a, c, fc = c, d, fd
+            d = a + invphi * (b - a)
+            fd = func(d)
+    return (a + b) / 2.0
+
+
 def select_probe_frequency(template, fs, n_cycles=3.0, nt0min=None,
-                            f_lo=300.0, f_hi=4000.0, n_grid=60, criterion="timing"):
+                            f_lo=300.0, f_hi=8000.0, n_grid=60, criterion="timing",
+                            refine=True, warn_at_edge=True):
     """Choose this unit's probe frequency f0.
 
     criterion="strength" -- argmax |W(f0)|. Picks whichever frequency the
@@ -238,8 +269,32 @@ def select_probe_frequency(template, fs, n_cycles=3.0, nt0min=None,
         Weighting by f0 sharpens the peak and gives genuinely per-unit
         frequencies.
 
+    SCAN RANGE MATTERS, and the old default was silently truncating.
+    f_hi was 4000Hz (an arbitrary value inherited from early in this
+    project) until it was measured across 20 real units: under the timing
+    criterion 6/20 units selected the 4000Hz endpoint itself, i.e. their
+    real optimum was above the bound and the "choice" was just the edge.
+    Widening to 8000Hz put 0/20 at the edge and left 80% of units'
+    selections unchanged -- only the truncated minority moved (to
+    4033-5589Hz). Those higher frequencies were verified to genuinely align
+    better on real spikes, not just score better: unit 39's mean fit went
+    0.347 (at 1500Hz) -> 0.465 (4000Hz) -> 0.473 (5589Hz, plateau), against
+    a no-alignment baseline of 0.459 -- i.e. below the bound alignment was
+    HURTING and above it it helps.
+
+    refine: after the coarse grid locates the global peak, refine inside
+        the bracketing interval by golden-section. The grid alone resolves
+        f0 only to its own spacing (~130Hz at these defaults). Refinement is
+        confined to the bracket precisely because the function is NOT
+        globally unimodal (see _golden_section_max).
+
+    warn_at_edge: print a warning if the selection lands on the first or
+        last grid point, which means the scan range -- not the data -- is
+        determining the answer.
+
     Returns (f0_hz, f_grid, scores) -- scores is the criterion actually
-    maximized, exposed so a caller can inspect how peaked the choice is.
+    maximized on the coarse grid, exposed so a caller can inspect how
+    peaked the choice is.
     """
     template = np.asarray(template, dtype=np.float64)
     n = len(template)
@@ -250,15 +305,28 @@ def select_probe_frequency(template, fs, n_cycles=3.0, nt0min=None,
     trace = np.zeros(n + 2 * pad)
     center = pad + nt0min
     trace[center - nt0min: center - nt0min + n] = template
-    mags = np.array([abs(wavelet_transform_at(trace, make_morlet(f, fs, n_cycles)[1], center))
-                     for f in f_grid])
-    if criterion == "strength":
-        scores = mags
-    elif criterion == "timing":
-        scores = mags * f_grid
-    else:
+
+    def score_at(f):
+        mag = abs(wavelet_transform_at(trace, make_morlet(f, fs, n_cycles)[1], center))
+        if criterion == "strength":
+            return mag
+        if criterion == "timing":
+            return mag * f
         raise ValueError(f"unknown criterion {criterion!r} (use 'timing' or 'strength')")
-    return float(f_grid[int(np.nanargmax(scores))]), f_grid, scores
+
+    scores = np.array([score_at(f) for f in f_grid])
+    i = int(np.nanargmax(scores))
+    f0 = float(f_grid[i])
+
+    if warn_at_edge and (i == 0 or i == len(f_grid) - 1):
+        print(f"  [select_probe_frequency] WARNING: selected f0={f0:.0f}Hz is at the edge of the "
+              f"scan range [{f_lo:.0f}, {f_hi:.0f}] -- the range, not the data, is setting this. "
+              f"Widen it.")
+
+    if refine and 0 < i < len(f_grid) - 1:
+        f0 = float(_golden_section_max(score_at, f_grid[i - 1], f_grid[i + 1]))
+
+    return f0, f_grid, scores
 
 
 def coarse_then_fine_shift(trace, center_index, template, psi, f0_hz, fs,

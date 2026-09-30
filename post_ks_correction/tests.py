@@ -501,6 +501,39 @@ def test_block_diagonal_whitening_keeps_channels_independent():
             assert np.all(off == 0.0), "block-diagonal operator is mixing channels"
 
 
+def test_frequency_refinement_beats_grid_resolution_and_matches_fine_grid():
+    """select_probe_frequency's coarse-grid-then-golden-section refinement
+    must land essentially where a much finer grid would, WITHOUT paying for
+    that grid. Refinement is deliberately confined to the bracket around the
+    coarse grid's argmax because f0*|W(f0)| is not globally unimodal
+    (measured on 20 real units: median 2 local maxima, only 10/20 strictly
+    unimodal), so an unbracketed search could converge to the wrong peak."""
+    template = _synthetic_template()
+    f_refined, f_grid, _ = select_probe_frequency(template, FS, n_cycles=3.0, nt0min=NT0MIN,
+                                                   criterion="timing", refine=True,
+                                                   warn_at_edge=False)
+    f_unrefined, _, _ = select_probe_frequency(template, FS, n_cycles=3.0, nt0min=NT0MIN,
+                                                criterion="timing", refine=False,
+                                                warn_at_edge=False)
+    grid_step = f_grid[1] - f_grid[0]
+
+    # brute-force reference at ~10x the grid resolution
+    fine = np.linspace(f_grid[0], f_grid[-1], len(f_grid) * 10)
+    pad = int(np.ceil(3.0 * FS / (2 * fine.min()))) + 20
+    trace = np.zeros(len(template) + 2 * pad)
+    center = pad + NT0MIN
+    trace[center - NT0MIN: center - NT0MIN + len(template)] = template
+    scores = np.array([abs(wavelet_transform_at(trace, make_morlet(f, FS, 3.0)[1], center)) * f
+                       for f in fine])
+    f_reference = float(fine[int(np.nanargmax(scores))])
+
+    assert abs(f_refined - f_reference) < grid_step, (
+        f"refined f0={f_refined:.0f}Hz is more than one coarse grid step ({grid_step:.0f}Hz) "
+        f"from the fine-grid reference {f_reference:.0f}Hz -- refinement is not working")
+    assert abs(f_refined - f_unrefined) <= grid_step, (
+        "refinement moved the answer further than one grid step, which means it escaped its "
+        "bracket -- it must stay inside the interval the coarse grid localized")
+
 def test_timing_criterion_picks_higher_frequency_than_strength():
     """The timing criterion (argmax f0*|W|) must pick a HIGHER frequency than
     the strength criterion (argmax |W|), because it trades some match
@@ -666,6 +699,7 @@ ALL_TESTS = [
     test_unit_footprint_selects_channels_within_radius,
     test_multichannel_concat_layout_matches_between_template_and_snippet,
     test_block_diagonal_whitening_keeps_channels_independent,
+    test_frequency_refinement_beats_grid_resolution_and_matches_fine_grid,
     test_timing_criterion_picks_higher_frequency_than_strength,
     test_timing_criterion_reduces_noise_induced_spurious_shift,
     test_ar_autocovariance_matches_ar1_closed_form,

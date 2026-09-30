@@ -1077,41 +1077,164 @@ this should not drive the result, but it has not been separately controlled.
 
 ---
 
-## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
+## 5r. Frequency scan range was truncating 30% of units; adaptive search added
 
-- ~~Noise whitening / precision matrix~~ — **built and validated**, see
-  section 5b. Only wired into the nuisance-model fit so far, not into
-  wavelet timing or spatial footprint.
-- **Burst-history amplitude-recovery curve** `E[a|deltaT]` and the associated
-  gating (only trust weak/deformed states near a confirmed anchor spike): not
-  built.
-- **The learned 4th deformation direction** `d_k`: deliberately deferred per
-  the original design doc, still deferred.
-- **Robust estimation** (Huber loss, soft/marginalized alignment for weak
-  events, preventing recovered spikes from feeding back into their own
-  model): not started.
-- **Reliability calibration as a formal step**: the noise-floor comparison in
-  section 2 exists as a diagnostic on one unit/channel, not as a systematic,
-  per-unit calibration wired into acceptance decisions.
-- **Combining pillars 1a/1b/1c into one joint score**: each has been validated
-  separately; there is no single function yet that takes one spike and
-  returns one combined, correlation-aware decision.
-- **Automatic burst-split-candidate detection** (the CCG/ISI trigger rule from
-  the design doc): the 342/347 and 381/397 pairs were both hand-picked from
-  prior investigation, not surfaced automatically.
-- **The real decisive experiment**: real bursting units' natural deformation
-  injected into independent real background, with negative controls
-  (anchor-only, anchor-then-different-neuron), compared against Kilosort at
-  matched false-positive rate. Only a synthetic-in-synthetic-noise version
-  exists so far (the beta/tau grid tests in section 1-2).
+Prompted by asking why the selection hit the scan edge, whether that was
+odd, whether all units do it, and whether an adaptive search (try one, jump
+higher/lower) exists.
+
+**The edge-hitting was real and widespread, not a quirk of two units.**
+Measured across 20 good units with the old 300-4000Hz range: under the
+timing criterion **6/20 selected the 4000Hz endpoint itself** -- their true
+optimum was above the bound, so the scan range, not the data, was choosing.
+Under p=1.5 it was 10/20 and under p=2, 15/20. (This also corrects 5o's
+claim that p=1 was "the last non-degenerate value" -- that was based on two
+units whose optima happened to be interior.)
+
+**Widening to 8000Hz fixes it:** 0/20 at the edge, and 80% of units'
+selections are unchanged to within one grid step -- only the truncated
+minority moves, to 4033-5589Hz.
+
+**Those higher frequencies genuinely align better, verified on real
+spikes** (not merely scoring higher). Unit 39, against a no-alignment
+baseline of R2=0.459: 1500Hz -> 0.347 (alignment actively HURTING),
+4000Hz -> 0.465, 5589Hz -> 0.473, 7000Hz -> 0.473 (plateau). Unit 15 shows
+the same shape. So below the old bound alignment was damaging these units,
+and above it the benefit appears and then plateaus -- a real interior
+optimum the bound was hiding.
+
+**On the adaptive search:** the algorithm described (bracket, jump
+higher/lower, narrow) is golden-section / ternary search, and it is only
+valid for unimodal functions. Checked directly: f0*|W(f0)| across
+300-8000Hz has a median of **2 local maxima** per unit (max 5), and only
+**10/20 units are strictly unimodal**. So a pure bracket-and-narrow search
+over the full range would sometimes converge onto the wrong peak.
+Implemented instead as a hybrid, which is the safe form: coarse grid to
+bracket the GLOBAL peak, then golden-section refinement confined to that
+bracket. Validated against a 1200-point reference grid -- agrees to within
+a few Hz on 5/6 units (unit 440 differs by 129Hz, a nearby competing peak),
+at **14.8x less compute** than the equivalent-resolution grid.
+
+**On FFT:** with n_cycles fixed the window width scales as 1/f0, so this is
+a true constant-Q wavelet transform and the whole sweep cannot collapse
+into a single FFT. What IS available: compute the template's spectrum once
+(O(N log N)) and evaluate each f0 as a Gaussian-weighted inner product in
+the frequency domain, O(N) per frequency instead of a time-domain sum. For
+a 61-sample template this is irrelevant -- selection is per-unit and already
+milliseconds; disk reads dominate everything. It would only matter if
+frequency selection ever moved inside a per-spike loop.
+
+`select_probe_frequency` now defaults to f_hi=8000, refines by golden
+section, and prints a warning if the selection still lands on a scan
+endpoint. 26/26 tests passing.
 
 ---
 
-## 7. Git status
+## 6. WHERE THINGS STAND  (current as of 2026-09-30 -- read this first)
 
-All of the above lives in `D:\Gil\spike_sorting_agent`, branch
-`post-ks-correction`. Committed locally; **not yet pushed** to the GitHub
-remote (`origin` = `https://github.com/ZurGil/striatal-spike-sorting.git`) —
-push needs explicit confirmation before it happens (an earlier push attempt
-was intentionally interrupted by the user over a live-recording concern, never
-resolved either way since).
+### The one-paragraph version
+The module reads Kilosort4 output plus raw voltage and scores candidate
+spikes against a unit's template, with three corrections layered on:
+wavelet sub-sample alignment (pillar 1b), temporal noise whitening
+(pillar 3 / step A), and multi-channel spatial footprint (pillar 1c). It is
+DIAGNOSTIC ONLY -- nothing has ever written to a Kilosort or Phy file. The
+arc of the work moved from "find spikes Kilosort missed" to "figure out why
+a unit's own template cannot reject its neighbour's spikes", and the answer
+turned out to be that single-channel scoring is the binding limitation and
+the spatial footprint fixes it (AUC 0.749 -> 0.999 on the hardest real
+case).
+
+### Which session
+Work moved to **20260916_110311** (kilosort output at
+`F:\Gil\Shamir60916_110311.rec60916_110311.kilosort\kilosort4`,
+raw at `...60916_110311.probe1.dat`, 290GB / 378M samples / 210 min).
+The earlier session 20260901_085606 (on D:) was used for sections 1-5g;
+its curation labels were flagged as not trustworthy, which is why the
+switch happened. Constants confirmed identical across both:
+nt0min=20, nt=61, fs=30000, 384 channels. GAIN_TO_UV=0.018311105685598315
+is carried over and NOT independently confirmed for the new session (no
+gain field in its ops.npy) -- it does not affect R2/cosine metrics, which
+are scale-invariant, but would matter for any absolute-microvolt claim.
+
+### What is built and validated
+- `nuisance_model.py` -- amplitude+stretch fit. Use
+  `fit_nuisance_prealigned` (2-parameter); the 3-parameter version's
+  timing and stretch regressors are near-collinear and cannot be separated
+  (section 1). Takes an optional `whitening_matrix`.
+- `wavelet_features.py` -- per-unit probe frequency selection
+  (`select_probe_frequency`, default criterion="timing", f_hi=8000, with
+  golden-section refinement), coarse+fine alignment
+  (`coarse_then_fine_shift`).
+- `noise_whitening.py` -- AR(4) temporal noise model per channel ->
+  whitening operator. Real noise is strongly correlated (lag-1 0.72 ->
+  -0.09 after whitening); improves spike-vs-noise discriminability ~3x.
+- `spatial_footprint.py` -- per-channel amplitude footprint, cosine
+  similarity, plus `multichannel_template` / `multichannel_snippet_concat`
+  / `block_diagonal_whitening` for scoring across the whole footprint.
+- `tests.py` -- 26 assertion-based tests, all passing. Run with
+  `python tests.py` from inside `post_ks_correction/`.
+
+### The four findings that matter most
+1. **Single-channel scoring is the binding limitation, and pillar 1c fixes
+   it.** Units 440 and 439 sit at different probe positions (440 peaks
+   ch23, 439 ch19/21) so they must NOT be merged, yet their waveforms on
+   the shared channel correlate 0.972. Separating their spikes:
+   single-channel R2 AUC 0.749, multi-channel concatenated fit 0.897,
+   **footprint similarity 0.999**. The simple footprint metric beats the
+   bigger fit because the concatenated fit is dominated by the peak channel
+   -- exactly where the two units look alike. (section 5q)
+2. **The frequency-selection rule was wrong and made alignment harmful.**
+   Choosing f0 by argmax|W| ignores that the same f0 sets timing precision
+   (one cycle = fs/f0 samples multiplies any phase error). At ~800Hz a 10
+   degree phase error becomes a full sample of spurious shift. Correct rule
+   is argmax f0*|W(f0)|. Fixing it took spurious shift on correctly-placed
+   spikes from median 1.01 samples (53% moved >1 sample) to 0.37 (1.3%),
+   and alignment from harmful to mildly helpful. (5o, 5r)
+3. **Most "newly detected" spikes were an artifact of that bug.** With the
+   corrected frequency, genuinely-new detections over 20 minutes fell from
+   115 to 40 across two units, and for the cleanest unit from 29 to **1**
+   -- 475 of its 476 detections already belong to a neighbour. (5p)
+4. **Detection recall is not this dataset's problem; cluster precision is.**
+   Across ~150 candidates on six validated units, not one held up as a
+   genuinely new detection -- every credible one was already in the spike
+   list under a near-identical neighbouring unit. (5n)
+
+### What to do next, in priority order
+1. **Rerun detection end-to-end with footprint similarity as the
+   discriminator.** Everything in 5h-5p scored candidates on ONE channel.
+   1c is now integrated and validated but has never actually been used in a
+   detection scan. This is the obvious next run and the numbers from it
+   supersede all earlier detection counts.
+2. **Re-examine the merge candidates with the corrected tooling.** The
+   439/440 pair was correctly rejected on footprint grounds; the earlier
+   candidates from session 20260901_085606 (332-333, 306-305, 303-306) were
+   judged with the old frequency rule and a weaker spatial test.
+3. **Anderson/Aitken acceleration on the template-rebuild loop.** That loop
+   is a genuine fixed-point iteration and converges slowly under the old
+   criterion. (Aitken does NOT apply to the frequency search -- that is a
+   maximization, handled by grid+golden-section.)
+4. **Still never built:** burst-history amplitude-recovery curve and its
+   gating, robust (Huber) estimation, the learned deformation direction
+   d_k, automatic split-candidate detection across a whole session, and the
+   hybrid-ground-truth validation experiment (inject real deformation into
+   real background, compare against Kilosort at matched false-positive
+   rate). That last one remains the only thing that would establish real
+   performance rather than diagnostics.
+
+### Known caveats to carry forward
+- The 1c separation test aligned both populations with unit 440's template;
+  peak-to-trough amplitude is designed to be alignment-insensitive so this
+  should not drive the result, but it was not separately controlled.
+- Units 302 and 31 are unusable for detection work: their own real spikes
+  score at or below the noise floor, so no threshold separates them.
+- "No nearby unit has this event" means no unit within 60um has a spike
+  within 15 samples. It does not prove an event belongs to the unit being
+  tested -- on a channel with near-identical neighbours it cannot.
+- The population is dense enough (41M spikes / 3h in the older session)
+  that a random timepoint is within 15 samples of SOME cluster's spike 98%
+  of the time. Any "already detected elsewhere" statistic MUST be
+  restricted to spatially relevant units or it is meaningless.
+
+### Git
+Branch `post-ks-correction` in `D:\Gil\spike_sorting_agent`. Remote
+`origin` = https://github.com/ZurGil/striatal-spike-sorting.git
