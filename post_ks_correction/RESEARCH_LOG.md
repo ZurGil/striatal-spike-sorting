@@ -976,6 +976,55 @@ holds; it was the implementation, not the premise, that was wrong.
 
 ---
 
+## 5p. Rerun with the corrected frequency rule -- the "new spike" count mostly evaporates
+
+Every detection number before this used the broken argmax|W| frequency
+rule, so the 20-minute scan was rerun with both rules through the identical
+pipeline (`demo_20min_rerun_corrected_frequency.py`).
+
+**The fix validates on real spikes:** spurious shift on known-correctly-
+placed spikes, unit 440: median 1.01 samples with 53% moved >1 sample (old)
+-> median 0.37 with 1.3% (new). Unit 408: 0.72/40% -> 0.33/10.7%. The
+configurations also stop disagreeing with each other -- overlap between the
+full pipeline and the no-correction baseline went 0.688 -> 0.851 (unit 440)
+and 0.565 -> 0.815 (unit 408), confirming that most of what the old rule
+"uniquely found" was its own misalignment artifact.
+
+**Corrected detection numbers (20 min):**
+
+| unit | config | detections | attributable to neighbour | genuinely new |
+|---|---|---|---|---|
+| 440 | full, old f0 | 655 | 95.6% | 29 |
+| 440 | full, NEW f0 | 476 | 99.8% | **1** |
+| 408 | full, old f0 | 412 | 79.1% | 86 |
+| 408 | full, NEW f0 | 314 | 87.6% | **39** |
+
+The genuinely-new count drops from 115 to 40 across both units, and for the
+cleanest unit (440) from 29 to **1**. Most apparent new detections were an
+artifact of the damaged threshold, exactly as 5o predicted.
+
+**Component contribution, now measured on a sound basis** (totals, both
+units): full with new f0 = 790 detections / 40 new; no_wavelet = 730 / 26;
+neither = 836 / 45; no_whitening = 835 / 44. Alignment gives a modest real
+benefit (unit 408: 314 detections at 87.6% precision vs 267 at 90.6%
+without) -- not the +14% claimed in 5n, which was the artifact, but not
+nothing either. Whitening contributes essentially nothing to DETECTION
+(476 vs 524 for unit 440; 314 vs 311 for unit 408), consistent with every
+earlier measurement -- it helps against noise (the ~3x d' result in 5b
+stands) but not when the competing explanation is a neighbour's
+near-identical spike rather than noise.
+
+**The dominant fact, unchanged and now on solid footing:** ~99% of
+everything detectable on unit 440's channel already belongs to unit 439.
+Since 5o/5m established those two have genuinely different spatial
+footprints (440 peaks on ch23, 439 on ch19/21) and should NOT be merged,
+this is a single-channel SPECIFICITY problem -- the one-channel template
+cannot tell a neighbour's spike from its own. Multi-channel footprint
+scoring (pillar 1c, built but never wired into the detection path) is the
+obvious thing that would address it, and has not been tried.
+
+---
+
 ## 6. What is NOT built yet (real gaps, not forgotten — tracked deliberately)
 
 - ~~Noise whitening / precision matrix~~ — **built and validated**, see
