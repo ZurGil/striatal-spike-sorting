@@ -68,7 +68,28 @@ from kilosort.spikedetect import (extract_wPCA_wTEMP, get_waves, template_center
                                    nearest_chans, yweighted, template_match)
 from kilosort.utils import log_performance
 
+from kilosort import clustering_qr
+
 _ORIGINAL_RUN = spikedetect.run
+_ORIGINAL_GET_DATA_CPU = clustering_qr.get_data_cpu
+_ORIGINAL_CLUSTER = clustering_qr.cluster
+_FP_APPLIED = 0
+_FP_SKIPPED = 0
+_LAST_FP = None     # footprint of the most recent get_data_cpu call
+
+# A FIRST ATTEMPT THAT FAILED, recorded because the failure is informative.
+# The obvious implementation appends the footprint columns to Xd inside
+# get_data_cpu. That crashes:
+#     RuntimeError: shape '[-1, 6]' is invalid for input of size 70
+# because `clustering_qr.run` uses the SAME Xd twice -- once for clustering,
+# and again to build each cluster's template, where it reshapes the row to
+# (n_channels, n_pcs). Extra columns break that reshape.
+#
+# So the footprint must reach the CLUSTERING step only and never escape into
+# template construction. It is computed in get_data_cpu (where the
+# channel/feature layout is known), stashed, and concatenated inside a
+# patched `cluster()` whose augmented matrix is local to the graph build.
+# Xd itself is returned untouched.
 _ENABLED = None
 N_BINS = 41
 MAX_SHIFT = 0.5
@@ -76,7 +97,52 @@ N_CYCLES = 3.0
 F_LO, F_HI, N_GRID = 300.0, 8000.0, 60
 
 AVAILABLE = ("subsample_align", "amplitude_normalize", "align_and_amp_norm",
-             "coarse_then_align", "coarse_align_amp_norm")
+             "coarse_then_align", "coarse_align_amp_norm",
+             "footprint_cluster", "footprint_cluster_strong")
+FOOTPRINT_WEIGHT = {"footprint_cluster": 1.0, "footprint_cluster_strong": 3.0}
+
+# -------------------------------------------------------------------------
+# WHY footprint_cluster EXISTS: it is the only idea left whose target has
+# been MEASURED rather than assumed.
+#
+# RESEARCH_LOG 5ad classified every missed spike on the tiered benchmark:
+#     found and filed correctly      69.5%
+#     DETECTED but filed elsewhere   25.7%
+#     never detected at all           4.8%
+# So 84% of all failures are spikes Kilosort saw and then assigned to the
+# wrong cluster. Detection-stage work (whitening, thresholds) has a ceiling
+# of 4.8%. Clustering-stage work addresses 25.7%.
+#
+# THE IDEA (the user's): cluster only within events whose spatial footprints
+# match. Two spikes from one neuron must have the same pattern of amplitude
+# across channels; two spikes from different neurons sitting close together
+# need not. Section 5q measured that footprint separates a hard pair at
+# AUC 0.999 where a single channel manages only 0.749, so the information is
+# there -- it has simply never been given to the clustering.
+#
+# WHERE IT GOES. `clustering_qr.get_data_cpu` assembles `dd`, a
+# (n_spikes, n_channels, n_features) block of per-channel PC coefficients,
+# then flattens it into the `Xd` that the kNN graph, the clustering and the
+# splitter all consume. The footprint of a spike is recoverable from that
+# block directly: the vector of per-channel energies ||dd[i, c, :]||.
+#
+# This patch appends the L2-NORMALIZED footprint to Xd as extra columns,
+# scaled so the block carries FOOTPRINT_WEIGHT times the median row norm of
+# the existing features. Normalizing first is deliberate: it makes the
+# appended block a pure SHAPE descriptor, so a loud and a quiet spike from
+# the same neuron stay close while two neurons at different depths separate.
+# Nothing in the clustering algorithm is modified -- only what it sees --
+# which keeps the change honest and reversible.
+#
+# TWO CONFIGS, because the weight is the whole question: 1.0 gives footprint
+# parity with the waveform features, 3.0 makes it dominant. If the idea works
+# at all, the two should differ systematically rather than randomly.
+#
+# RISK WRITTEN DOWN BEFORE THE RESULT: Kilosort already clusters within
+# spatial neighbourhoods, so footprint information is partly present already
+# and this may be redundant. And a dominant footprint weight could merge
+# genuinely different neurons that happen to share a depth.
+# -------------------------------------------------------------------------
 COARSE_SEARCH = 6      # integer samples searched either way before the phase stage
 
 # -------------------------------------------------------------------------
@@ -162,8 +228,14 @@ def enable(config):
     if config not in AVAILABLE:
         raise ValueError(f"unknown patch {config!r}; available: {AVAILABLE}")
     _ENABLED = config
-    spikedetect.run = _patched_run
-    kilosort.spikedetect.run = _patched_run
+    if config in FOOTPRINT_WEIGHT:
+        clustering_qr.get_data_cpu = _patched_get_data_cpu
+        clustering_qr.cluster = _patched_cluster
+        print(f"[{config}] footprint appended to clustering features, "
+              f"weight {FOOTPRINT_WEIGHT[config]}")
+    else:
+        spikedetect.run = _patched_run
+        kilosort.spikedetect.run = _patched_run
     return config
 
 
@@ -172,6 +244,53 @@ def disable():
     _ENABLED = None
     spikedetect.run = _ORIGINAL_RUN
     kilosort.spikedetect.run = _ORIGINAL_RUN
+    clustering_qr.get_data_cpu = _ORIGINAL_GET_DATA_CPU
+    clustering_qr.cluster = _ORIGINAL_CLUSTER
+
+
+def _patched_get_data_cpu(ops, xy, iC, PID, tF, ycenter, xcenter,
+                          dmin=20, dminx=32, ix=None, merge_dim=True):
+    """Append each spike's normalized spatial footprint to the clustering
+    features. See the block comment at the top of this module for why."""
+    out = _ORIGINAL_GET_DATA_CPU(ops, xy, iC, PID, tF, ycenter, xcenter,
+                                 dmin=dmin, dminx=dminx, ix=ix,
+                                 merge_dim=merge_dim)
+    Xd, ch_min, ch_max, igood = out
+    if Xd is None or not merge_dim or _ENABLED not in FOOTPRINT_WEIGHT:
+        return out
+
+    n_spikes = Xd.shape[0]
+    n_feat = int(tF.shape[-1])
+    n_chan = int(ch_max - ch_min)
+    if n_chan <= 1 or n_spikes == 0 or Xd.shape[1] != n_chan * n_feat:
+        global _FP_SKIPPED
+        _FP_SKIPPED += 1
+        return out                      # layout not as expected: leave alone
+
+    dd = Xd.reshape(n_spikes, n_chan, n_feat)
+    fp = torch.sqrt((dd ** 2).sum(dim=2))                 # per-channel energy
+    nrm = fp.norm(dim=1, keepdim=True).clamp_min(1e-9)
+
+    global _LAST_FP
+    _LAST_FP = fp / nrm                                   # SHAPE, not size
+    return out                                            # Xd UNCHANGED
+
+
+def _patched_cluster(Xd, *args, **kwargs):
+    """Give the clustering step footprint-aware features, without letting
+    them escape into template construction (see the note above)."""
+    global _FP_APPLIED, _LAST_FP
+    fp = _LAST_FP
+    if fp is None or _ENABLED not in FOOTPRINT_WEIGHT or fp.shape[0] != Xd.shape[0]:
+        return _ORIGINAL_CLUSTER(Xd, *args, **kwargs)
+    scale = float(Xd.norm(dim=1).median()) * FOOTPRINT_WEIGHT[_ENABLED]
+    Xa = torch.cat([Xd, fp.to(Xd.dtype) * scale], dim=1)
+    if _FP_APPLIED == 0:
+        print(f"[{_ENABLED}] clustering features {tuple(Xd.shape)} -> "
+              f"{tuple(Xa.shape)} ({fp.shape[1]} footprint columns, "
+              f"scale {scale:.3f}); templates unaffected")
+    _FP_APPLIED += 1
+    return _ORIGINAL_CLUSTER(Xa, *args, **kwargs)
 
 
 def is_enabled():

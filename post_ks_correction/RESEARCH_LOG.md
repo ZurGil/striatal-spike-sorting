@@ -2308,6 +2308,86 @@ finding 84% of all failures are detected-but-misfiled. Timing work is close to
 exhausted; the open lever is the clustering decision itself.
 
 
+## 5af. Footprint-aware clustering: the first patch to beat stock Kilosort on anything
+
+The user's proposal -- cluster only within events whose spatial footprints
+match -- implemented and measured. It is the first idea in this project whose
+target was quantified before it was built (5ad: 84% of failures are
+detected-but-misfiled, i.e. clustering, not detection), and it is the first
+patch of six to beat stock Kilosort on a tier.
+
+### Implementation, and a failure worth recording
+The obvious version -- append footprint columns to `Xd` in
+`clustering_qr.get_data_cpu` -- crashes:
+
+    RuntimeError: shape '[-1, 6]' is invalid for input of size 70
+
+because `clustering_qr.run` uses the SAME `Xd` twice: once to cluster, and
+again to build each cluster's template, where it reshapes each row to
+(n_channels, n_pcs). That is an architectural constraint, not a typo -- the
+matrix fed to clustering IS the matrix templates are averaged from.
+
+Fixed by letting the footprint reach the clustering step ONLY: computed in
+`get_data_cpu` where the layout is known, stashed, and concatenated inside a
+patched `cluster()` where the augmented matrix stays local to the graph
+build. `Xd` is returned untouched, so template construction sees exactly what
+it always saw. That is also a cleaner statement of the idea -- group spikes
+using footprint information without distorting what a template is.
+
+The appended block is the L2-NORMALIZED per-channel energy vector, scaled to
+`FOOTPRINT_WEIGHT` times the median row norm of the existing features.
+Normalizing makes it a pure shape descriptor, so a loud and a quiet spike
+from one neuron stay close (encoding raw amplitude is already known to be
+harmful, 5ac).
+
+### The result
+
+| tier | vanilla | footprint w=1.0 | **footprint w=3.0** |
+|---|---|---|---|
+| **recall** | | | |
+| easy | 0.9303 | 0.9303 | **0.9303** |
+| collision | **0.8746** | 0.8348 | 0.7428 |
+| noisy_channel | **0.8037** | 0.7409 | 0.7591 |
+| **pair** | 0.5696 | 0.4356 | **0.6644** |
+| **precision** | | | |
+| easy | 0.5383 | 0.5384 | 0.5368 |
+| collision | 0.5887 | **0.6506** | 0.6187 |
+| noisy_channel | **0.2696** | 0.2927 | 0.1893 |
+| **pair** | 0.4701 | 0.2941 | **0.5188** |
+
+**On the pair tier -- two different neurons three channels apart, the hardest
+case in the benchmark -- weight 3.0 beats vanilla on recall by +9.5 points
+AND on precision by +4.9 points simultaneously**, with fewer fragments (2.50
+vs 2.75). Not a trade: both measures move the right way. The easy tier is
+untouched (0.9303 both). No configuration produced a merge error.
+
+The dose-response is systematic and in the predicted direction: weight 1.0
+gives pair recall 0.4356, weight 3.0 gives 0.6644. A spurious effect would
+not order itself that way.
+
+### The cost, and why it makes mechanistic sense
+Weight 3.0 loses 13.2 points of recall on the COLLISION tier (0.7428 vs
+0.8746) and 4.5 on the noisy channel. That is exactly what should happen: when
+two spikes overlap in time, the measured per-channel energy is contaminated by
+the other spike, so a footprint-weighted clustering is being fed a corrupted
+descriptor and weighting it heavily amplifies the error. Footprint helps where
+neurons are separated in SPACE and hurts where they overlap in TIME.
+
+That is a coherent, falsifiable story rather than a shrug, and it suggests the
+obvious refinement: apply footprint weighting only to spikes that are not
+collisions. The obstacle is that this project's collision detector failed
+(5w, AUC 0.62), so there is currently no reliable way to know which spikes to
+exempt.
+
+### Status
+Six patch configurations built and measured. Five are worth nothing.
+`footprint_cluster_strong` is the first with a real, mechanistically explained
+win on the hardest case, at a real cost elsewhere. It is not yet a default --
+overall it still trails vanilla because the collision and noisy tiers
+dominate the average -- but it is the first time the direction has been
+validated rather than argued.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version
