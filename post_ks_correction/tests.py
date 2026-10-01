@@ -27,6 +27,7 @@ pytest is installed in whatever env is used).
 import numpy as np
 
 import fixed_point_acceleration as fpa
+import multifreq_alignment as mfa
 
 from nuisance_model import (build_basis, check_basis_geometry, fit_nuisance,
                              fit_nuisance_prealigned, synthesize_deformed_spike)
@@ -682,6 +683,121 @@ def test_fit_nuisance_prealigned_whitening_matches_unweighted_when_identity():
 
 
 # ---------------------------------------------------------------------------
+# Multi-frequency alignment and the ambiguity flag.
+# ---------------------------------------------------------------------------
+
+def _synthetic_spike(n=61, nt0min=20, width=3.0, amp=-100.0):
+    """A compact asymmetric spike-like waveform: sharp negative trough with a
+    slower positive recovery, so it has real phase structure (a symmetric
+    bump would make the phase tests trivially easy)."""
+    t = np.arange(n) - nt0min
+    fast = amp * np.exp(-0.5 * (t / width) ** 2)
+    slow = -0.35 * amp * np.exp(-0.5 * ((t - 2.5 * width) / (2.2 * width)) ** 2)
+    return fast + slow
+
+
+def _place(template, nt0min, shift, pad=200, noise=0.0, rng=None):
+    """Put `template` into a long trace, shifted by `shift` samples (cubic
+    interpolation), centred so the spike's nt0min lands at index `pad`."""
+    from scipy.interpolate import interp1d
+    n = len(template)
+    trace = np.zeros(2 * pad)
+    x = np.arange(n)
+    ip = interp1d(x, template, kind="cubic", bounds_error=False, fill_value=0.0)
+    idx = np.arange(2 * pad) - (pad - nt0min)
+    trace = ip(idx - shift)
+    trace[~np.isfinite(trace)] = 0.0
+    if noise > 0:
+        trace = trace + rng.normal(scale=noise, size=trace.shape)
+    return trace
+
+
+def test_phase_slope_recovers_a_known_subsample_shift():
+    """The basic contract: a single clean spike placed at a known fractional
+    offset must come back with that offset."""
+    fs, nt0min = 30000.0, 20
+    s0 = _synthetic_spike(nt0min=nt0min)
+    bank = mfa.build_probe_bank(s0, fs, n_cycles=3.0, nt0min=nt0min, n_probes=5)
+    for true_shift in (-0.4, -0.15, 0.0, 0.2, 0.45):
+        trace = _place(s0, nt0min, true_shift)
+        r = mfa.phase_slope_delay(trace, 200, bank)
+        assert abs(r["delta"] - true_shift) < 0.12, (
+            f"shift {true_shift}: estimated {r['delta']:.3f}")
+
+
+def test_clean_spike_has_low_scatter_collision_has_high_scatter():
+    """The whole point of the ambiguity flag. A single shifted template is a
+    straight line in phase-vs-frequency, so the probes agree. A collision is
+    a SUM of two shifted templates, whose phase is not a linear ramp, so the
+    probes disagree. The collision's scatter must be clearly larger."""
+    fs, nt0min = 30000.0, 20
+    s0 = _synthetic_spike(nt0min=nt0min)
+    bank = mfa.build_probe_bank(s0, fs, n_cycles=3.0, nt0min=nt0min, n_probes=6)
+
+    clean = [mfa.phase_slope_delay(_place(s0, nt0min, d), 200, bank)["scatter_samples"]
+             for d in (-0.3, -0.1, 0.1, 0.3)]
+    # a second spike of comparable size a few samples away
+    coll = []
+    for lag in (3, 5, 7):
+        tr = _place(s0, nt0min, 0.0) + _place(s0, nt0min, float(lag)) * 0.8
+        coll.append(mfa.phase_slope_delay(tr, 200, bank)["scatter_samples"])
+
+    assert max(clean) < min(coll), (
+        f"clean scatter {np.round(clean,4)} vs collision {np.round(coll,4)} "
+        "-- the flag cannot separate them")
+
+
+def test_multifrequency_beats_single_frequency_under_noise():
+    """The variance-reduction claim, measured rather than assumed: averaged
+    over noise realizations, the weighted multi-probe estimate must have
+    smaller error than the single best probe on the identical traces."""
+    fs, nt0min = 30000.0, 20
+    s0 = _synthetic_spike(nt0min=nt0min)
+    bank = mfa.build_probe_bank(s0, fs, n_cycles=3.0, nt0min=nt0min, n_probes=5)
+    rng = np.random.default_rng(11)
+    noise = 0.12 * np.abs(s0).max()
+    e_multi, e_single = [], []
+    for _ in range(300):
+        d = rng.uniform(-0.45, 0.45)
+        tr = _place(s0, nt0min, d, noise=noise, rng=rng)
+        e_multi.append(mfa.phase_slope_delay(tr, 200, bank)["delta"] - d)
+        e_single.append(mfa.single_frequency_delay(tr, 200, bank) - d)
+    rms_m = float(np.sqrt(np.mean(np.square(e_multi))))
+    rms_s = float(np.sqrt(np.mean(np.square(e_single))))
+    assert rms_m < rms_s, f"multi {rms_m:.4f} not better than single {rms_s:.4f}"
+
+
+def test_probe_bank_weights_follow_inverse_variance_rule():
+    """Weights must be (f*|W(f)|)^2 normalized -- the inverse-variance rule.
+    Getting this wrong would silently reduce the multi-probe estimate to a
+    badly-weighted average, which could be WORSE than the single best probe."""
+    fs, nt0min = 30000.0, 20
+    s0 = _synthetic_spike(nt0min=nt0min)
+    bank = mfa.build_probe_bank(s0, fs, n_cycles=3.0, nt0min=nt0min, n_probes=5)
+    expect = (bank["freqs"] * bank["mags"]) ** 2
+    expect = expect / expect.sum()
+    assert np.allclose(bank["weights"], expect, atol=1e-12)
+    assert abs(bank["weights"].sum() - 1.0) < 1e-12
+
+
+def test_unambiguous_shift_limit_is_reported_and_real():
+    """Beyond fs/(2*f_max) the highest probe's phase wraps. The helper must
+    report that limit, and a shift beyond it must actually fail -- this is a
+    guard rail, so it needs to be a real one, not a comment."""
+    fs, nt0min = 30000.0, 20
+    s0 = _synthetic_spike(nt0min=nt0min)
+    bank = mfa.build_probe_bank(s0, fs, n_cycles=3.0, nt0min=nt0min, n_probes=5)
+    lim = mfa.max_unambiguous_shift(bank)
+    assert lim == fs / (2.0 * bank["freqs"].max())
+    assert lim > 0.5, f"bank cannot even measure half a sample (limit {lim:.2f})"
+    big = lim * 2.5
+    r = mfa.phase_slope_delay(_place(s0, nt0min, big), 200, bank)
+    assert abs(r["delta"] - big) > 0.5, (
+        "a shift well past the wrap limit was recovered correctly, so this "
+        "test is not actually exercising the ambiguity it claims to")
+
+
+# ---------------------------------------------------------------------------
 # Fixed-point acceleration (stage 3) -- for the template-rebuild loop.
 # ---------------------------------------------------------------------------
 
@@ -781,6 +897,11 @@ ALL_TESTS = [
     test_ar_fit_recovers_known_process,
     test_whitening_operator_decorrelates_known_process,
     test_fit_nuisance_prealigned_whitening_matches_unweighted_when_identity,
+    test_phase_slope_recovers_a_known_subsample_shift,
+    test_clean_spike_has_low_scatter_collision_has_high_scatter,
+    test_multifrequency_beats_single_frequency_under_noise,
+    test_probe_bank_weights_follow_inverse_variance_rule,
+    test_unambiguous_shift_limit_is_reported_and_real,
     test_aitken_finds_limit_of_linear_sequence_exactly,
     test_aitken_is_safe_on_a_stalled_sequence,
     test_anderson_depth_zero_reproduces_plain_iteration,

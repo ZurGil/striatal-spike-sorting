@@ -1461,6 +1461,122 @@ ground-truth harness. Caveats: this uses templates, not individual spikes
 peak-channel features only, whereas Kilosort uses a channel neighbourhood.
 
 
+## 5w. Multi-frequency alignment built and tested — the estimator is sound, the ambiguity flag does not work on real data
+
+New module `multifreq_alignment.py`, five new tests (36/36 passing), and three
+real-data runs. The ambiguity flag was the thing I argued would make it safe
+to align spikes before clustering. It does not hold up, and that changes the
+plan.
+
+### The idea
+If an event really is this unit's template arriving at delay `delta`, then
+after removing the template's own shape phase per frequency,
+
+    dphi(f) = -2*pi*f*delta/fs
+
+Phase is LINEAR in frequency, slope proportional to delay. That is the only
+thing a time shift can do. A collision is a SUM of two shifted templates and
+the phase of a sum bends. So one weighted line fit through the origin gives
+two things: the slope is a delay estimate using all probes (weights
+`(f_k*|W(f_k)|)^2`, the inverse-variance rule — note the existing
+single-frequency rule `argmax f0*|W(f0)|` is just the K=1 case), and the
+residual scatter is a per-spike "was this one spike?" statistic.
+
+### It works perfectly on synthetic data
+`test_clean_spike_has_low_scatter_collision_has_high_scatter` passes with a
+clean margin: every clean shifted template scores below every collision.
+`test_multifrequency_beats_single_frequency_under_noise` confirms the
+variance reduction over 300 noise realizations. The mechanism is not in
+doubt.
+
+### On real spikes it is weak
+`demo_multifreq_ambiguity_on_real_spikes.py`. Collisions labelled from
+Kilosort's own spike list (another unit within 60 um firing within +/-12
+samples), isolated = nothing within +/-40 samples:
+
+| unit | isolated scatter (median) | colliding | AUC | flag rate iso / coll |
+|---|---|---|---|---|
+| 440 | 0.707 | 0.745 | **0.550** | 5.2% / 8.3% |
+| 408 | 0.738 | 0.943 | **0.611** | 5.0% / 12.9% |
+| 439 | 0.694 | 0.886 | **0.661** | 5.0% / 11.1% |
+
+AUC 0.55-0.66, against 0.999 for the footprint on a comparable task. And the
+baseline is alarming on its own: isolated spikes already scatter by ~0.70
+samples, where synthetic clean spikes scatter near zero.
+
+### Two candidate explanations, and the data picks one
+`demo_multifreq_band_sweep.py` on unit 408 (the only unit with a usable
+number of collision labels — 116, versus 12 for unit 440):
+
+| keep_fraction | band (Hz) | isolated median | colliding median | AUC |
+|---|---|---|---|---|
+| 0.35 | 495-6403 | 0.738 | 0.943 | 0.611 |
+| 0.50 | 585-4848 | 0.632 | 0.820 | 0.629 |
+| 0.70 | 773-3284 | 0.483 | 0.667 | 0.621 |
+| 0.85 | 965-2629 | **0.355** | 0.479 | 0.611 |
+
+Narrowing the band cuts the baseline scatter **2.2x** — so the wide band
+really was injecting noise (unit 440's reached 8000 Hz, the scan ceiling, the
+same edge problem as 5r). But **the AUC does not move at all**. Both groups
+shrink together. So the baseline is not probe-band noise; it is something
+that affects clean and colliding spikes identically.
+
+### The decisive test: scatter versus actual collision lag
+If the statistic detects interference it must care how close the second spike
+is. `demo_multifreq_scatter_vs_collision_lag.py`, narrow band, unit 408:
+
+| lag to nearest neighbour spike | n | scatter median |
+|---|---|---|
+| 0-3 samples | 12 | **0.383** |
+| 3-6 | 23 | 0.301 |
+| 6-10 | 48 | 0.563 |
+| 10-15 | 54 | 0.615 |
+| 15-25 | 102 | 0.456 |
+| 25-40 | 108 | 0.346 |
+| 40+ (no collision) | 350 | **0.375** |
+
+**The tightest collisions score the same as no collision at all** — 0.383 vs
+0.375, a ratio of 1.02. The scatter even peaks in the 10-15 bin, where
+interference should be weaker than at 0-3. There is no monotonic relationship
+with lag. Unit 439's apparent 0.13x ratio comes from a single spike in the
+0-3 bin and means nothing.
+
+**Conclusion: the statistic is not responding to interference.** On real
+spikes the scatter is dominated by ordinary spike-to-spike shape variability
+— amplitude changes, burst-state changes, noise — all of which also make
+phase non-linear in frequency. Collision is a minor contributor. The ~0.62
+AUC is the method's real ceiling here, not a tuning problem, and I should
+not have presented the flag as the safety mechanism before testing it on real
+data.
+
+### A second, unplanned finding that matters more
+Unit 408 has **12 spikes out of 1,458** with a neighbour inside 3 samples —
+about 0.8%. Unit 439 has **one**. Tight collisions are RARE in this data. So
+the premise that collision handling is an important problem here is itself
+weak, independent of whether the detector works.
+
+### What survives
+- **The weighted multi-probe estimator.** Sound in theory, validated on
+  synthetic data. On real spikes it disagrees with the single-probe estimate
+  by 0.33-0.44 samples on average — substantial, but with no ground truth we
+  cannot say which is closer to the truth. Unverified, not disproven.
+- **The jitter premise from 5v is untouched** — it rests on feature geometry
+  (18% of between-unit spread, 11.8% of adjacent pairs), not on this flag.
+- **A band-width lesson that applies to the existing pipeline too:**
+  `keep_fraction=0.85` (band ~965-2629 Hz) cuts phase-estimate scatter 2.2x
+  versus a wide band. Narrow is better for timing, and the default should
+  reflect that.
+
+### Consequence for the plan
+The ambiguity flag was going to be the interlock that made pre-clustering
+alignment safe — align the confident spikes, flag the rest. There is no
+working flag, so that safety argument is gone. The jitter correction may
+still be worth doing on the 5v evidence, but it now has to be justified by
+the ground-truth harness directly rather than by a per-spike confidence
+measure. **The harness moves from "prerequisite I keep recommending" to the
+only remaining way to settle this.**
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version

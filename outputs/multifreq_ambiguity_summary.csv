@@ -1,0 +1,4 @@
+unit,peak_ch,n_probes,band_lo,band_hi,f_single,wrap_limit,n_isolated,n_colliding,scatter_iso_med,scatter_col_med,auc_collision,flag_threshold,flag_rate_isolated,flag_rate_colliding,mean_abs_multi_minus_single
+440,23,5,523.4,8000.0,2772.8,1.875,327,12,0.707,0.7453,0.5502,1.6013,0.052,0.0833,0.3249
+408,44,5,495.0,6403.5,1730.0,2.342,400,116,0.7381,0.9434,0.6111,2.4392,0.05,0.1293,0.4298
+439,19,5,495.0,7157.3,1724.5,2.096,400,18,0.6939,0.8856,0.6608,1.5718,0.05,0.1111,0.4362
