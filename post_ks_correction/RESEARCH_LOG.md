@@ -2646,6 +2646,110 @@ measured site property -- which is what will finally separate "hard because the
 neighbour is loud" from "hard because the neighbourhood is busy".
 
 
+## 5aj. The benchmark as actually run: 33 hand-reviewed units, remote pairs
+
+Sections 5ah and 5ai describe a 49-unit selection that was SUPERSEDED before
+any run. Two corrections from Gil replaced it, and this section is the one to
+trust.
+
+### Kilosort's label is not a substitute for looking at the unit
+Gil had been reviewing units by hand in the unit review tool
+(`scripts/build_review_html.py <session_id>`, which had never been run for this
+session). Those verdicts live in the published artifact's database, not in any
+file in the repo, which is why nothing here was reading them:
+`claude.use('db')` -> `db.collection('verdicts')` on
+https://claude.ai/code/artifact/74dec064-c86a-46a3-8c03-f112ee4ecb05
+Now exported to `outputs/manual_verdicts_20260916_110311.csv`.
+
+**198 units labelled: 111 good, 74 mua, 13 noise.** Checking the 49-unit
+selection against them:
+
+| Gil's verdict | count of the 49 |
+|---|---|
+| good | 23 |
+| mua | 12 |
+| **noise** | **4**  (127, 134, 195, 251) |
+| not yet reviewed | 10 |
+
+**Unit 461, labelled mua, had been placed as an EASY-tier source.** The
+benchmark would have been scoring recall on units its own operator calls noise.
+This is the same failure as the first benchmark's mua sources (5ab), caught a
+second time by the same means: asking.
+
+It cuts both ways -- **12 of the pool are `KSLabel == 'mua'`**, rescued by the
+review. Neither label dominates the other; the manual one is simply made with
+more information (ACG and waveform, not just ContamPct).
+
+### Also: `cluster_group.tsv` is NOT curation
+It is a byte-identical copy of `cluster_KSLabel.tsv` (0 of 472 rows differ).
+`cluster_info.tsv` has a different `group` column with 24 `noise` labels, but
+that file is written by
+`scripts/build_cluster_info_from_classification_session.py` -- an automated
+classification, not Phy curation. **No Phy curation exists for this session.**
+
+### Donor filters: a different question from the verdict
+`good` says the unit is a real isolated neuron. A DONOR must additionally
+yield clean snippets and a usable footprint, and a unit can be genuinely good
+while failing either:
+- **contamination <= 10%.** Snippets are drawn at random from the cluster, so a
+  43%-contaminated cluster (unit 51) donates 43% wrong waveforms and the
+  "ground truth" stops being true.
+- **>= 3 channels above 25% of peak.** The pair tier needs two footprints to
+  overlap; units 99 and 61 are single-channel, which makes that test vacuous.
+
+Both run BEFORE the independence search. Filtering afterwards discards the
+probe location along with the unit; doing it in the right order gained 4 units
+(29 -> 33).
+
+### The pair tier was pairing each unit with its NEIGHBOUR
+Gil raised this and it was a real bug. The pool is sorted by peak channel and
+the code took `order[idx]` and `order[idx+1]`, so pairs came out **51 um apart
+at similarity 0.197**. Two clusters that close could be halves of one oversplit
+neuron -- in which case MERGING them is arguably correct and the tier scores
+backwards. v1's 150 um rule existed for exactly this; relaxing the pool-wide
+filter to 40 um when the CCG test arrived was right for every other tier (those
+units go to separate sites and are never tested against each other) and wrong
+for this one.
+
+The partner is now SEARCHED FOR: `>= 150 um` and similarity `<= 0.05`. All
+eight pairs now sit **181-242 um apart at similarity 0.000**. The CCG test is
+kept alongside -- distance is a structural guarantee, the CCG test is
+statistical and can lack power on low-rate units.
+
+### Final composition
+| | value |
+|---|---|
+| donor units | **33**, every one hand-labelled `good` |
+| contamination | 0.0 - 9.9% |
+| placements | 52 across 4 replicates |
+| ground-truth spikes | 15,086 |
+| per tier | 12 easy / 12 hard / 12 collision / 16 pair |
+| quiet-tier sites | 23-70 uV largest neighbour |
+| hard-tier sites | 223-466 uV largest neighbour |
+| pair donor separation | 181-242 um at similarity 0.000 |
+| units in >1 tier | 18 of 33 (within-unit tier comparison) |
+
+### Two operational traps hit today
+1. **Trodes and Kilosort cannot share this GPU.** During extraction Trodes held
+   5,900 MiB of 6,144 at 100% utilisation. Kilosort still STARTS (it needs only
+   ~2.8 GB) but is compute-starved: 0 of 60 batches after 4 minutes, against
+   ~2 minutes for a whole run. `run_all_v2.sh` refuses to start if Trodes is on
+   the GPU; `FORCE=1` overrides, which is correct once Trodes is merely open and
+   idle (599 MiB / 37% is a UI, not a workload). Check disk I/O to tell
+   extracting from idle -- 0 MB/s read means finished.
+2. **`git add -A` from a SUBDIRECTORY stages the whole repository.** One such
+   call swept a 2.6 GB `.bin` and ~2 GB of parquet/pkl into a commit. GitHub
+   hard-rejects files over 100 MB, so every push that day was impossible --
+   and it HUNG rather than erroring, which looked exactly like a slow network.
+   Diagnose with
+   `git rev-list origin/<branch>..HEAD --objects | git cat-file --batch-check=...`
+   The nine original commits are preserved on `backup-before-bigfile-fix`.
+
+Scripts: `select_source_units.py` (now reads the manual verdicts),
+`build_tiered_v2.py` (remote-pair search), `run_all_v2.sh`,
+`run_v2_comparison.py`.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 — read this first)
 
 ### The one-paragraph version
@@ -2806,9 +2910,9 @@ premise much of sections 5q/5t were built on.
 - **Temporal whitening inside Kilosort** — built and validated on real noise
   (lag-1 0.72 → -0.09, ~3x discriminability) but never made into a patch. By
   finding 1 its ceiling is 4.8%, so it is the lowest-value remaining idea.
-- **A larger benchmark — BUILT, NOT YET RUN (see 5ah/5ai).** Four replicates
-  exist on disk at `D:\Gil\spike_sorting_agent\hybrid_v2_rep{0,1,2,3}\`:
-  52 placements drawn from all 49 reviewed units, 15,013 ground-truth spikes,
+- **A larger benchmark — BUILT, RUNNING (see 5aj, which supersedes 5ah/5ai).**
+  Four replicates at `D:\Gil\spike_sorting_agent\hybrid_v2_rep{0,1,2,3}\`:
+  52 placements from 33 HAND-REVIEWED good units, 15,086 ground-truth spikes,
   12 easy / 12 hard / 12 collision / 16 pair. Sites chosen by measured
   amplitude: quiet tiers 23-70 uV largest neighbour, hard tier 191-467 uV, no
   overlap. **Blocked only on the GPU** — Trodes was acquiring and holds ~5.9 GB
