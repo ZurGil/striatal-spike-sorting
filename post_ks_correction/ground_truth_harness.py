@@ -260,3 +260,94 @@ def match_detections(detected_samples, true_positions, tolerance=5):
                 recall=(n_hit / n_true) if n_true else np.nan,
                 precision=(n_hit / n_det) if n_det else np.nan,
                 pairs=pairs)
+
+
+def inject_multichannel(trace2d, waveform2d, at_index, channels, nt0min=20,
+                         amplitude_scale=1.0):
+    """Add a multi-channel spike into a (n_samples, n_channels) trace IN PLACE.
+
+    A real spike appears on many channels at once with a characteristic
+    amplitude pattern across them (the footprint, pillar 1c). Injecting on a
+    single channel would create something no sorter should ever match, and
+    would make the test meaningless for anything spatial -- which is most of
+    what Kilosort does.
+
+    trace2d     : (n_samples, n_channels) array, modified in place.
+    waveform2d  : (nt, len(channels)) real multi-channel snippet.
+    at_index    : the waveform's nt0min sample lands on this sample index.
+    channels    : destination channel indices, same order as waveform2d's
+                  columns.
+
+    Returns True if the whole waveform fitted inside the trace.
+    """
+    w = np.asarray(waveform2d, dtype=float) * float(amplitude_scale)
+    i = int(at_index) - int(nt0min)
+    if i < 0 or i + w.shape[0] > trace2d.shape[0]:
+        return False
+    ch = np.asarray(channels, dtype=int)
+    if ch.max() >= trace2d.shape[1] or ch.min() < 0:
+        return False
+    trace2d[i:i + w.shape[0], ch] += w
+    return True
+
+
+def shift_multichannel(waveform2d, delta, pad=8):
+    """Shift every channel of a multi-channel waveform by the SAME delta.
+
+    Same delta on every channel is the physically correct model: one spike
+    arrives at one time, and the electrodes sample it simultaneously. Shifting
+    channels independently would fabricate a spatial-timing pattern that no
+    real neuron produces.
+    """
+    w = np.asarray(waveform2d, dtype=float)
+    return np.stack([shift_waveform(w[:, c], delta, pad=pad)
+                     for c in range(w.shape[1])], axis=1)
+
+
+def score_against_truth(detected_times, detected_clusters, true_times,
+                         true_labels, tolerance=10):
+    """Score a sorter's output against injected ground truth, one injected
+    unit at a time.
+
+    For each injected unit, find the OUTPUT cluster that best matches it
+    (most spikes matched one-to-one within `tolerance` samples), then report
+    that pairing's recall and precision. This is the standard hybrid-ground-
+    truth scoring: a sorter is credited with finding an injected neuron only
+    if some single cluster corresponds to it.
+
+      recall    = matched / (injected spikes)        -- did it find them?
+      precision = matched / (spikes in that cluster) -- is the cluster pure?
+
+    Reporting both matters: splitting one injected unit into three clusters
+    shows up as low recall with high precision, while merging it with a
+    background neuron shows up as high recall with low precision. A single
+    "accuracy" number would hide which failure happened.
+    """
+    detected_times = np.asarray(detected_times)
+    detected_clusters = np.asarray(detected_clusters)
+    rows = []
+    for lab in np.unique(true_labels):
+        t_true = np.sort(true_times[true_labels == lab])
+        best = None
+        # only consider clusters with a spike near at least one true spike
+        cand = set()
+        for t in t_true[:: max(1, len(t_true) // 200)]:
+            m = np.abs(detected_times - t) <= tolerance
+            cand.update(detected_clusters[m].tolist())
+        for c in cand:
+            t_det = np.sort(detected_times[detected_clusters == c])
+            mr = match_detections(t_det, t_true, tolerance=tolerance)
+            if best is None or mr["n_hit"] > best[1]["n_hit"]:
+                best = (int(c), mr, len(t_det))
+        if best is None:
+            rows.append(dict(true_label=int(lab), n_true=len(t_true),
+                             matched_cluster=-1, n_in_cluster=0, n_matched=0,
+                             recall=0.0, precision=np.nan))
+            continue
+        c, mr, n_in = best
+        rows.append(dict(true_label=int(lab), n_true=len(t_true),
+                         matched_cluster=c, n_in_cluster=n_in,
+                         n_matched=mr["n_hit"],
+                         recall=mr["n_hit"] / len(t_true),
+                         precision=mr["n_hit"] / n_in if n_in else np.nan))
+    return rows

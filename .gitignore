@@ -1,2 +1,4 @@
 __pycache__/
 *.pyc
+hybrid_small/*.bin
+hybrid_small/ks_*/
