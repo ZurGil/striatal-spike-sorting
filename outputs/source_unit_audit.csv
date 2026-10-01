@@ -1,0 +1,73 @@
+cluster_id,peak_ch,contam_pct,n_spikes,selected,reason
+460,6,0.0,1236,True,accepted
+452,13,4.1,1209,True,accepted
+453,15,0.0,514,False,too close to 452 (26 um)
+439,19,0.0,12877,True,accepted
+445,19,0.0,834,False,too close to 439 (0 um)
+440,23,3.5,4784,False,similar to 439 (0.57)
+437,24,0.0,2465,True,accepted
+432,24,6.3,116257,False,similar to 439 (0.22)
+428,30,0.0,12931,True,accepted
+424,34,0.0,4953,False,similar to 428 (0.35)
+418,36,0.0,4015,True,accepted
+416,40,0.3,8163,False,similar to 418 (0.44)
+415,40,0.0,3009,False,similar to 418 (0.46)
+412,42,0.0,4870,True,accepted
+408,44,0.4,14642,False,too close to 412 (26 um)
+402,49,1.2,7271,True,accepted
+403,50,0.4,27918,False,too close to 402 (26 um)
+395,54,0.7,31659,True,accepted
+390,57,0.0,9309,False,too close to 395 (26 um)
+389,59,0.0,10457,False,similar to 395 (0.55)
+379,65,0.0,760,True,accepted
+371,72,4.0,269242,True,accepted
+373,73,0.3,113718,False,too close to 371 (32 um)
+358,76,1.3,7929,False,similar to 371 (0.26)
+365,76,0.0,7919,False,similar to 371 (0.35)
+368,77,0.2,19651,False,similar to 371 (0.29)
+364,79,0.0,13110,True,accepted
+361,79,2.5,3735,False,too close to 364 (0 um)
+360,79,0.0,2706,False,too close to 364 (0 um)
+345,87,0.0,4197,True,accepted
+331,94,8.9,144473,True,accepted
+319,99,5.1,76569,True,accepted
+307,100,4.8,11569,True,accepted
+318,101,5.5,600289,False,too close to 319 (26 um)
+310,101,1.1,73145,False,too close to 319 (26 um)
+316,103,0.0,1046,False,similar to 307 (0.36)
+303,104,0.7,14998,False,similar to 307 (0.40)
+302,104,0.6,9043,False,similar to 307 (0.38)
+297,105,0.0,2385,True,accepted
+298,106,0.5,5580,False,too close to 297 (26 um)
+285,113,2.7,143082,True,accepted
+284,114,0.0,1739,False,too close to 285 (26 um)
+278,116,0.0,3595,True,accepted
+272,121,0.0,802,False,similar to 278 (0.52)
+270,126,0.6,61867,True,accepted
+243,141,3.1,74417,True,accepted
+242,142,0.0,306,False,too close to 243 (26 um)
+163,248,0.9,76178,True,accepted
+168,250,0.0,4210,False,too close to 163 (26 um)
+167,250,0.0,2263,False,too close to 163 (26 um)
+165,250,9.3,61549,False,too close to 163 (26 um)
+164,250,0.9,56690,False,too close to 163 (26 um)
+158,254,0.0,3669,True,accepted
+151,256,0.0,38518,False,too close to 158 (26 um)
+153,257,0.0,2325,False,too close to 158 (26 um)
+147,260,0.0,1651,True,accepted
+145,263,0.2,24302,False,similar to 147 (0.49)
+121,277,2.9,240638,True,accepted
+87,301,7.3,158737,True,accepted
+90,303,0.7,338633,False,too close to 87 (26 um)
+85,305,0.0,11822,True,accepted
+64,325,9.9,169869,True,accepted
+55,334,1.6,54955,True,accepted
+57,335,3.5,30591,False,too close to 55 (32 um)
+56,335,6.9,378343,False,too close to 55 (32 um)
+38,341,2.5,417223,True,accepted
+41,343,2.9,12569,False,too close to 38 (26 um)
+35,345,1.0,271531,True,accepted
+23,359,4.7,124842,True,accepted
+22,359,0.0,4099,False,too close to 23 (0 um)
+18,361,5.8,36304,False,too close to 23 (26 um)
+10,367,0.9,222144,True,accepted

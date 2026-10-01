@@ -2388,6 +2388,264 @@ dominate the average -- but it is the first time the direction has been
 validated rather than argued.
 
 
+## 5ag. What the low precision numbers actually mean: resident neurons, not noise
+
+Gil asked the obvious question nobody had asked: easy-tier precision is 0.538,
+so is half of what Kilosort detects not from the unit? And then the sharper
+follow-up -- the easy tier injects into a *quiet* channel, so what other
+neuron is even there?
+
+### "Quiet" was a ranking, never an emptiness test
+`build_tiered_hybrid_dataset.py:206` is
+`quietest = argsort(where(valid, density, inf))`. It picks the lowest-density
+channels **available on this probe**. On a striatal Neuropixels shank there is
+no empty channel. Measured within 60 um of the three easy destinations:
+
+| easy unit | dest ch | clusters within 60 um | their spikes in 120 s |
+|---|---|---|---|
+| 413 | 288 | 11 | 1,860 |
+| 440 | 223 | 5 | 1,273 |
+| 461 | 188 | 8 | 1,591 |
+
+The quietest spot on the probe holds 5-11 neurons firing ~10-15 spikes/s
+between them. `QUIET_GUARD = 75` guards the injection *times*, so our spikes
+never overlap a resident's -- but residents keep firing at every other moment
+and land in the same cluster.
+
+### The measurement
+For every "foreign" spike in a matched cluster (any spike the scorer counts
+against precision), ask whether the ORIGINAL Kilosort run on the untouched
+session has a spike at the same moment (`time + BG_START`) on a cluster whose
+peak channel is within 60 um. If yes, that spike existed before we touched
+anything -- a real detection, not noise.
+
+**5,868 of 7,283 foreign spikes (80.6%) are pre-existing local real spikes,
+against a chance rate of 0.039 per window (~20x chance).**
+
+| tier | precision as scored | foreign that are pre-existing | precision counting those as real |
+|---|---|---|---|
+| easy | 0.5383 | 42% | **0.8026** |
+| collision | 0.5887 | 79% | **0.9137** |
+| noisy_channel | 0.2696 | 70% | **0.8071** |
+| pair | 0.4701 | 57% | **0.8994** |
+
+Overall 0.4669 -> **0.8591**.
+
+### THE BASE-RATE TRAP, COMMITTED A THIRD TIME
+The first version of this script asked "is there any original spike within +-10
+samples?" **anywhere on the probe**. The window holds 266,023 spikes in 3.6M
+samples, so a 21-sample window catches **1.55 spikes by chance** -- the answer
+was guaranteed yes, and it returned a meaningless 96.2%. Restricting to
+clusters within 60 um drops chance to 0.039 and the observed rate to 80.6%,
+which is now interpretable. This is mistake #2 in section 6 made for the third
+time in this project. **Any "is X near Y" statistic must carry its chance rate
+in the same table as the observed rate**, or it cannot be read.
+
+### What this does NOT excuse
+1. **It is still a genuine isolation failure.** The residents are DIFFERENT
+   neurons. Kilosort built one cluster from two or three cells. That is a merge
+   problem rather than a noise problem -- real, and exactly what the footprint
+   work targets -- but it is not the problem the raw number implies.
+2. **~19% stays unexplained.** 1,415 foreign spikes have no local pre-existing
+   counterpart. Could be genuine new detections (injection changes the local
+   signal, and the hybrid run whitens 120 s on its own) or real noise. Not
+   separable with what exists now.
+3. **"Real spike" is not "clean neuron."** The largest single contributors are
+   frequently `mua` at 54%, 63%, 72%, even 224% contamination (cluster 159).
+   Those sources are themselves mixtures.
+4. **Precision is averaged UNWEIGHTED over units.** Units 163 and 186 score
+   0.0202 and 0.0318 -- each absorbed into a large resident cluster -- and carry
+   the same weight as units at 0.97. That is most of why the pair tier reads
+   0.4701.
+
+### The variance argument for a bigger run
+Within the easy tier alone: unit 461 scores 0.8618, unit 440 0.4490, unit 413
+0.3041. At n=3 per tier the tier means are close to meaningless. This is the
+strongest quantitative argument yet for the larger-neuron benchmark.
+
+### How to read every precision number in this log
+Precision here measures **"what fraction of this cluster is the neuron we
+planted, at a location that already hosted other neurons"**. It is a
+merge-with-resident measure, not a noise measure, and it is a severe lower
+bound on isolation quality. Only RELATIVE comparisons between configurations
+were ever meaningful, which section 5ac already said -- this section explains
+why, with numbers.
+
+Scripts: `demo_what_is_the_contamination.py`; outputs
+`contamination_identity_local.csv`, `contamination_sources_local.csv`.
+
+
+## 5ah. Redesigning the benchmark: 50 candidate units, and sites chosen by amplitude
+
+Gil asked for a bigger, better-designed rerun: (a) more units, each good and
+provably isolated from every other selected unit, with all of them shown
+before anything runs; (b) sites chosen deliberately -- easy = low noise, few
+events, no large units nearby; hard = the opposite; **collision and pair also
+quiet**, because there the challenge is separating units and channel noise must
+not be confounded with it.
+
+### The Trodes <-> Kilosort channel mapping (asked for, now established)
+The `.rec` header holds 384 `<SpikeNTrode>` entries in `.dat` column order with
+ids descending 1466 -> 1083, each carrying pad coordinates that match
+`channel_positions.npy` exactly (verified, not assumed):
+
+**`ntrode = 1466 - ks_channel`**  and  **`ks_channel = 1466 - ntrode`**
+
+So Gil's eyeballed quiet stretch, Trodes 1275-1211, is **KS channels 191-255**.
+
+### Gil's visual read was correct, and it identified the right criterion
+| measure | Trodes 1275-1211 | rest of probe | percentile |
+|---|---|---|---|
+| max neighbour amplitude | 47.1 uV | 86.0 uV | **p12** |
+| sum neighbour amplitude | 180 uV | 353 uV | p15 |
+| event density | 3,722 | 7,963 | p18 |
+| p99.9 voltage | 67.1 uV | 72.7 uV | p22 |
+| noise (MAD sigma) | 18.6 uV | 19.7 uV | p29 |
+
+Quiet on every measure, and most strongly on neighbour AMPLITUDE (p12) rather
+than on raw noise (p29). The criterion he named is the discriminating one.
+
+### "No units nearby" is impossible here; amplitude is the right measure
+`survey_probe_sites.py` required no units nearby and found **zero** qualifying
+channels of 334 eligible. This probe has 308 clusters with >= 100 spikes over
+384 channels -- roughly one unit per channel -- and the most isolated channel on
+the whole shank is 52 um from the nearest unit. Striatum has nowhere empty.
+
+Gil's correction: what matters is not whether neighbours exist but whether they
+are LARGE, since a small neighbour is just background. `survey_probe_amplitude.py`
+measures that directly -- every resident unit's real averaged waveform in
+microvolts, projected onto every channel, in one pass over 60 s of sampled
+chunks. The contrast available is **20x**: the quietest eligible site has a
+largest-neighbour of 22.9 uV (KS 166 / Trodes 1300), the loudest 466.5 uV
+(KS 139 / Trodes 1327).
+
+Criteria agreement (Spearman): noise vs max-neighbour +0.54, density vs
+max-neighbour +0.40, p99.9 vs max-neighbour +0.79. Related but far from
+interchangeable, so they must be applied jointly.
+
+### Source units: 50 candidates, 32 clean
+`select_source_units.py` replaces the >= 150 um mutual-separation proxy with a
+direct test. Two clusters that are really halves of ONE neuron must show a
+**refractory dip in their cross-correlogram** -- a single cell cannot fire twice
+within ~1 ms. So distance relaxes to 40 um and the CCG test carries the
+guarantee.
+
+Result: **50 accepted of 143** quality candidates (rejected 59 too close, 34 too
+similar, 0 by CCG dip). Final-set guarantees: closest pair 40 um, highest
+similarity 0.187, **worst CCG ratio 0.60** against a 0.30 dip threshold -- so no
+accepted pair is one neuron. 11 pair tests lacked power (< 50 flank counts) and
+distance carried those.
+
+Then shape flags, because the automatic filters cannot catch a cluster that is
+real but is not a somatic spike. 18 of 50 flagged, **32 clean**:
+- **broad-positive (16)**: positive peak >= 2x the trough with half-width
+  >= 0.40 ms -- the axonal/fibre-tract signature. These cluster at the probe
+  tip (channels 13-116), consistent with that part of the shank sitting outside
+  striatum. Not somatic spikes; excluded.
+- **single-channel (2)**: units 251 and 195, only the peak channel above 25% of
+  max amplitude. A real soma is seen by several sites.
+- **few-spikes (3)**: under 1,000 spikes, too few for a trustworthy average.
+
+32 clean units spanning channels 5-367 is 2.5x the previous 13.
+
+### The feasibility constraint that shapes the whole experiment
+At p35 cuts (noise <= 18.8 uV, max neighbour <= 60 uV) and 22-channel site
+spacing, one recording holds **8 quiet sites and 9 loud ones**. Easy, collision
+AND pair all draw from the quiet pool, so a single 120 s recording cannot hold
+many more than the previous 13 units. Getting robust statistics therefore means
+**several replicate recordings** (different `BG_START` windows, so backgrounds
+differ too) rather than cramming units together.
+
+Quiet sites: KS [166, 230, 272, 205, 352, 108, 66, 294] = Trodes
+[1300, 1236, 1194, 1261, 1114, 1358, 1400, 1172].
+Loud sites: KS [139, 71, 40, 335, 101, 303, 271, 195, 357] = Trodes
+[1327, 1395, 1426, 1131, 1365, 1163, 1195, 1271, 1109].
+
+Scripts: `survey_probe_sites.py` (count-based, kept as the negative result),
+`survey_probe_amplitude.py`, `select_source_units.py`. Outputs:
+`probe_amplitude_survey.csv`, `probe_amplitude_sites.json`,
+`selected_source_units.csv`, `selected_source_units.png`, `source_unit_audit.csv`.
+
+
+## 5ai. The v2 benchmark as built, and four silent placement failures
+
+The dataset Gil asked for, built and verified but not yet run.
+
+### What exists
+`build_tiered_v2.py <rep>` for rep 0-3, writing
+`D:\Gil\spike_sorting_agent\hybrid_v2_rep{0,1,2,3}\`.
+
+| | old benchmark | v2 |
+|---|---|---|
+| placements | 13 | **52** |
+| distinct units | 13 | **49** |
+| ground-truth spikes | 3,449 | **15,013** |
+| per tier | 3/3/3/4 | **12 easy / 12 hard / 12 collision / 16 pair** |
+| replicates | 1 | **4**, on four different windows of the session |
+
+Site amplitudes achieved (largest resident neighbour, measured in uV):
+
+| tier | median | range |
+|---|---|---|
+| pair | 31.7 | 23-70 |
+| easy | 38.4 | 23-66 |
+| collision | 47.4 | 23-70 |
+| **hard** | **333.8** | **191-467** |
+
+Quiet and hard do not overlap, and easy/collision now sit on comparable sites
+so collision difficulty is temporal only -- which was the point of moving them.
+
+### FOUR PLACEMENT BUGS, ALL OF WHICH PRODUCED A PLAUSIBLE DATASET
+This is the lesson worth keeping. None of these raised an error; each produced
+a dataset that looked fine and was quietly wrong.
+
+1. **Tier ordering.** Placing easy -> hard -> collision -> pair made the pairs
+   vanish entirely: hard sites at channels 71 and 335 sat within 22 channels of
+   every remaining quiet candidate. Fixed by placing most-constrained first
+   (pair -> easy -> collision -> hard) and by **asserting every tier got its
+   full count**, which caught the next three failures immediately.
+2. **Ordering bias.** Walking the quiet pool quietest-first gave the
+   first-placed tier the quietest sites and later tiers louder leftovers --
+   easy 31.5 uV median against collision 45.2 uV, a site difference confounded
+   with the tier label being measured. Fixed by packing best-first (which makes
+   the set large) then SHUFFLING the packed set (which removes the bias). The
+   loud pool is deliberately left sorted: only `hard` draws from it, so there is
+   no competition to debias and taking the loudest is the whole point.
+3. **Unchecked partner slot.** A pair's partner sits at a fixed channel gap, so
+   it must be CHECKED for quietness rather than chosen for it. One partner
+   landed on a 119 uV channel -- in the tier whose entire purpose is that the
+   only difficulty is separating two neurons.
+4. **Destructive search.** The pair loop consumed a new unit pair on every
+   failed placement, so one unplaceable pair burned the whole 49-unit pool and
+   left the other tiers nothing. The binding constraint is the SITE, not which
+   units were handed to the pair; the search now runs over anchor channels and
+   tries both gap directions.
+
+**Carry this forward: the v1 benchmark was never checked for silent gaps of
+this kind.** Its results in section 6 should be read with that in mind.
+
+### The expert-review correction on unit shape
+The first shape filter flagged on waveform polarity (positive peak >= 2x trough,
+wide half-width), rejecting 18 of 50 as putative fibre-tract signals. Gil
+reviewed the figure and overruled it -- those are fine -- and rejected the one
+unit the rule had passed, 403. Comparing 403 to accepted units, the real
+difference is spatial: a diffuse smear over 16 channels, where unit 428 has
+nearly identical polarity and half-width but a tight localized blob. Footprint
+compactness separates them cleanly (403 has 12 channels above 25% of peak,
+everything else <= 10). **The threshold is calibrated against one expert
+judgement on one probe, not derived**, and is documented as such in the code.
+
+### Status
+Blocked only on GPU availability. `bash run_all_v2.sh` runs 9 configurations x
+4 replicates (~70 min), refuses to start while Trodes is on the GPU, and is
+resumable. Then
+`python run_v2_comparison.py --compare <configs>` reports recall and precision
+per tier pooled across replicates, the spread ACROSS replicates, per-replicate
+tables, merge errors, and a Spearman correlation of recall against each
+measured site property -- which is what will finally separate "hard because the
+neighbour is loud" from "hard because the neighbourhood is busy".
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 — read this first)
 
 ### The one-paragraph version
@@ -2527,10 +2785,12 @@ premise much of sections 5q/5t were built on.
 - **Templates.npy is NOT in microvolts.** Kilosort normalizes it; multiplying
   by GAIN_TO_UV gives "0.2 uV spikes". Use real averaged snippets from the
   raw file.
-- **Base rates.** Any "is X near Y" statistic must be restricted to spatially
-  relevant units. An unrestricted version said 170 of 210 clusters were
-  "fragments" of every unit, and earlier that 98% of random timepoints were
-  near a spike.
+- **Base rates — made THREE times now.** Any "is X near Y" statistic must be
+  restricted to spatially relevant units AND must print its chance rate in the
+  same table as the observed rate. Unrestricted versions have claimed 170 of 210
+  clusters were "fragments" of every unit, that 98% of random timepoints were
+  near a spike, and that 96.2% of cluster contamination was pre-existing (real
+  answer, restricted to 60 um: 80.6% against 3.9% chance).
 - **F-ratios on fragments are partly circular** — if a split happens along a
   direction, the fragments must differ along it. It identifies the AXIS, not
   the cause.
@@ -2546,10 +2806,16 @@ premise much of sections 5q/5t were built on.
 - **Temporal whitening inside Kilosort** — built and validated on real noise
   (lag-1 0.72 → -0.09, ~3x discriminability) but never made into a patch. By
   finding 1 its ceiling is 4.8%, so it is the lowest-value remaining idea.
-- **A larger benchmark.** 13 units is thin; the user has asked for a bigger
-  run for robust statistics. The pool allows it: 131 verified-good units exist,
-  17 survive the mutual-independence filter at 150 um — relaxing to ~100 um or
-  using a longer recording window would allow 30-40 units.
+- **A larger benchmark — BUILT, NOT YET RUN (see 5ah/5ai).** Four replicates
+  exist on disk at `D:\Gil\spike_sorting_agent\hybrid_v2_rep{0,1,2,3}\`:
+  52 placements drawn from all 49 reviewed units, 15,013 ground-truth spikes,
+  12 easy / 12 hard / 12 collision / 16 pair. Sites chosen by measured
+  amplitude: quiet tiers 23-70 uV largest neighbour, hard tier 191-467 uV, no
+  overlap. **Blocked only on the GPU** — Trodes was acquiring and holds ~5.9 GB
+  of this 6.1 GB card at 100% utilisation, which starves Kilosort (it starts,
+  but was still on early detection batches after 10 minutes against ~2 minutes
+  for a full run). Launch with `bash run_all_v2.sh`, which refuses to start
+  while Trodes is on the GPU and skips completed runs. ~70 min for all 36.
 - Footprint weighting applied only to non-colliding spikes (the obvious
   refinement, blocked by having no working collision detector).
 - Burst-history amplitude recovery, Huber robust estimation, learned
@@ -2563,3 +2829,15 @@ data — a fair test of the underlying ideas might require retuning
 board (0.19-0.66) because the background holds hundreds of real neurons whose
 spikes legitimately enter matched clusters; only RELATIVE comparisons between
 configurations are meaningful.
+
+**Section 5ag quantifies that last point and it changes how the whole precision
+column should be read.** 80.6% of the spikes counted against precision are
+spikes the ORIGINAL Kilosort run already detected on a cluster within 60 um,
+versus 3.9% expected by chance. Counting those as real takes overall precision
+from 0.4669 to 0.8591 (easy 0.538 -> 0.803). "Quiet" in the easy tier meant the
+lowest-density channel available, not an empty one: those destinations host
+5-11 neurons firing ~10-15 spikes/s. So precision here measures merging with
+resident neurons, NOT a noise rate — a real isolation failure, but not the one
+the raw number suggests. Per-unit spread inside a single tier (easy: 0.30,
+0.45, 0.86) makes the n=3 tier means nearly meaningless and is the strongest
+argument for the larger run.

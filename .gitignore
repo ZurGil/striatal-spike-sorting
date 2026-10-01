@@ -2,3 +2,32 @@ __pycache__/
 *.pyc
 hybrid_small/*.bin
 hybrid_small/ks_*/
+
+# Benchmark datasets: the .bin files are 2.8 GB each and the ks_* directories
+# are regenerable Kilosort output. The small files beside them -- truth.npz,
+# manifest.csv, probe.json -- ARE tracked, because they are what makes a result
+# reproducible and they are only kilobytes.
+hybrid_tiered/*.bin
+hybrid_tiered/ks_*/
+hybrid_v2_rep*/*.bin
+hybrid_v2_rep*/ks_*/
+
+# Heavy analysis products under outputs/. GitHub hard-rejects any file over
+# 100 MB, so a single one of these makes a push impossible rather than merely
+# slow -- and the failure is silent, a push that hangs instead of erroring.
+# These are all regenerable from the scripts plus the raw recording; the small
+# CSV/JSON/PNG summaries beside them stay tracked.
+#
+# This list exists because `git add -A` run from a SUBDIRECTORY stages the
+# whole repository, not that directory. One such call swept a 2.6 GB .bin and
+# ~2 GB of parquet/pkl into a commit, and the resulting push could never
+# succeed.
+outputs/*.parquet
+outputs/*.pkl
+outputs/*.npy
+outputs/*.npz
+outputs/bombcell_results*/
+outputs/*_cache_*.pkl
+outputs/verdicts/
+*.dat
+*.bin

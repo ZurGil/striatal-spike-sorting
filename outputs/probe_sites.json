@@ -1,0 +1,18 @@
+{
+  "quiet_sites": [],
+  "hard_sites": [
+    95,
+    132,
+    271,
+    295,
+    317,
+    339
+  ],
+  "noise_quiet_thresh": 19.1629295233945,
+  "density_quiet_thresh": 3832.75,
+  "noise_hard_thresh": 20.01038692211422,
+  "density_hard_thresh": 12889.0,
+  "quiet_min_unit_dist_um": 60.0,
+  "hard_max_unit_dist_um": 30.0,
+  "site_spacing": 22
+}
