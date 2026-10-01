@@ -2388,128 +2388,178 @@ dominate the average -- but it is the first time the direction has been
 validated rather than argued.
 
 
-## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
+## 6. WHERE THINGS STAND  (current as of 2026-10-01 — read this first)
 
 ### The one-paragraph version
-The module reads Kilosort4 output plus raw voltage and scores candidate
-spikes against a unit's template, with three corrections layered on: wavelet
-sub-sample alignment (1b), temporal noise whitening (pillar 3 / step A), and
-multi-channel spatial footprint (1c). It is DIAGNOSTIC ONLY — nothing has
-ever written to a Kilosort or Phy file. The work moved from "find spikes
-Kilosort missed" to "figure out why a unit's own template cannot reject its
-neighbour's spikes." Footprint gating is now the answer to the second
-question and has been run inside a real detection scan: on the cleanest unit
-it removed 470 of 470 contaminating events at a cost of 0.8 points of recall.
-The cost of that is that almost nothing survives as a genuinely new spike.
+This project built a post-Kilosort correction module (wavelet sub-sample
+alignment, temporal noise whitening, spatial footprint), then a
+hybrid-ground-truth benchmark, then seven flag-gated modifications to
+Kilosort4 itself. The benchmark is the durable result: it can grade any idea
+in about two minutes against spikes whose true times we chose. Of the seven
+modifications, six are worthless and one — footprint-aware clustering — beats
+stock Kilosort decisively on the hardest case (two neurons three channels
+apart: recall +9.5 points AND precision +4.9 points) at a cost on
+temporally-overlapping spikes, finishing essentially tied overall. The most
+valuable output of the whole effort is diagnostic: **84% of Kilosort's
+failures on this data are spikes it DETECTED and then filed under the wrong
+cluster**, not spikes it missed.
 
-### Which session
-**20260916_110311**. Kilosort output at
-`F:\Gil\Shamir\20260916_110311.rec\20260916_110311.kilosort\kilosort4`,
-raw at `...\20260916_110311.probe1.dat` (290 GB, 378M samples, 210 min).
-Sections 1–5g used the earlier session 20260901_085606 (on D:), whose
-curation labels were flagged as untrustworthy — that is why the switch
-happened, and why its merge candidates are not being re-litigated.
-Constants are identical across both: nt0min=20, nt=61, fs=30000, 384
-channels. `GAIN_TO_UV = 0.018311105685598315` is carried over and NOT
-confirmed for this session (no gain field in its ops.npy) — harmless for
-R²/cosine/AUC, which are scale-invariant, wrong for any microvolt claim.
+### Where everything lives
+- Code: `D:\Gil\spike_sorting_agent\post_ks_correction\`
+- Git: branch `post-ks-correction`, remote
+  https://github.com/ZurGil/striatal-spike-sorting.git (auth works)
+- Session: `F:\Gil\Shamir\20260916_110311.rec\...\kilosort4` (210 min, 384 ch)
+- Benchmark data: `D:\Gil\spike_sorting_agent\hybrid_tiered\`
+- Kilosort source being patched:
+  `C:\Users\Adam\anaconda3\envs\kilosort4\Lib\site-packages\kilosort`
+- Two python envs: `phy2_ky` (analysis, no GPU), `kilosort4` (runs Kilosort)
 
-### What is built and validated
-- `nuisance_model.py` — amplitude+stretch fit. Use `fit_nuisance_prealigned`
-  (2-parameter); the 3-parameter version's timing and stretch regressors are
-  near-collinear and cannot be separated (section 1). Takes an optional
-  `whitening_matrix`.
-- `wavelet_features.py` — per-unit probe frequency selection
-  (`select_probe_frequency`, criterion="timing", f_hi=8000, grid +
-  bracketed golden-section refinement, edge warning), coarse+fine alignment
-  (`coarse_then_fine_shift`).
-- `noise_whitening.py` — AR(4) temporal noise model per channel to whitening
-  operator. Real noise is strongly correlated (lag-1 0.72 to -0.09 after
-  whitening); ~3x better spike-vs-noise discriminability.
-- `spatial_footprint.py` — per-channel amplitude footprint, cosine
-  similarity, plus `multichannel_template` / `multichannel_snippet_concat` /
-  `block_diagonal_whitening`.
-- `fixed_point_acceleration.py` — Aitken (scalar) and Anderson (vector)
-  acceleration for the template-rebuild fixed point. NOT for the frequency
-  search, which is a maximization.
-- `tests.py` — **31 tests, all passing**. Run `python tests.py` from inside
-  `post_ks_correction/`.
+### The benchmark — the thing worth keeping
+`build_tiered_hybrid_dataset.py` → `run_tiered_comparison.py`.
+120 s of real recording as background (real spikes, real correlated noise),
+with **13 verified-good neurons** injected at times and places we chose.
+3,449 known spikes. One Kilosort run ≈ 2 minutes once the file is cached.
+
+Source units must pass three filters, each added after a specific failure:
+1. `KSLabel == 'good'` and `ContamPct <= 10%` — because 8 of an earlier
+   17-unit selection were `mua`, two at 82% contamination, which makes
+   "splitting" possibly correct and the ground truth a lie.
+2. Mutually `>= 150 um` apart with Kilosort template similarity `<= 0.20` —
+   because two selected clusters could otherwise be two halves of ONE
+   oversplit neuron, which would make the pair tier score backwards. This
+   rejects 114 of 131 candidates; the final 13 are >= 160 um apart at
+   similarity 0.000.
+3. Visual check of real averaged waveforms
+   (`demo_plot_selected_unit_templates.py`): 94-345 uV, all troughs negative,
+   footprints 26-77 um, single smooth deflection each.
+
+Four deliberately-labelled difficulty tiers (the design rule: hard placements
+are GOOD as long as they are intentional and recorded — an earlier version had
+12.3% of spikes colliding by accident, which is the same thing done
+invisibly):
+
+| tier | placement |
+|---|---|
+| easy | quietest probe regions, times guarded from every resident spike |
+| noisy_channel | busiest probe regions (14x the background density), guarded times |
+| collision | quiet region, times deliberately 4-25 samples from a resident spike |
+| pair | two different neurons, destination peaks 3 channels apart |
+
+The pair tier is scored specially: correct behaviour is TWO clusters, so merge
+errors are reported separately — a merge error otherwise looks like excellent
+recall.
+
+**Control:** `vanilla_repeat` reproduces `vanilla` exactly. Noise floor is
+zero, so every difference is real signal.
+
+### The seven Kilosort modifications, and what each did
+All are flag-gated in `ks_patches.py`; `enable(name)` swaps a function at
+runtime, `disable()` restores it, and the installed package is never modified.
+Running with no flag is stock Kilosort by construction.
+
+| config | what it changes | where |
+|---|---|---|
+| `subsample_align` | sub-sample aligns each spike before the PCA projection | `spikedetect.run` |
+| `coarse_then_align` | adds an integer sliding alignment before the above | `spikedetect.run` |
+| `amplitude_normalize` | divides each snippet by its own magnitude | `spikedetect.run` |
+| `align_and_amp_norm` | both of the above | `spikedetect.run` |
+| `coarse_align_amp_norm` | coarse + fine align + amplitude normalize | `spikedetect.run` |
+| `footprint_cluster` | appends normalized per-channel footprint to clustering features, weight 1.0 | `clustering_qr.cluster` |
+| `footprint_cluster_strong` | same, weight 3.0 | `clustering_qr.cluster` |
+
+RECALL by tier (fraction of injected spikes found and correctly filed):
+
+| config | easy | collision | noisy | pair | overall |
+|---|---|---|---|---|---|
+| **vanilla** | **0.9303** | **0.8746** | **0.8037** | 0.5696 | **0.7773** |
+| footprint_cluster_strong | 0.9303 | 0.7428 | 0.7591 | **0.6644** | 0.7657 |
+| footprint_cluster | 0.9303 | 0.8348 | 0.7409 | 0.4356 | 0.7124 |
+| coarse_then_align | 0.9167 | 0.8683 | 0.5886 | 0.5297 | 0.7108 |
+| subsample_align | 0.9129 | 0.8616 | 0.6584 | 0.4374 | 0.6960 |
+| amplitude_normalize | 0.7786 | 0.8390 | 0.7926 | 0.4290 | 0.6882 |
+| coarse_align_amp_norm | 0.7600 | 0.8249 | 0.4257 | 0.5413 | 0.6305 |
+| align_and_amp_norm | 0.7512 | 0.8275 | 0.5749 | 0.4299 | 0.6293 |
+
+PRECISION by tier (fraction of the matched cluster that is really ours):
+
+| config | easy | collision | noisy | pair | overall |
+|---|---|---|---|---|---|
+| vanilla | 0.5383 | 0.5887 | **0.2696** | 0.4701 | 0.4669 |
+| **footprint_cluster_strong** | 0.5368 | 0.6187 | 0.1893 | **0.5188** | **0.4699** |
+| footprint_cluster | 0.5384 | **0.6506** | 0.2927 | 0.2941 | 0.4324 |
+| subsample_align | **0.5429** | 0.6576 | 0.2453 | 0.2856 | 0.4215 |
+| coarse_then_align | 0.5402 | 0.4749 | 0.1411 | 0.4331 | 0.4001 |
+| amplitude_normalize | 0.4770 | 0.4420 | 0.2575 | 0.2908 | 0.3610 |
+| coarse_align_amp_norm | 0.4657 | 0.4366 | 0.1045 | 0.4200 | 0.3616 |
+| align_and_amp_norm | 0.4628 | 0.4424 | 0.1307 | 0.2834 | 0.3262 |
+
+**Merge errors: ZERO for every configuration, vanilla included.** Kilosort
+never fused two nearby neurons on this benchmark. Its failure mode on
+closely-spaced cells is fragmentation, not merging — which contradicts the
+premise much of sections 5q/5t were built on.
 
 ### The findings that matter most
-1. **Single-channel scoring was the binding limitation, and footprint
-   gating fixes it — where the two units' footprints actually differ.**
-   Unit 440's detections went 474 to 1 with 470 of 470 contaminating events
-   from unit 439 removed, at a cost of 0.8 points of recall. (5q, 5s)
-2. **The footprint bar must be calibrated per pair, not at a fixed
-   percentile.** Where an impostor sits relative to the target's own score
-   distribution is a property of the pair. A bar at the target's 5th
-   percentile eliminated unit 439 entirely but let unit 412 through almost
-   untouched, even though 412 is separable at AUC 0.827. (5s)
-3. **The frequency-selection rule was wrong and made alignment harmful.**
-   Choosing f0 by argmax|W| ignores that the same f0 sets timing precision
-   (one cycle = fs/f0 samples, so any phase error is multiplied by
-   fs/(2*pi*f0)). At ~800 Hz a 10-degree phase error becomes a full sample.
-   The correct rule is argmax f0*|W(f0)|. Fixing it took spurious shift on
-   correctly-placed spikes from median 1.01 samples (53% moved >1 sample) to
-   0.37 (1.3%). (5o, 5r)
-4. **Detection recall is not this dataset's problem; cluster precision is.**
-   Every "new spike" count has shrunk each time the tooling got more honest:
-   115 to 40 with the frequency fix, and the surviving 37 on unit 408 do not
-   survive a properly-calibrated footprint gate either. Across ~150
-   candidates on six validated units, not one has held up. (5n, 5p, 5s)
-5. **Cosine similarity overstates spatial agreement and should never be
-   quoted alone.** 408/412: cosine 0.767 but Pearson r 0.481 (p=0.16).
-   440/439: cosine 0.589 but Pearson r -0.068. All-positive amplitude
-   vectors are never far apart in angle. (5m, 5t)
-6. **The rebuild loop has a noise floor around 6e-4 under plain iteration.**
-   Anderson (depth=3) is 1.9-5.3x faster at a reachable tolerance and
-   reaches residuals plain iteration never does. Set tol=1e-3; 1e-6 is below
-   the sampling noise floor of a 250-spike average. (5u)
+1. **84% of failures are misfiling, not missed detection.** (5ad) Of 3,449
+   injected spikes, vanilla found 69.5%, **detected-but-misfiled 25.7%**, never
+   detected 4.8%. Detection-stage work (whitening, thresholds) has a ceiling of
+   4.8%. Clustering-stage work addresses 25.7%. This should drive all future
+   prioritisation.
+2. **Footprint-aware clustering works on closely-spaced neurons.** (5af)
+   Pair tier: recall 0.5696 → 0.6644, precision 0.4701 → 0.5188, both up at
+   once, fragments 2.75 → 2.50. Dose-response is systematic (weight 1.0 gives
+   0.4356, weight 3.0 gives 0.6644).
+3. **It fails where spikes overlap in time**, losing 13 points on the collision
+   tier — because a colliding spike's measured per-channel energy is
+   contaminated by its neighbour, so weighting a corrupted descriptor heavily
+   amplifies the error. Helps in SPACE, hurts in TIME.
+4. **Amplitude normalization is actively harmful** everywhere (overall recall
+   0.6882 vs 0.7773).
+5. **Timing work is close to exhausted.** Sub-sample alignment measures to
+   0.035 samples RMS against ground truth (an 8x improvement on integer
+   alignment) and still does not help sorting.
+6. **The pair tier is by far the hardest** — vanilla drops from 0.93 to 0.57.
+   Deliberate collisions are EASIER than a busy channel.
+7. **Collision closeness predicts nothing** — recall is flat (0.70, 0.72, 0.72,
+   0.66) as the neighbouring spike moves from 4 to 25 samples away. Collisions
+   have repeatedly turned out to be a non-problem on this data.
 
-### What to do next, in priority order
-1. **Rerun the gated scan with per-pair calibrated bars** (5s's design
-   conclusion) across more units, and report detection counts at a stated
-   contamination target (e.g. "bar chosen to remove 90% of the dominant
-   impostor") rather than at a fixed percentile. This is the run that
-   produces defensible final numbers.
-2. **Decide what the deliverable actually is.** Given finding 4, the module's
-   value is not "extra spikes" but "which clusters are contaminated by which
-   neighbour, and how separable they are." A per-unit contamination report
-   — dominant impostor, footprint AUC against it, achievable
-   recall/contamination operating point — is a more honest product than a
-   missed-spike list, and every piece needed to build it now exists.
-3. **The hybrid-ground-truth validation experiment.** Still the only thing
-   that would establish real performance rather than diagnostics: inject
-   real deformation into real background and compare against Kilosort at a
-   matched false-positive rate.
-4. **Still never built:** burst-history amplitude-recovery curve and its
-   gating, robust (Huber) estimation, the learned deformation direction d_k,
-   and automatic split-candidate detection across a whole session.
+### Mistakes made, so they are not repeated
+- **Templates.npy is NOT in microvolts.** Kilosort normalizes it; multiplying
+  by GAIN_TO_UV gives "0.2 uV spikes". Use real averaged snippets from the
+  raw file.
+- **Base rates.** Any "is X near Y" statistic must be restricted to spatially
+  relevant units. An unrestricted version said 170 of 210 clusters were
+  "fragments" of every unit, and earlier that 98% of random timepoints were
+  near a spike.
+- **F-ratios on fragments are partly circular** — if a split happens along a
+  direction, the fragments must differ along it. It identifies the AXIS, not
+  the cause.
+- **Synthetic tests that use identical copies flatter everything.** The
+  multi-frequency ambiguity flag passed synthetically with a huge margin and
+  then failed completely on real spikes (AUC 0.62), because real spikes vary.
+- **Measure the quantity the patch actually uses.** I diagnosed a coarse-stage
+  bug from Kilosort's final output times when the patch operates on an earlier
+  internal index; the real coarse correction turned out to be ~0.
+- `r.shift` on a pandas row returns the DataFrame method, not the column.
 
-### Known caveats to carry forward
-- Units 440/439 and 408/412 both have near-identical waveforms on their
-  shared channel (0.972, 0.991) and are NOT merges. Shape agreement on one
-  channel is weak evidence; the footprint decides.
-- The refractory/CCG test is a VETO ONLY. Non-significance is never support
-  for a merge (5l). Both pairs above pass the refractory test and are still
-  rejected.
-- Footprint comparison is alignment-insensitive by construction
-  (peak-to-trough), but the 1c tests align both populations with the
-  target's template and this was never separately controlled.
-- Units 302 and 31 are unusable for detection work: their own real spikes
-  score at or below the noise floor.
-- "No nearby unit has this event" means no unit within 60 um has a spike
-  within 15 samples. It does not prove the event belongs to the unit tested.
-- Spike density is high enough (41M spikes / 3 h in the older session) that a
-  random timepoint is within 15 samples of SOME cluster's spike 98% of the
-  time. Any "already detected elsewhere" statistic MUST be restricted to
-  spatially relevant units or it is meaningless.
-- `outputs/pipeline_review_data.json` (source of the `sep_vs_noise` metric)
-  is from an EARLIER curation stage; some unit_ids in it no longer exist in
-  the final `spike_clusters.npy`. Always filter against the final data.
-- Unit IDs are per-session and arbitrary.
+### What has NOT been done
+- **Temporal whitening inside Kilosort** — built and validated on real noise
+  (lag-1 0.72 → -0.09, ~3x discriminability) but never made into a patch. By
+  finding 1 its ceiling is 4.8%, so it is the lowest-value remaining idea.
+- **A larger benchmark.** 13 units is thin; the user has asked for a bigger
+  run for robust statistics. The pool allows it: 131 verified-good units exist,
+  17 survive the mutual-independence filter at 150 um — relaxing to ~100 um or
+  using a longer recording window would allow 30-40 units.
+- Footprint weighting applied only to non-colliding spikes (the obvious
+  refinement, blocked by having no working collision detector).
+- Burst-history amplitude recovery, Huber robust estimation, learned
+  deformation direction d_k, automatic split detection across a session.
 
-### Git
-Branch `post-ks-correction` in `D:\Gil\spike_sorting_agent`, remote `origin`
-= https://github.com/ZurGil/striatal-spike-sorting.git. Authentication works
-as of 2026-09-30 (Git Credential Manager, credential stored).
+### Honest limits on everything above
+13 units, one 120 s dataset, one session, one animal. Patches were judged
+against Kilosort's thresholds and learned PC basis, both tuned on unmodified
+data — a fair test of the underlying ideas might require retuning
+`Th_universal`/`Th_learned` alongside. Absolute precision is low across the
+board (0.19-0.66) because the background holds hundreds of real neurons whose
+spikes legitimately enter matched clusters; only RELATIVE comparisons between
+configurations are meaningful.
