@@ -1,0 +1,13 @@
+unit,config,median_rms,median_slope,n_snippets
+440,single_wide,0.0395,0.9527,150
+440,multi_wide,0.057,0.8204,150
+440,single_narrow,0.0394,0.9185,150
+440,multi_narrow,0.0363,0.8947,150
+408,single_wide,0.0389,0.8838,150
+408,multi_wide,0.0637,0.7886,150
+408,single_narrow,0.0389,0.8878,150
+408,multi_narrow,0.0389,0.8889,150
+439,single_wide,0.0277,0.9298,150
+439,multi_wide,0.0565,0.8073,150
+439,single_narrow,0.0277,0.9313,150
+439,multi_narrow,0.028,0.9195,150

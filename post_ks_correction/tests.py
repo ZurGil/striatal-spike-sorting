@@ -28,6 +28,7 @@ import numpy as np
 
 import fixed_point_acceleration as fpa
 import multifreq_alignment as mfa
+import ground_truth_harness as gth
 
 from nuisance_model import (build_basis, check_basis_geometry, fit_nuisance,
                              fit_nuisance_prealigned, synthesize_deformed_spike)
@@ -798,6 +799,96 @@ def test_unambiguous_shift_limit_is_reported_and_real():
 
 
 # ---------------------------------------------------------------------------
+# Ground-truth harness. These test the HARNESS ITSELF -- if the thing that
+# defines truth is wrong, every number it produces is wrong, so it needs the
+# same scrutiny as any estimator.
+# ---------------------------------------------------------------------------
+
+def test_shift_waveform_is_accurate_and_invertible():
+    """shift_waveform DEFINES the ground truth, so it has to be exact.
+    Shifting by +d then -d must return the original waveform."""
+    w = _synthetic_spike(nt0min=20)
+    for d in (0.1, 0.25, 0.5, -0.35):
+        back = gth.shift_waveform(gth.shift_waveform(w, d), -d)
+        core = slice(8, len(w) - 8)   # ignore edges, where padding dominates
+        rel = np.abs(back[core] - w[core]).max() / np.abs(w).max()
+        assert rel < 0.02, f"shift by {d} then back changed the waveform by {rel:.3%}"
+
+
+def test_integer_shift_matches_a_plain_roll():
+    """A whole-sample shift has an unambiguous right answer, so the
+    interpolator must reproduce it -- this catches off-by-one and
+    sign-convention errors, which would silently invert every result."""
+    w = _synthetic_spike(nt0min=20)
+    got = gth.shift_waveform(w, 2.0)
+    core = slice(10, len(w) - 10)
+    assert np.allclose(got[core], np.roll(w, 2)[core], atol=0.02 * np.abs(w).max()),         "a +2 sample shift does not match np.roll(w, 2) -- sign or offset is wrong"
+
+
+def test_inject_places_waveform_at_the_requested_sample():
+    """The injected spike's nt0min sample must land exactly on the requested
+    index, or every 'true position' in the truth table is offset."""
+    w = _synthetic_spike(nt0min=20)
+    trace = np.zeros(500)
+    assert gth.inject(trace, w, 200, nt0min=20)
+    assert int(np.argmin(trace)) == 200, (
+        f"trough landed at {int(np.argmin(trace))}, expected 200")
+
+
+def test_ladder_cancels_an_unknown_intrinsic_offset():
+    """THE CORE CLAIM of the difference design: a real snippet carries an
+    unknown offset e, and grading differences must cancel it exactly. Here e
+    is simulated by pre-shifting the snippet by a secret amount; the graded
+    error must be ~0 regardless of its value."""
+    base = _synthetic_spike(nt0min=20)
+    shifts = np.array([-0.4, -0.2, 0.0, 0.2, 0.4])
+    for secret in (0.0, 0.31, -0.47):
+        snippet = gth.shift_waveform(base, secret)
+        trace, pos, d = gth.build_shift_ladder(np.zeros(4000), 300, snippet,
+                                                shifts, nt0min=20, separation=600)
+        # a perfect estimator sees (secret + d); grading must remove `secret`
+        est = secret + d
+        g = gth.grade_shift_ladder(est, d)
+        assert g["rms"] < 1e-9, f"secret {secret}: rms {g['rms']:.3g}, should cancel"
+        assert abs(g["slope"] - 1.0) < 1e-9
+
+
+def test_grade_reports_gain_error_not_just_scatter():
+    """An estimator that under-corrects (returns 0.6*d) is badly broken but
+    could still look acceptable on RMS alone at small shifts. The slope must
+    expose it."""
+    d = np.array([-0.4, -0.2, 0.0, 0.2, 0.4])
+    g = gth.grade_shift_ladder(0.6 * d, d)
+    assert abs(g["slope"] - 0.6) < 1e-9, f"slope {g['slope']}, expected 0.6"
+
+
+def test_quiet_positions_avoid_known_spikes():
+    """Injection sites must be clear of real spikes from the relevant units,
+    or 'quiet background' is a lie and the harness understates difficulty."""
+    rng = np.random.default_rng(0)
+    busy = np.sort(rng.integers(10_000, 90_000, size=2000))
+    clusters = np.zeros(len(busy), dtype=int)
+    pos = gth.find_quiet_positions(busy, clusters, {0}, 10_000, 90_000,
+                                    n_positions=25, guard_samples=100,
+                                    min_separation=500, rng=rng)
+    assert len(pos) > 0, "found no quiet positions at all"
+    for p in pos:
+        assert np.min(np.abs(busy - p)) > 100, f"position {p} sits on a spike"
+    assert np.min(np.diff(np.sort(pos))) >= 500, "injected spikes could interfere"
+
+
+def test_detection_matching_is_one_to_one():
+    """Three detections clustered around one true spike must count as one hit
+    and two false positives, not three hits."""
+    r = gth.match_detections([100, 101, 102, 500], [100, 500], tolerance=5)
+    assert r["n_hit"] == 2, f"hits {r['n_hit']}, expected 2"
+    assert r["n_false_positive"] == 2, f"FPs {r['n_false_positive']}, expected 2"
+    assert r["recall"] == 1.0
+    r2 = gth.match_detections([100], [100, 500], tolerance=5)
+    assert r2["n_missed"] == 1 and r2["recall"] == 0.5
+
+
+# ---------------------------------------------------------------------------
 # Fixed-point acceleration (stage 3) -- for the template-rebuild loop.
 # ---------------------------------------------------------------------------
 
@@ -897,6 +988,13 @@ ALL_TESTS = [
     test_ar_fit_recovers_known_process,
     test_whitening_operator_decorrelates_known_process,
     test_fit_nuisance_prealigned_whitening_matches_unweighted_when_identity,
+    test_shift_waveform_is_accurate_and_invertible,
+    test_integer_shift_matches_a_plain_roll,
+    test_inject_places_waveform_at_the_requested_sample,
+    test_ladder_cancels_an_unknown_intrinsic_offset,
+    test_grade_reports_gain_error_not_just_scatter,
+    test_quiet_positions_avoid_known_spikes,
+    test_detection_matching_is_one_to_one,
     test_phase_slope_recovers_a_known_subsample_shift,
     test_clean_spike_has_low_scatter_collision_has_high_scatter,
     test_multifrequency_beats_single_frequency_under_noise,

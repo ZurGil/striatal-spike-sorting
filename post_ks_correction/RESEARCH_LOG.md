@@ -1577,6 +1577,113 @@ measure. **The harness moves from "prerequisite I keep recommending" to the
 only remaining way to settle this.**
 
 
+## 5x. The ground-truth harness, and its first verdict: multi-frequency is unnecessary, and the simple estimator is good enough to install in Kilosort
+
+New module `ground_truth_harness.py`, seven new tests (43/43 passing), and
+`demo_ground_truth_alignment_accuracy.py`. This is the thing that has been
+listed as "the only way to establish real performance" since section 6 was
+first written, and it settled an open question on its first run.
+
+### Why it was finally built
+Four results in this project have evaporated under better testing: the "new
+spikes" twice, the footprint-gate reading I had backwards, and the
+multi-frequency ambiguity flag that passed synthetic tests and failed
+completely on real spikes (5w). Every number before this was one
+configuration against another, with no known truth anywhere.
+
+### The design, and the mistake it is built to avoid
+5w's failure was instructive: the synthetic ambiguity test passed with a huge
+margin and meant nothing, because every "clean" spike in it was an IDENTICAL
+copy of the template, so the only thing that could disturb the phase was the
+collision I had planted. Real spikes vary in amplitude and shape from firing
+to firing, and that variation disturbs the phase just as much. A harness that
+injects identical template copies would flatter us the same way.
+
+So the harness uses the unit's **own real snippets**, which carry that
+variability. The apparent problem is that a real snippet's intrinsic
+sub-sample offset `e` is unknown, which seems to destroy the ground truth. It
+does not, if the question is asked as a difference: inject copies of the SAME
+snippet at known shifts `d_j` and grade
+
+    estimate(d_j) - estimate(d_0)  ==  d_j - d_0
+
+and `e` cancels exactly. Absolute accuracy, real variability, no assumption
+anywhere that a real spike resembles its template.
+
+Other design points: background is real recorded voltage at positions where
+no unit within 60 um has a spike within 150 samples (so real noise with its
+real lag-1 correlation of ~0.72, not Gaussian white noise); one injected
+spike per trace so nothing can interfere; measurement taken at the known
+injection index so both estimators are asked the identical question, which
+isolates the fine stage being compared.
+
+Seven tests cover the harness itself, because if the thing defining truth is
+wrong then every number it produces is wrong: interpolation accuracy and
+invertibility, integer shift matching `np.roll` (catches sign and off-by-one
+errors that would silently invert every result), injection landing on the
+requested sample, the offset-cancellation claim verified against secret
+pre-shifts, the slope diagnostic catching a deliberately under-correcting
+estimator, quiet positions genuinely avoiding spikes, and one-to-one
+detection matching.
+
+### First verdict: multi-frequency does not earn its place
+150 real snippets per unit, shifts [-0.4, -0.2, 0, 0.2, 0.4]:
+
+| config | median RMS (samples) | median slope |
+|---|---|---|
+| **single probe, narrow band** | **0.0389** | **0.919** |
+| single probe, wide band | 0.0389 | 0.930 |
+| multi probe, narrow band | 0.0363 | 0.895 |
+| multi probe, wide band | 0.0570 | 0.807 |
+
+Multi-probe beat single-probe on 48.7%, 50.7% and 48.7% of snippets for units
+440, 408 and 439 — a coin flip. Marginally better median RMS in the narrow
+band, slightly worse gain, and clearly worse with a wide band.
+
+The relationship between the two estimators makes this interpretable. The
+multi-probe estimate solves `Δφ_k = x_k·δ` with `x_k = -2πf_k/fs` by weighted
+least squares, `w_k ∝ (f_k|W(f_k)|)²`. At K=1 that collapses exactly to
+`δ̂ = -Δφ/ω`, the existing estimator, and `argmax f|W(f)|` is just
+`argmax w_k`. So the single-probe rule is the K=1 case keeping only the
+heaviest weight. The theoretical variance gain from using the rest requires
+the measurements to be independent; they share one noise realization and the
+wavelets overlap in time, so the gain does not materialize.
+
+**Decision: keep the single-probe estimator. `multifreq_alignment.py` stays
+in the repository as a tested, measured negative result, not as a pipeline
+component.**
+
+### Two findings only the harness could produce
+1. **The single-probe fine stage is already excellent: RMS 0.028-0.039
+   samples**, about one microsecond. There was nothing left for extra probes
+   to win. This also explains why multi-frequency looked good synthetically —
+   that test was unrealistically hard in the wrong dimension.
+2. **Every variant systematically under-corrects by ~7-8%** (slope ~0.92, not
+   1.00). This was completely unknown, is invisible to an RMS figure, and
+   only shows up against known truth. Every correction the pipeline applies
+   is slightly too small. Worth chasing: likely candidates are the
+   first-order phase linearization and the cubic interpolation used both to
+   inject and to resample.
+
+### The consequence for the Kilosort integration question
+This is the strongest evidence yet, and it points in favour:
+
+- Kilosort's `align_U` aligns to whole samples, leaving up to 0.5 samples of
+  residual error (RMS ~0.29 for a uniform residual).
+- Our estimator's RMS is ~0.035 samples.
+- That is an **8x reduction** in timing error.
+- Section 5v measured that 0.5 samples of jitter displaces a unit's
+  clustering features by 18% of the between-unit spread; scaling to 0.035
+  samples puts that near 1%.
+
+So the tool is accurate enough to be worth installing, and the simple
+corrected single-probe version is sufficient — the multi-frequency
+elaboration is not needed. What remains before touching Kilosort is to use
+the harness for the question it was built for: does replacing integer
+alignment actually improve clustering, measured end to end at a matched
+false-positive rate.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version
