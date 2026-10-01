@@ -1684,6 +1684,117 @@ alignment actually improve clustering, measured end to end at a matched
 false-positive rate.
 
 
+## 5y. Sub-sample alignment implanted in Kilosort4 and graded end to end — the feature-space effect is real, the sorting benefit is a wash, and oversplitting is NOT caused by jitter
+
+First actual change to Kilosort, measured against injected ground truth.
+Files: `ks_patches.py` (the patch), `build_small_hybrid_dataset.py` (the test
+data), `run_hybrid_comparison.py` (the grader).
+
+### Reversibility, as required
+Nothing modifies the installed kilosort package. `ks_patches.enable(name)`
+swaps one function at runtime; `disable()` restores it; the patched function
+checks the flag at the top and calls the original when off, so stock
+behaviour is reproduced by construction rather than by assertion.
+
+### Where the patch goes, and the correction to my earlier plan
+I had said `align_U` in `template_matching.py`, since it is the function
+that visibly shifts by whole samples (`torch.roll`). **That was wrong.**
+`align_U` aligns templates to each other AFTER they are built, and a
+template is already an average of jittered spikes — realigning an average
+cannot un-blur it. The blur must be prevented where snippets are measured,
+which is in `spikedetect.run`:
+
+    xsub  = X[iC[:,xy[:,:1]], xy[:,1:2] + tarange]   # integer positions
+    xfeat = xsub @ ops['wPCA'].T                     # <- the replaced line
+
+Implementation uses `<shift(x,-d), w> == <x, shift(w,+d)>`: the PC basis is
+precomputed at 41 sub-sample offsets and each spike uses the nearest, so no
+snippet is ever resampled. One detail that would have been a silent
+disaster: `spikedetect` snippets are centred at `nt//2`, not at `nt0min`.
+f0 is chosen once from `wPCA[0]` by `argmax f*|W(f)|` (1507 Hz here), because
+at detection time no units exist to select per-unit frequencies from.
+
+### The mechanism works in isolation
+On Kilosort's own PC basis, feeding in the same waveform at shifts from
+-0.4 to +0.4 samples: feature spread across those shifts drops from 0.1015
+to 0.0061, a **16.6x reduction**. Recovered shifts have the right sign and
+magnitude (-0.40 -> -0.383, +0.45 -> +0.431; the ~4% shortfall matches the
+slope-0.92 bias found in 5x).
+
+### The control that makes the comparison readable
+`vanilla_repeat` reproduced the first vanilla run **exactly** — every
+per-unit recall, precision and fragment count identical, 210 clusters both
+times. Kilosort4 is deterministic on this dataset, so the run-to-run noise
+floor is zero and every difference below is real signal rather than variance.
+Without this control a 2-point change could not have been interpreted at all.
+
+### The result
+2,876 injected spikes, 5 real units relocated 40 channels away, 120 s of real
+background:
+
+| unit | recall van -> patched | precision van -> patched | fragments van -> patched |
+|---|---|---|---|
+| 31  | 0.765 -> 0.765 | 0.502 -> 0.493 | 6 -> 6 |
+| 302 | 0.830 -> **0.892** | 0.934 -> **0.853** | 7 -> 8 |
+| 408 | 0.679 -> **0.630** | 1.000 -> 1.000 | 10 -> 9 |
+| 439 | 0.998 -> 0.998 | 0.993 -> 0.992 | 7 -> 6 |
+| 440 | 0.777 -> **0.865** | 0.985 -> 0.988 | 6 -> 5 |
+
+Pooled: overall recall **0.8098 -> 0.8303** (+2.05 points), mean precision
+**0.8828 -> 0.8650** (-1.78 points), total clusters 210 -> 205, mean
+fragments per unit 7.2 -> 6.8.
+
+**Verdict: a wash.** Two points of recall bought at the cost of nearly two
+points of precision, with one clear winner and one clear loser:
+- unit 440 genuinely improved — 456 -> 508 spikes found (+52), precision
+  slightly up, one fewer fragment.
+- unit 408 genuinely got worse — 393 -> 365 (-28) — and it is the unit that
+  was most oversplit to begin with, which is the opposite of the prediction.
+- unit 302 traded recall for precision (+6.2 / -8.2).
+- units 31 and 439 did not move at all.
+
+### The central hypothesis does not survive
+The prediction was explicit: sub-sample jitter pollutes the clustering
+features, so removing it should reduce oversplitting. **Fragments per unit
+went from 7.2 to 6.8.** That is essentially unchanged, and unit 408 — the
+worst case at 10 fragments with perfect precision, the textbook jitter
+signature — improved by only one fragment while losing recall.
+
+So jitter is NOT the main driver of oversplitting in this recording, even
+though both supporting measurements were real and reproducible: the 18%
+feature displacement at half a sample (5v) and the 16.6x spread reduction
+above. The chain "jitter moves features -> moved features cause splits"
+breaks at the second link. Kilosort's clustering is evidently more robust to
+that displacement than the geometry suggested, and whatever sets the number
+of clusters here is something else — candidates are amplitude variability,
+bursting, drift, or the clustering algorithm's own granularity.
+
+### Honest notes
+- **The runtime difference is a disk-cache artifact, not a speedup.** First
+  vanilla run 1287 s (cold read of the 2.76 GB file), patched 131 s,
+  vanilla_repeat 132 s. The patch costs no measurable time, but it does not
+  save any either.
+- Kilosort's thresholds and its learned PC basis were tuned on unaligned
+  data. Changing the feature distribution may perturb behaviour for reasons
+  unrelated to jitter, and the mixed per-unit results are consistent with
+  that. A fair test of the idea might require re-tuning `Th_universal` and
+  `Th_learned` alongside, which has not been done.
+- Only 5 injected units on one 120 s dataset. Unit-level differences of
+  +52 and -28 spikes are real but this is not a sample size that supports a
+  general claim about Kilosort.
+- The dataset enforces 120 samples between injected spikes, so it does not
+  test collisions between injected units.
+
+### What this means for the plan
+The flag-gated patch framework works and the grading harness works — that
+infrastructure is the durable result here, and it is what lets any future
+change be judged in about two minutes per run on cached data. But
+`subsample_align` as it stands does not earn being switched on by default.
+Before continuing down this path the next question is whether oversplitting
+has a different cause, since that is the problem worth solving and jitter
+has now been measured not to be it.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version

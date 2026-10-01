@@ -46,6 +46,9 @@ TRUTH = os.path.join(DATA_DIR, "hybrid_small_truth.npz")
 PROBE = os.path.join(DATA_DIR, "probe.json")
 RESULTS = r"D:\Gil\spike_sorting_agent\outputs"
 TOLERANCE = 10
+MIN_FRAGMENT_SPIKES = 15      # a cluster must hold at least this many of a
+MIN_FRAGMENT_FRAC = 0.02      # unit's spikes (or this fraction) to count as
+                              # a real fragment rather than a coincidence
 
 
 def score(config):
@@ -64,14 +67,25 @@ def score(config):
         cand = set()
         for t in tt:
             cand.update(cl[np.abs(st - t) <= TOLERANCE].tolist())
-        best, touching = None, 0
+        # Oversplit measure. Counting every cluster with ANY matched spike is
+        # meaningless at this spike density -- the background is busy enough
+        # that nearly every cluster coincidentally holds a spike within
+        # TOLERANCE of some injected spike, which is why the first version of
+        # this metric reported ~170 of 210 clusters for every unit. Only
+        # clusters holding a real SHARE of the unit's spikes count as a
+        # genuine fragment. Same base-rate trap as the "98% of random
+        # timepoints" error recorded in the log's caveats.
+        min_share = max(MIN_FRAGMENT_SPIKES, int(MIN_FRAGMENT_FRAC * len(tt)))
+        best, fragments, frag_sizes = None, 0, []
         for c in cand:
             td = np.sort(st[cl == c])
             mr = match_detections(td, tt, tolerance=TOLERANCE)
-            if mr["n_hit"] > 0:
-                touching += 1
+            if mr["n_hit"] >= min_share:
+                fragments += 1
+                frag_sizes.append(mr["n_hit"])
             if best is None or mr["n_hit"] > best[1]["n_hit"]:
                 best = (int(c), mr, len(td))
+        touching = fragments
         if best is None:
             rows.append(dict(config=config, injected_unit=int(u), n_true=len(tt),
                              matched_cluster=-1, n_in_cluster=0, n_matched=0,
@@ -83,7 +97,9 @@ def score(config):
                          n_matched=mr["n_hit"],
                          recall=round(mr["n_hit"] / len(tt), 4),
                          precision=round(mr["n_hit"] / n_in, 4) if n_in else np.nan,
-                         n_clusters_touching=touching))
+                         n_clusters_touching=touching,
+                         matched_in_fragments=int(sum(frag_sizes)),
+                         largest_other_fragment=int(sorted(frag_sizes)[-2]) if len(frag_sizes)>1 else 0))
     df = pd.DataFrame(rows)
     df["n_total_clusters"] = len(np.unique(cl))
     df["n_total_spikes"] = len(st)
@@ -94,7 +110,13 @@ def run(config):
     from kilosort import run_kilosort
     from kilosort.io import load_probe
 
-    if config != "vanilla":
+    # Any config whose name starts with "vanilla" runs unpatched. This is
+    # what makes a vanilla-vs-vanilla repeat run possible, which is the
+    # control that says whether a difference between configs is bigger than
+    # Kilosort's own run-to-run variability (its clustering has random
+    # initialization). Without that number, a small improvement cannot be
+    # distinguished from noise.
+    if not config.startswith("vanilla"):
         import ks_patches
         ks_patches.enable(config)
         print(f"[patch] enabled: {config}")
