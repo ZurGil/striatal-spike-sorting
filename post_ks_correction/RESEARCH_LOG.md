@@ -2785,11 +2785,11 @@ source before declaring success.**
 **Trodes is CLOSED** (17:10, after confirming 0 bytes of disk I/O over 12 s and
 the source file untouched for 3 h). GPU is free: ~500 MiB / ~20%.
 
-**A single Kilosort validation run was launched at 17:11**
-(`vanilla` on replicate 0) to confirm the stall below is cured. A healthy run
-takes ~2 minutes. If it produced
-`hybrid_v2_rep0/ks_vanilla/spike_times.npy`, Kilosort works and the full sweep
-can start; that run also counts as 1 of the 36.
+**Kilosort is CONFIRMED WORKING once Trodes is closed.** A validation run
+(`vanilla`, replicate 0) launched 17:11 finished in **191 s**, producing
+224,347 spikes in 216 clusters. That settles the stall below: it was Trodes,
+not a code fault. **That run counts as 1 of the 36** — `run_all_v2.sh` will skip
+it. Expect ~3.2 min per run, so ~1.9 h for the remaining 35.
 
 **THE STALL, and why Trodes was closed.** Three separate attempts to run
 Kilosort froze at exactly the same point — `spikedetect` logging "Detecting
