@@ -1999,6 +1999,152 @@ overlap. Destination peak channels span ch30-ch349. That replaces the
 five-hand-picked-units base that this entire line of reasoning rested on.
 
 
+## 5ab. A tiered benchmark: verified-good neurons placed into deliberately easy and hard situations
+
+Built at the user's direction, replacing the all-easy dataset. The point:
+a clean neuron on a quiet channel is found by every version of the algorithm,
+so an average over such units cannot discriminate. Difficulty is stratified on
+purpose and recorded per unit, so a change can be judged where it is meant to
+help.
+
+The design rule the previous dataset violated: injecting into busy or
+colliding situations is GOOD, provided it is INTENTIONAL and LABELLED. The
+earlier version had 12.3% of its spikes colliding by accident, which is the
+same thing done invisibly and therefore uninterpretable.
+
+**Sources are verified first, always.** All 13 are KSLabel=good with
+ContamPct <= 10%. Difficulty comes from WHERE and WHEN verified spikes are
+placed, never from using a dubious source.
+
+**Mutual independence is enforced, not hoped for.** KSLabel=good says a
+cluster looks like a single unit on its own; it does not rule out two
+clusters being halves of one neuron Kilosort oversplit. That is fatal for the
+pair tier, where correct behaviour would then be to MERGE. Selection now
+requires every pair of sources to be >= 150um apart with Kilosort template
+similarity <= 0.20, which rejects 114 of 131 candidates and leaves 13 whose
+closest pair is 160um apart at similarity 0.000.
+
+**The four tiers** (3,449 spikes total):
+
+| tier | placement | local background density |
+|---|---|---|
+| easy | quietest probe regions, guarded times | 1,744-1,883 |
+| noisy_channel | busiest probe regions, guarded times | 21,659-26,185 |
+| collision | quiet region, times deliberately 4-25 samples from a resident spike | 1,910-3,601 |
+| pair | two different neurons, destination peaks 3 channels apart | 6,058-8,488 |
+
+**The pair tier is scored differently** -- correct behaviour is TWO clusters,
+so merge errors are reported separately. A merge error can look like
+excellent recall (fusing two neurons finds all spikes of both), so averaging
+it in would read as success.
+
+**The selection was also checked by eye** ().
+That found a mistake worth recording: plotting Kilosort's templates.npy scaled
+by GAIN_TO_UV gave 0.1-0.3 uV spikes, because those templates are
+normalized -- a caveat already in this log, walked into anyway. Replaced with
+real averaged waveforms from the raw file: 94-345 uV peak-to-peak, every
+trough negative, footprints 26-77um, every unit a single smooth deflection
+decaying with distance. Pair members are visibly different in shape, which
+matters or the pair tier would test the wrong thing.
+
+
+## 5ac. The tiered benchmark's verdict: every patch makes Kilosort worse, with exactly one real exception
+
+The tiered dataset (5ab) run through all configurations. `vanilla_repeat`
+reproduced `vanilla` **exactly** -- same recall, precision, fragment counts
+and cluster count -- so the run-to-run noise floor on this dataset is zero and
+every difference below is real signal.
+
+### Recall by tier
+
+| tier | vanilla | subsample_align | amplitude_normalize | both |
+|---|---|---|---|---|
+| easy | **0.9303** | 0.9129 | 0.7786 | 0.7512 |
+| collision | **0.8746** | 0.8616 | 0.8390 | 0.8275 |
+| noisy_channel | **0.8037** | 0.6584 | 0.7926 | 0.5749 |
+| pair | **0.5696** | 0.4374 | 0.4290 | 0.4299 |
+| **overall** | **0.7773** | 0.6960 | 0.6882 | 0.6293 |
+
+### Precision by tier
+
+| tier | vanilla | subsample_align | amplitude_normalize | both |
+|---|---|---|---|---|
+| easy | 0.5383 | **0.5429** | 0.4770 | 0.4628 |
+| **collision** | 0.5887 | **0.6576** | 0.4420 | 0.4424 |
+| noisy_channel | **0.2696** | 0.2453 | 0.2575 | 0.1307 |
+| pair | **0.4701** | 0.2856 | 0.2908 | 0.2834 |
+| **overall** | **0.4669** | 0.4215 | 0.3610 | 0.3262 |
+
+**Stock Kilosort wins recall in every single tier, and wins precision in three
+of four.** `amplitude_normalize` is clearly harmful, which is consistent with
+5aa having already refuted the hypothesis behind it. Combining the two patches
+is worse than either alone.
+
+### The one real win, and the tiers are what exposed it
+`subsample_align` improves precision in the **collision** tier: **0.6576
+versus 0.5887**, nearly 7 points. That is the one tier where sub-sample timing
+should matter most -- spikes deliberately placed 4-25 samples from a resident
+spike, where getting the alignment right is what separates the two waveforms.
+The effect is real (zero noise floor) and it is in exactly the predicted
+place.
+
+It was invisible in the previous all-easy dataset, where everything averaged
+to "slightly worse". That is precisely the argument for stratifying difficulty
+rather than averaging over it, and the tiers earned their cost on this one
+result.
+
+It still does not make the patch worth enabling: the same configuration loses
+1.3 points of collision recall and 8 points of overall recall.
+
+### What the tiers revealed about difficulty
+The intended gradient came out, and not in the order I would have guessed:
+
+| tier | vanilla recall | vanilla precision |
+|---|---|---|
+| easy | 0.9303 | 0.5383 |
+| collision | 0.8746 | 0.5887 |
+| noisy_channel | 0.8037 | 0.2696 |
+| **pair** | **0.5696** | 0.4701 |
+
+**The pair tier is by far the hardest** -- two different neurons 3 channels
+apart cost Kilosort 36 points of recall relative to the easy case. Deliberate
+collisions were *easier* than a busy channel, which is worth remembering given
+how much effort this project spent on collisions (and consistent with 5w
+finding tight collisions rare in this recording).
+
+### Merge errors: none, by any configuration
+Both pairs were kept as separate clusters by every configuration, including
+vanilla. So Kilosort does not merge nearby distinct neurons here -- it
+*fragments* them instead (2.75 fragments per pair unit). The failure mode on
+closely-spaced neurons is oversplitting with poor recall, not merging.
+
+That matters for this project's direction. Sections 5q and 5t built the
+footprint machinery to tell apart neurons that a single channel confuses, on
+the premise that wrongly merging them was the risk. On this benchmark that
+risk does not materialize for Kilosort itself.
+
+### Honest limits
+- 13 units, one 120 s dataset, one session, one animal.
+- The patches were tested against Kilosort's thresholds and learned PC basis,
+  both tuned on unaligned, unnormalized data. A fair test of the underlying
+  ideas might require retuning `Th_universal`/`Th_learned` alongside, which has
+  not been done. The measurement here is "does switching this flag on help as
+  Kilosort currently stands", and the answer is no.
+- Absolute precision is low across the board (0.27-0.59) because the
+  background contains hundreds of real neurons whose spikes legitimately
+  enter the matched clusters. Only RELATIVE comparisons between configurations
+  are meaningful here.
+
+### Status of the Kilosort integration work
+Three patches built, all flag-gated, all measured against ground truth:
+**none should be enabled.** The infrastructure stands -- a tiered benchmark
+with verified-good, mutually-independent sources, deliberate difficulty, and a
+scorer that reports per tier plus merge errors, running in about two minutes
+per configuration. The hypotheses it was built to test have all failed, which
+is a result rather than a loss, and it is the first time this project could
+have known that before shipping something.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version
