@@ -2145,6 +2145,104 @@ is a result rather than a loss, and it is the first time this project could
 have known that before shipping something.
 
 
+## 5ad. Why the missed spikes were missed: 84% are a CLUSTERING failure, not a detection failure
+
+Prompted by the question "were the missed spikes missed for a specific
+reason?" -- which had never been asked. Recall 0.78 is a score, not a
+diagnosis, and the fix for each possible cause lives in a different part of
+the algorithm. Script: `demo_why_were_spikes_missed.py`.
+
+Every injected spike is classified into one of three outcomes:
+
+  **found**              assigned to the cluster matched to its unit
+  **detected_misfiled**  a spike IS present at the right time, but filed under
+                         a different cluster. Detection worked; clustering
+                         scattered it.
+  **not_detected**       no spike of any cluster near that time. Detection
+                         never saw it.
+
+### The headline, on stock Kilosort
+
+| outcome | count | share |
+|---|---|---|
+| found | 2,396 | 69.5% |
+| **detected, misfiled** | **886** | **25.7%** |
+| never detected | 167 | 4.8% |
+
+Of the 1,053 failures, **886 (84%) were detected and then misfiled**, and only
+167 (16%) were never detected at all. Kilosort's detection stage sees 95% of
+the injected spikes. The loss is almost entirely in deciding which cluster
+they belong to.
+
+**This reframes the whole integration effort.** Work aimed at the detection
+stage can address at most 4.8% of injected spikes. Work aimed at clustering
+addresses 25.7%. Those are not close.
+
+### Does amplitude explain it?
+Partly, and it is a clustering effect rather than a threshold effect, since
+these spikes are being detected:
+
+| injected amplitude | recall |
+|---|---|
+| 65-117 uV | 0.532 |
+| 117-138 uV | 0.619 |
+| 138-161 uV | 0.691 |
+| 161-206 uV | 0.755 |
+| 206-609 uV | 0.877 |
+
+Median amplitude by outcome: found 157 uV, misfiled 136 uV, never detected
+124 uV. Smaller spikes are both harder to detect and much harder to file
+correctly -- but even the largest quintile loses 12%.
+
+### Does collision closeness explain it? No.
+Recall across the deliberate-collision tier, by how close the resident spike was:
+
+| offset | recall |
+|---|---|
+| 0-8 samples | 0.699 |
+| 8-14 | 0.719 |
+| 14-20 | 0.721 |
+| 20-26 | 0.664 |
+
+Flat. Collision distance does not predict misses, consistent with 5w finding
+tight collisions rare and 5ac finding the collision tier easier than a busy
+channel. Collisions have absorbed a lot of this project's effort and keep
+coming back as a non-problem on this data.
+
+### By tier (vanilla)
+
+| tier | misfiled | found | not detected | recall |
+|---|---|---|---|---|
+| easy | 110 | 696 | 9 | 0.854 |
+| noisy_channel | 172 | 601 | 35 | 0.744 |
+| collision | 210 | 537 | 15 | 0.705 |
+| **pair** | **394** | 562 | **108** | **0.528** |
+
+The pair tier fails hardest in both ways at once, and it is the only tier
+where "never detected" is substantial (108). Two neurons three channels apart
+degrade detection as well as assignment.
+
+### What this says about the remaining pillars
+- **Temporal whitening** was never tested inside Kilosort. It is a
+  DETECTION-stage improvement, so its ceiling here is the 4.8% never-detected
+  bucket. Even a perfect detector gains less than five points. That makes it
+  the lowest-value of the remaining ideas, which is worth knowing before
+  building it.
+- **Footprint-based clustering** targets the 25.7% misfiled bucket directly.
+  The specific proposal -- cluster only within matched-footprint events -- is
+  aimed exactly at where the failure is. This is now the highest-value
+  untested idea in the project, and the first one whose target has been
+  measured rather than assumed.
+- `subsample_align` makes misfiling WORSE (34.9% versus 25.7%), which explains
+  its poor showing in 5ac in mechanistic terms rather than as a bare score.
+
+### Caveat
+The per-tier recalls here run slightly below 5ac's because this analysis
+assigns each injected spike to at most one output spike globally, in time
+order, before classifying. The stricter accounting is the right one for
+attribution; the 84/16 split is far too large to be sensitive to it.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version
