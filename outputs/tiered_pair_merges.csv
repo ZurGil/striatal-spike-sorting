@@ -1,11 +1,11 @@
 config,pair_id,units,clusters,merged
 vanilla,0,"[186, 205]","[104, 106]",False
 vanilla,1,"[134, 163]","[135, 134]",False
-vanilla_repeat,0,"[186, 205]","[104, 106]",False
-vanilla_repeat,1,"[134, 163]","[135, 134]",False
 subsample_align,0,"[186, 205]","[103, 105]",False
 subsample_align,1,"[134, 163]","[134, 135]",False
+coarse_then_align,0,"[186, 205]","[91, 92]",False
+coarse_then_align,1,"[134, 163]","[116, 115]",False
+coarse_align_amp_norm,0,"[186, 205]","[89, 91]",False
+coarse_align_amp_norm,1,"[134, 163]","[116, 115]",False
 amplitude_normalize,0,"[186, 205]","[101, 104]",False
 amplitude_normalize,1,"[134, 163]","[137, 139]",False
-align_and_amp_norm,0,"[186, 205]","[95, 98]",False
-align_and_amp_norm,1,"[134, 163]","[128, 130]",False

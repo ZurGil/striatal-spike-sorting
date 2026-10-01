@@ -2243,6 +2243,71 @@ order, before classifying. The stricter accounting is the right one for
 attribution; the 84/16 split is far too large to be sensitive to it.
 
 
+## 5ae. Coarse sliding alignment before the wavelet stage: a real improvement to the patch, and a correction to my own diagnosis
+
+Prompted by "what about sliding template correction first before wavelet
+correction?" The post-hoc pipeline has always done coarse-then-fine
+(`wavelet_features.coarse_then_fine_shift`); the Kilosort port dropped the
+coarse stage, and I never checked whether that mattered.
+
+### The diagnosis I gave was measured at the wrong stage
+I measured Kilosort's output spike times against the known injected times and
+found 55.2% sitting more than half a sample off, 20.1% more than two samples,
+5th-95th percentile -4.5 to +5.4 samples. From that I concluded the patch's
++/-0.5 clamp was being violated for most spikes.
+
+**That was the wrong quantity.** `spike_times.npy` is produced by
+`template_matching.extract` at the END of the pipeline. The patch operates on
+`xy[:,1]` inside `spikedetect.run`, which is a different, earlier index. When
+the coarse stage was actually built and run, it reported a **median integer
+correction of 0.00 samples** (per-batch medians ranging 0 to 1) -- Kilosort's
+detection index is already close to optimally aligned against the average
+spike shape, which is unsurprising since detection itself maximizes a template
+match.
+
+So the mechanism I proposed for `subsample_align`'s poor showing is not
+established. The misfiling increase from 25.7% to 34.9% remains real and
+remains unexplained.
+
+### The coarse stage helps anyway, substantially, on the hardest tier
+Even with a median correction of zero, a minority of spikes shift by one or
+more samples, and that minority matters. `coarse_then_align` versus
+`subsample_align`:
+
+| tier | recall | | precision | | fragments | |
+|---|---|---|---|---|---|---|
+| | sub | coarse | sub | coarse | sub | coarse |
+| easy | 0.9129 | 0.9167 | 0.5429 | 0.5402 | 1.67 | 1.33 |
+| collision | 0.8616 | 0.8683 | **0.6576** | 0.4749 | 3.67 | 3.00 |
+| noisy_channel | 0.6584 | **0.5886** | 0.2453 | 0.1411 | 2.33 | 2.00 |
+| **pair** | 0.4374 | **0.5297** | 0.2856 | **0.4331** | 2.75 | 2.25 |
+
+The pair tier -- the hardest, two neurons three channels apart -- gains **+9.2
+points of recall and +14.8 points of precision**, and fragmentation drops in
+every tier. That is the largest improvement any patch change has produced in
+this project. The noisy-channel tier gets worse, and collision precision drops
+sharply (0.6576 to 0.4749), so it is a trade rather than a clean win.
+
+### It still does not beat stock Kilosort
+
+| tier | vanilla | best patch | 
+|---|---|---|
+| easy | **0.9303** | 0.9167 (coarse) |
+| collision | **0.8746** | 0.8683 (coarse) |
+| noisy_channel | **0.8037** | 0.6584 (subsample) |
+| pair | **0.5696** | 0.5413 (coarse+ampnorm) |
+
+Stock Kilosort still wins recall in all four tiers. Five patch configurations
+have now been built and measured; none is worth enabling.
+
+### What this points at
+The coarse stage closing most of the pair-tier gap (0.4374 to 0.5297 against
+vanilla's 0.5696) while cutting fragmentation says the remaining loss on
+closely-spaced neurons is about ASSIGNMENT, not timing -- consistent with 5ad
+finding 84% of all failures are detected-but-misfiled. Timing work is close to
+exhausted; the open lever is the clustering decision itself.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version

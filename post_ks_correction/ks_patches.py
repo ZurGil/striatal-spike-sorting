@@ -75,7 +75,41 @@ MAX_SHIFT = 0.5
 N_CYCLES = 3.0
 F_LO, F_HI, N_GRID = 300.0, 8000.0, 60
 
-AVAILABLE = ("subsample_align", "amplitude_normalize", "align_and_amp_norm")
+AVAILABLE = ("subsample_align", "amplitude_normalize", "align_and_amp_norm",
+             "coarse_then_align", "coarse_align_amp_norm")
+COARSE_SEARCH = 6      # integer samples searched either way before the phase stage
+
+# -------------------------------------------------------------------------
+# WHY coarse_then_align EXISTS: a measured bug in subsample_align.
+#
+# subsample_align measures phase at Kilosort's own integer detection index
+# and clamps the correction to +/-0.5 samples, assuming the index is already
+# that close to the true spike time. Measured against the hybrid ground truth,
+# that assumption is false for the MAJORITY of spikes:
+#
+#     |offset| > 0.5 samples : 55.2%
+#     |offset| > 1.0 samples : 33.1%
+#     |offset| > 2.0 samples : 20.1%
+#     5th-95th percentile    : -4.5 to +5.4 samples
+#
+# So for most spikes the patch applied a WRONG shift, and past fs/(2*f0) the
+# phase wraps and the estimate is meaningless. That is a direct mechanistic
+# explanation for misfiling rising from 25.7% to 34.9% under subsample_align
+# (RESEARCH_LOG 5ad).
+#
+# The fix is the structure this project already uses post-hoc in
+# wavelet_features.coarse_then_fine_shift and which was dropped in the port:
+# a COARSE integer slide first, then the wavelet phase stage for the
+# remaining fraction. The coarse stage slides the snippet against a reference
+# shape over +/-COARSE_SEARCH samples and keeps the best integer offset, so
+# the phase stage only ever sees a residual inside its unambiguous range.
+#
+# The reference is wPCA[0], the average spike shape, and the score is the
+# ABSOLUTE correlation -- sign-agnostic on purpose, because this recording
+# contains both negative-dominant and positive-dominant units (visible in
+# demo_plot_selected_unit_templates.py), and a signed score would misalign
+# half of them by a full phase.
+# -------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # WHY amplitude_normalize EXISTS, AND THE CORRECTION BEHIND IT
@@ -199,6 +233,7 @@ def _prepare(ops, device):
     fs = float(ops["fs"])
     ref_wave = wPCA[0]
     f0 = _select_f0(ref_wave, fs, center)
+    ref_t = torch.from_numpy(ref_wave / (np.linalg.norm(ref_wave) + 1e-12)).float()
     psi = _morlet(f0, fs, nt, center)
     ref_phase = float(np.angle(np.dot(ref_wave, np.conj(psi))))
 
@@ -212,6 +247,7 @@ def _prepare(ops, device):
         psi_re=torch.from_numpy(np.real(psi)).float().to(device),
         psi_im=torch.from_numpy(np.imag(psi)).float().to(device),
         bases=torch.from_numpy(bases).float().to(device),
+        ref_wave=ref_t.to(device),
         offsets=torch.from_numpy(offsets).float().to(device),
         n_bins=N_BINS)
 
@@ -228,6 +264,29 @@ def _normalize_amplitude(xsub):
     # xsub is (nC, nsp, nt); norm per spike across channels and time
     n = torch.sqrt((xsub ** 2).sum(dim=(0, 2))).clamp_min(EPS)   # (nsp,)
     return xsub / n.view(1, -1, 1)
+
+
+def _coarse_align(wide, prep, nt, search=COARSE_SEARCH):
+    """Integer sliding alignment against the average spike shape.
+
+    wide : (nC, nsp, nt + 2*search) snippets taken with margin.
+    Returns an (nC, nsp, nt) stack re-cut at each spike's best integer offset,
+    plus the chosen offsets, so the phase stage downstream only sees a
+    sub-sample residual.
+    """
+    ref = prep["ref_wave"]                       # (nt,) normalized
+    peak = wide[0]                               # (nsp, nt + 2*search)
+    nsp = peak.shape[0]
+    n_off = 2 * search + 1
+    # score every candidate integer offset at once
+    scores = torch.empty((nsp, n_off), device=wide.device)
+    for k in range(n_off):
+        scores[:, k] = (peak[:, k:k + nt] * ref).sum(dim=1).abs()
+    best = scores.argmax(dim=1)                  # (nsp,)
+    # gather the nt-sample window at each spike's best offset
+    idx = best.view(1, nsp, 1) + torch.arange(nt, device=wide.device).view(1, 1, nt)
+    idx = idx.expand(wide.shape[0], nsp, nt)
+    return torch.gather(wide, 2, idx), (best - search)
 
 
 def _features_aligned(xsub, prep):
@@ -307,6 +366,9 @@ def _patched_run(ops, bfile, device=torch.device('cuda'), progress_bar=None,
     k = 0
     nt = ops['nt']
     tarange = torch.arange(-(nt // 2), nt // 2 + 1, device=device)
+    tarange_wide = torch.arange(-(nt // 2) - COARSE_SEARCH,
+                                nt // 2 + 1 + COARSE_SEARCH, device=device)
+    coarse_log = []
     prog = tqdm(np.arange(bfile.n_batches), miniters=200 if progress_bar else None,
                 mininterval=60 if progress_bar else None)
     try:
@@ -320,15 +382,25 @@ def _patched_run(ops, bfile, device=torch.device('cuda'), progress_bar=None,
                 st = np.concatenate((st, np.zeros_like(st)), 0)
                 tF = np.concatenate((tF, np.zeros_like(tF)), 0)
 
-            xsub = X[iC[:, xy[:, :1]], xy[:, 1:2] + tarange]
+            if _ENABLED in ("coarse_then_align", "coarse_align_amp_norm"):
+                # COARSE STAGE: take a wider snippet, slide it against the
+                # average spike shape, keep the best integer offset. Without
+                # this the phase stage below is handed a residual it cannot
+                # represent (55% of detections sit >0.5 samples off truth).
+                wide = X[iC[:, xy[:, :1]], xy[:, 1:2] + tarange_wide]
+                xsub, coarse_off = _coarse_align(wide, prep, nt)
+                if nsp > 0 and ibatch % 20 == 0:
+                    coarse_log.append(coarse_off.abs().float().median().item())
+            else:
+                xsub = X[iC[:, xy[:, :1]], xy[:, 1:2] + tarange]
 
             # ============== INSERTED: the actual change =====================
             # original line was:  xfeat = xsub @ ops['wPCA'].T
-            if _ENABLED in ("amplitude_normalize", "align_and_amp_norm"):
+            if _ENABLED in ("amplitude_normalize", "align_and_amp_norm", "coarse_align_amp_norm"):
                 xsub_f = _normalize_amplitude(xsub)
             else:
                 xsub_f = xsub
-            if _ENABLED in ("subsample_align", "align_and_amp_norm"):
+            if _ENABLED in ("subsample_align", "align_and_amp_norm", "coarse_then_align", "coarse_align_amp_norm"):
                 xfeat, delta = _features_aligned(xsub_f, prep)
                 if nsp > 0 and ibatch % 20 == 0:
                     shift_log.append(delta.abs().median().item())
@@ -355,6 +427,10 @@ def _patched_run(ops, bfile, device=torch.device('cuda'), progress_bar=None,
 
     log_performance(None, 'debug', f'Batch {ibatch}') if False else None
 
+    if coarse_log:
+        print(f"[{_ENABLED}] median |coarse integer shift|: "
+              f"{np.median(coarse_log):.2f} samples "
+              f"(range {np.min(coarse_log):.2f}-{np.max(coarse_log):.2f})")
     if shift_log:
         print(f"[subsample_align] median |correction| across batches: "
               f"{np.median(shift_log):.4f} samples "
