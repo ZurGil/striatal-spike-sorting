@@ -61,9 +61,16 @@ N_CHAN_BIN, FS, NT0MIN, NT, ITEMSIZE = 384, 30000.0, 20, 61, 2
 BG_START = 60_000_000          # where in the real recording the background comes from
 DURATION_S = 120.0
 CHUNK = 1_000_000
-SOURCE_UNITS = [440, 408, 439, 302, 31]   # span good and poor quality on purpose
+# Chosen automatically rather than hand-picked. The first version of this
+# dataset used five hand-picked units, and only three of them ever
+# fragmented -- so the amplitude conclusion in RESEARCH_LOG 5z rested on a
+# median of three numbers. That is too thin, and widening it is the point of
+# this version.
+N_SOURCE_UNITS = 18
+MIN_SOURCE_SPIKES = 800
+DEST_BLOCK_STRIDE = 20        # channels between injected units' destinations
 CHANNEL_OFFSET = 40           # move injected units this many channels away
-RATE_HZ = 6.0                 # injected firing rate per unit
+RATE_HZ = 4.0                 # injected firing rate per unit
 MIN_SEP = 120                 # samples between injected spikes (any unit)
 FOOTPRINT_RADIUS_UM = 60.0
 N_SNIPPET_POOL = 400
@@ -101,19 +108,54 @@ with open(OUT_PROBE, "w") as f:
     json.dump(probe, f)
 print(f"wrote probe for {N_CHAN_BIN} channels -> {OUT_PROBE}")
 
+# ---------------------------------------------------- choose source units
+# Spread across the probe and across quality, with destinations laid out on a
+# fixed stride so no two injected units can overlap each other.
+units_all, counts_all = np.unique(spike_clusters, return_counts=True)
+elig = units_all[(counts_all >= MIN_SOURCE_SPIKES) & (units_all < templates.shape[0])]
+amp_all = templates.max(axis=1) - templates.min(axis=1)
+pk = np.argmax(amp_all, axis=1)
+# order candidates by peak channel so the selection samples the whole probe
+elig = elig[np.argsort(pk[elig])]
+step = max(len(elig) // N_SOURCE_UNITS, 1)
+SOURCE_UNITS = [int(u) for u in elig[::step][:N_SOURCE_UNITS]]
+
+dest_centers = list(range(30, N_CHAN_BIN - 30, DEST_BLOCK_STRIDE))
+rng.shuffle(dest_centers)
+print(f"\nselected {len(SOURCE_UNITS)} source units spanning peak channels "
+      f"{pk[SOURCE_UNITS].min()}-{pk[SOURCE_UNITS].max()} "
+      f"(eligible pool: {len(elig)} units with >= {MIN_SOURCE_SPIKES} spikes)")
+print(f"{len(dest_centers)} candidate destination slots on a "
+      f"{DEST_BLOCK_STRIDE}-channel stride")
+
 # ---------------------------------------------- collect real snippets per unit
 print("\ncollecting real multi-channel snippets from source units:")
 sources = {}
+used_dest = []
 for uid in SOURCE_UNITS:
     pc = int(peak_ch_all[uid])
     d = np.sqrt(((channel_positions - channel_positions[pc]) ** 2).sum(axis=1))
     src_ch = np.sort(np.where(d <= FOOTPRINT_RADIUS_UM)[0])
-    dst_ch = src_ch + CHANNEL_OFFSET
-    if dst_ch.max() >= N_CHAN_BIN:
-        dst_ch = src_ch - CHANNEL_OFFSET
-    if dst_ch.min() < 0:
-        print(f"  unit {uid}: cannot relocate footprint, skipping")
+    # pick a free destination slot at least 1.5 footprints from any slot
+    # already used, and well away from this unit's own source channels
+    half = len(src_ch) // 2
+    slot = None
+    for c in dest_centers:
+        if c in used_dest:
+            continue
+        if used_dest and min(abs(c - u2) for u2 in used_dest) < len(src_ch) + 6:
+            continue
+        if abs(c - pc) < len(src_ch) + 6:
+            continue          # too close to the source: detections ambiguous
+        if c - half < 0 or c - half + len(src_ch) >= N_CHAN_BIN:
+            continue
+        slot = c
+        break
+    if slot is None:
+        print(f"  unit {uid}: no free destination slot, skipping")
         continue
+    used_dest.append(slot)
+    dst_ch = np.arange(slot - half, slot - half + len(src_ch))
 
     st = np.sort(spike_times[spike_clusters == uid])
     st = st[(st > NT + 10) & (st < TOTAL - NT - 10)]

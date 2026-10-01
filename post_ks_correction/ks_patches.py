@@ -75,7 +75,50 @@ MAX_SHIFT = 0.5
 N_CYCLES = 3.0
 F_LO, F_HI, N_GRID = 300.0, 8000.0, 60
 
-AVAILABLE = ("subsample_align",)
+AVAILABLE = ("subsample_align", "amplitude_normalize", "align_and_amp_norm")
+
+# ---------------------------------------------------------------------------
+# WHY amplitude_normalize EXISTS, AND THE CORRECTION BEHIND IT
+#
+# RESEARCH_LOG 5z measured that Kilosort's fragments of a single injected
+# neuron are separated by AMPLITUDE about 370x more strongly than by timing,
+# and I attributed that to burst-driven bimodal amplitude. A population check
+# (5aa) refuted BOTH halves of that story:
+#   * real amplitude distributions are NOT bimodal -- median bimod_score
+#     0.000 across 443 units, only 0.7% reach the 0.6 split threshold
+#   * bursting does not drive amplitude here -- amplitude vs log(ISI)
+#     correlates -0.083 at the median, the wrong sign, with a real drop in
+#     only 14.7% of units
+# and a second check ruled out the obvious artifact: drawing snippets from
+# the whole recording inflated amplitude spread by only 1.05x, so the test
+# data's amplitude variation is realistic.
+#
+# The F-ratio in 5z is also partly CIRCULAR: if a split happens along the
+# amplitude direction for any reason, the resulting fragments must differ in
+# amplitude. It identifies the AXIS of the cut, not its cause.
+#
+# So the live hypothesis is no longer "bimodal amplitude causes splits". It
+# is that amplitude is simply the LARGEST-VARIANCE direction within a unit's
+# spikes, and Kilosort seeds 200 clusters per spatial region with kmeans++
+# (clustering_qr.cluster, nclust=200, not user-settable) -- an over-seeded
+# k-means will place its boundaries along the direction of greatest spread,
+# which cuts a perfectly unimodal distribution into slices. Note also that
+# swarmsplitter's FIRST criterion, tstat[kk,0] < 0.2, keeps a split without
+# ever consulting bimodality.
+#
+# This patch is still the right experiment under the new hypothesis: removing
+# amplitude from the features collapses that direction, so there is nothing
+# for an over-seeded k-means to cut along. Whether that helps is exactly what
+# needs measuring -- and a real risk is that it does not, because the
+# over-seeding would then just cut along whatever direction is next largest.
+#
+# KNOWN RISK IN THE IMPLEMENTATION: tF feeds both the clustering AND the
+# template construction (Wall). Normalizing removes scale information that
+# downstream template matching may rely on, so this could degrade things for
+# reasons unrelated to the hypothesis. That is a reason to measure it, not a
+# reason to assume the outcome.
+# ---------------------------------------------------------------------------
+EPS = 1e-6
 
 
 def enable(config):
@@ -173,6 +216,20 @@ def _prepare(ops, device):
         n_bins=N_BINS)
 
 
+def _normalize_amplitude(xsub):
+    """Divide each spike's snippet by its own magnitude across the whole
+    channel group, so only SHAPE survives into the features.
+
+    The norm is taken over channels and time together, not per channel: a
+    spike is one event with one amplitude, and normalizing each channel
+    separately would destroy the spatial footprint (pillar 1c), which is the
+    one feature this project has measured to be decisive.
+    """
+    # xsub is (nC, nsp, nt); norm per spike across channels and time
+    n = torch.sqrt((xsub ** 2).sum(dim=(0, 2))).clamp_min(EPS)   # (nsp,)
+    return xsub / n.view(1, -1, 1)
+
+
 def _features_aligned(xsub, prep):
     """Sub-sample-aligned PC features for a batch of snippets.
 
@@ -267,9 +324,16 @@ def _patched_run(ops, bfile, device=torch.device('cuda'), progress_bar=None,
 
             # ============== INSERTED: the actual change =====================
             # original line was:  xfeat = xsub @ ops['wPCA'].T
-            xfeat, delta = _features_aligned(xsub, prep)
-            if nsp > 0 and ibatch % 20 == 0:
-                shift_log.append(delta.abs().median().item())
+            if _ENABLED in ("amplitude_normalize", "align_and_amp_norm"):
+                xsub_f = _normalize_amplitude(xsub)
+            else:
+                xsub_f = xsub
+            if _ENABLED in ("subsample_align", "align_and_amp_norm"):
+                xfeat, delta = _features_aligned(xsub_f, prep)
+                if nsp > 0 and ibatch % 20 == 0:
+                    shift_log.append(delta.abs().median().item())
+            else:
+                xfeat = xsub_f @ ops['wPCA'].T
             # ================================================================
 
             tF[k:k + nsp] = xfeat.transpose(0, 1).cpu().numpy()

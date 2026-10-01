@@ -1880,6 +1880,125 @@ hypothesis, this one has a measured 370x effect size behind it rather than an
 18% geometric argument.
 
 
+## 5aa. The amplitude story does not survive a population check — the axis was right, the cause was wrong
+
+Prompted by the user pointing out that 5z leaned on too few neurons. That was
+correct and the objection was decisive: the "370x" figure is a median of
+**three** units (302, 408, 440), because the other two injected units never
+fragmented and contributed nothing. Three numbers, one session, one animal.
+Two cheap checks were run before building anything on top of it, and both
+went against the story I told.
+
+### Check 1: is amplitude bimodality a population property?
+`demo_amplitude_bimodality_population.py`, using **Kilosort's own
+`bimod_score`** copied verbatim from `swarmsplitter.py` so the number is
+exactly the one its split decisions act on (its rule: score >= 0.6 keeps a
+split, below merges). Across all 443 units with >= 300 spikes in session
+20260916_110311:
+
+| percentile | amplitude bimod_score |
+|---|---|
+| p10 | 0.000 |
+| p50 | **0.000** |
+| p75 | 0.012 |
+| p90 | 0.093 |
+
+**Units reaching the 0.6 split threshold on amplitude alone: 3 of 443 =
+0.7%.** Real amplitude distributions in this recording are essentially
+unimodal. Median amplitude coefficient of variation is 0.101, p90 is 0.150 —
+modest.
+
+### Check 2: is bursting the mechanism?
+The handoff document predicts amplitude drops within a burst and recovers, so
+amplitude should correlate POSITIVELY with the preceding ISI.
+
+- correlation of amplitude with log(previous ISI): median **-0.083**, the
+  WRONG SIGN, and positive in only **19.6%** of units
+- amplitude for ISI < 10 ms versus ISI > 100 ms: median **-2.2%**, i.e.
+  short-ISI spikes are very slightly LARGER, not smaller; a real drop
+  (> 2%) appears in only **14.7%** of units
+- median fraction of spikes with ISI < 10 ms: 0.076
+
+**Bursting does not drive amplitude in this population.** Note that the five
+units 5z rested on are not special here either: their bimod_scores are
+-0.006 to 0.100, indistinguishable from the population median of 0.000.
+
+### Check 3: did my own dataset manufacture the effect?
+A real worry: snippets were drawn from the unit's spikes across the whole
+210-minute recording, so compressing 210 minutes of drift-driven amplitude
+variation into a 120-second dataset could have inflated amplitude spread
+beyond anything realistic. Measured directly — amplitude CV across the whole
+recording versus the median CV inside a random 120 s window:
+
+| unit | CV whole recording | CV in 120 s | inflation |
+|---|---|---|---|
+| 440 | 0.0982 | 0.0980 | 1.00x |
+| 408 | 0.1009 | 0.0965 | 1.05x |
+| 439 | 0.0715 | 0.0650 | 1.10x |
+| 302 | 0.0914 | 0.0901 | 1.01x |
+| 31  | 0.1333 | 0.1272 | 1.05x |
+
+Median inflation **1.05x**. The dataset did NOT manufacture extra amplitude
+spread; the injected amplitude variation is realistic. That artifact
+hypothesis is ruled out.
+
+### What was actually wrong with 5z's reasoning
+The measurement stands: Kilosort's fragments of one injected neuron do differ
+in amplitude far more than in timing. But the inference from it was bad in
+two ways.
+
+1. **The F-ratio is partly circular.** If a split is made along the amplitude
+   direction for ANY reason, the resulting fragments must differ in
+   amplitude. A large F identifies the AXIS of the cut. It cannot establish
+   that amplitude structure caused the cut.
+2. **The causal story is refuted.** "Bursting makes amplitude bimodal, and
+   the bimodality test splits on it" fails at both links: amplitude is not
+   bimodal (check 1) and bursting does not drive it (check 2).
+
+So Kilosort is slicing a **unimodal** amplitude distribution. Something is
+cutting a continuous distribution into pieces, and bimodality is not the
+reason.
+
+### The new live hypothesis
+Two mechanisms in the source now look more likely than bimodality, and both
+are consistent with cutting a unimodal distribution:
+
+- **Over-seeding.** `clustering_qr.cluster()` seeds **200** clusters per
+  spatial region with kmeans++ (`nclust=200`, both call sites use the
+  default, absent from `parameters.py` so not user-settable). An over-seeded
+  k-means places boundaries along the direction of greatest within-unit
+  spread — which for these spikes is amplitude. That produces
+  amplitude-separated fragments from a unimodal distribution, exactly what is
+  observed.
+- **`swarmsplitter.split`'s FIRST criterion**, `tstat[kk,0] < 0.2`, keeps a
+  split without ever consulting bimodality. Only if that passes does the
+  bimodality test run at all.
+
+### Consequence for the planned patch
+`amplitude_normalize` is still the right experiment, but for a different
+reason than stated in 5z. Under the new hypothesis, dividing each snippet by
+its own magnitude collapses the largest within-unit variance direction, so an
+over-seeded k-means has nothing to cut along. The honest risk, written down
+before the result: the over-seeding may simply cut along whatever direction
+is next-largest, in which case normalization changes nothing. There is also
+an implementation risk — `tF` feeds template construction as well as
+clustering, so removing scale may degrade template matching for reasons
+unrelated to the hypothesis.
+
+Normalization is taken over channels AND time jointly, never per channel: a
+spike is one event with one amplitude, and per-channel normalization would
+destroy the spatial footprint, the one feature this project has measured to
+be decisive (5q).
+
+### Dataset widened in response
+`build_small_hybrid_dataset.py` now selects source units automatically rather
+than by hand: **17 units** (18 requested, one found no free destination slot)
+with >= 800 spikes, sampled across the whole probe, **4,689 injected spikes**,
+destinations laid out on a 20-channel stride so no two injected units can
+overlap. Destination peak channels span ch30-ch349. That replaces the
+five-hand-picked-units base that this entire line of reasoning rested on.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version
