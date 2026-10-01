@@ -1,0 +1,13 @@
+config,unit,cluster,n,mean_amplitude,mean_time_s,mean_true_shift
+vanilla,302,120,432,23.54,18.1,-0.011
+vanilla,302,119,46,21.12,19.8,-0.031
+vanilla,408,169,374,32.34,22.4,-0.024
+vanilla,408,168,114,29.77,22.4,-0.005
+vanilla,408,166,52,26.52,23.8,-0.002
+vanilla,440,182,400,27.88,18.9,-0.027
+vanilla,440,183,114,22.89,22.1,0.011
+subsample_align,408,165,347,32.5,22.7,-0.037
+subsample_align,408,166,116,29.89,22.8,-0.006
+subsample_align,408,163,81,26.99,22.7,-0.004
+subsample_align,440,179,483,27.52,19.2,-0.014
+subsample_align,440,180,73,22.18,22.1,-0.006

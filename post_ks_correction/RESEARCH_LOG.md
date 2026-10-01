@@ -1795,6 +1795,91 @@ has a different cause, since that is the problem worth solving and jitter
 has now been measured not to be it.
 
 
+## 5z. What actually caused the splitting: amplitude, not timing
+
+Follow-up to 5y, which found that sub-sample alignment barely changed
+fragmentation (7.2 -> 6.8 clusters per injected unit) despite making the
+features 16.6x more consistent. The obvious objection is that those two facts
+do not sit together: if the features got much tighter, why did the number of
+clusters not move? This answers it, and the answer is specific.
+
+### What Kilosort's split decision actually tests
+Read from the installed source, `kilosort/swarmsplitter.py`, function
+`split`. For each candidate pair of branches it decides merge-or-keep-split
+in this order:
+
+    1.  tstat[kk,0] < 0.2                       -> keep split
+    2.  refractoriness(spikes1, spikes2)        -> CCG-based decision
+    3.  criterion = 2 * (bimod_score < 0.6) - 1 -> merge only if UNIMODAL
+    4.  tstat[kk,-1] > 0.15                     -> merge
+
+Step 3 is the geometric heart of it: two groups stay separate if the spikes,
+projected onto the direction that best separates them, look BIMODAL. That
+immediately explains the paradox. Shrinking the spread along the TIMING
+direction cannot merge two groups whose bimodality lies along a DIFFERENT
+direction.
+
+### And yes, there is a fixed cluster count baked in
+`clustering_qr.cluster()` is declared with `nclust = 200`, and BOTH call
+sites (lines 237 and 405) use that default. It seeds 200 clusters per spatial
+region with kmeans++ (`kmeans_plusplus(Xg, niter=nclust)`) then iterates.
+`nclust` appears ZERO times in `parameters.py`, so it is not a user-visible
+setting. Our runs produced 210 and 205 total clusters. The final count is
+then reshaped by `hierarchical.maketree` plus `swarmsplitter`, so 200 is a
+starting point rather than a hard ceiling -- but it is a hard-coded one.
+
+### The measurement
+For each injected unit we know every spike came from the SAME neuron, so
+every split is by definition an error. Group the matched spikes by which
+output cluster they landed in, then ask what separates the fragments.
+Reported as an F-like ratio: between-fragment spread over within-fragment
+spread. Script: `demo_what_caused_the_splitting.py`.
+
+| config | unit | fragments | F by AMPLITUDE | F by TIME | F by TRUE SHIFT |
+|---|---|---|---|---|---|
+| vanilla | 302 | 2 | **34.0** | 0.91 | 0.202 |
+| vanilla | 408 | 3 | **112.6** | 0.24 | 0.301 |
+| vanilla | 440 | 2 | **309.9** | 6.68 | 1.506 |
+| subsample_align | 408 | 3 | **134.6** | 0.00 | 0.816 |
+| subsample_align | 440 | 2 | **231.8** | 4.04 | 0.049 |
+
+Medians for vanilla: amplitude **112.6**, time 0.9, true sub-sample shift
+**0.301**. Amplitude separates the fragments roughly **370x** more strongly
+than the quantity the alignment patch corrects.
+
+**Kilosort is splitting these neurons by spike amplitude.** Not by timing,
+not by drift. The alignment patch was correcting a real but almost
+irrelevant axis, which is exactly why 16.6x tighter timing features changed
+the cluster count by 0.4.
+
+One secondary observation worth keeping: under `subsample_align`, units 31
+and 302 dropped to a single real fragment, so the patch did consolidate
+those two. Unit 408 stayed at 3. That matches 5y's mixed per-unit picture.
+
+### Why amplitude varies, and the link back to the original design doc
+A neuron's spike amplitude drops during a burst and recovers over tens of
+milliseconds. That produces exactly the bimodal amplitude distribution step 3
+splits on. The handoff document's **burst-history amplitude-recovery curve
+and its gating** has been sitting in this log's own "still never built"
+section since the beginning, and this is the first time the project has a
+MEASURED reason to build it rather than an argument from first principles.
+
+### Note on fragment counts
+The counts here (2-3) are lower than 5y's 6-10 because this analysis assigns
+each injected spike to at most one output spike globally before counting,
+while 5y's fragment count evaluated each cluster independently. The stricter
+accounting is the right one for attribution; it does not change 5y's
+conclusion, and a 370-fold effect is not sensitive to it.
+
+### Next step this points to
+A second flag-gated patch: normalize or regress out each spike's amplitude
+before the features are computed, which is precisely what `nuisance_model.py`
+pillar 1a was built to do. If amplitude bimodality is what drives the splits,
+removing it should collapse the fragmentation -- and unlike the timing
+hypothesis, this one has a measured 370x effect size behind it rather than an
+18% geometric argument.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version

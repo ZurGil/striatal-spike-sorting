@@ -1,0 +1,6 @@
+config,unit,n_fragments,n_matched,F_amplitude,F_time,F_true_shift,dominant
+vanilla,302,2,478,33.95,0.91,0.202,amplitude
+vanilla,408,3,540,112.62,0.24,0.301,amplitude
+vanilla,440,2,514,309.88,6.68,1.506,amplitude
+subsample_align,408,3,544,134.63,0.0,0.816,amplitude
+subsample_align,440,2,556,231.79,4.04,0.049,amplitude
