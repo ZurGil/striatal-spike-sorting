@@ -1348,6 +1348,119 @@ below the sampling noise floor of a 250-spike average, and no accelerator can
 deliver it.
 
 
+## 5v. Does sub-sample jitter actually pollute Kilosort's clustering features? Testing the premise before forking anything
+
+This is the premise test for the proposed change of strategy: instead of
+using these analyses *after* Kilosort, put them *inside* it as flag-gated
+options (vanilla behaviour when the flags are off). The highest-leverage
+proposed insertion point is stage 3, feature extraction — so the premise had
+to be checked first on real data.
+
+### What Kilosort actually does (verified in source, not from memory)
+Installed at `C:\Users\Adam\anaconda3\envs\kilosort4\Lib\site-packages\kilosort`.
+Pipeline from `run_kilosort.py`:
+
+1. `compute_preprocessing` — 300 Hz high-pass, then a whitening matrix built
+   as `CC = X @ X.T / X.shape[1]` with X of shape (channels, time). The
+   covariance is **channel x channel**: Kilosort whitens SPACE and never
+   touches TIME. Our AR(4) temporal precision matrix is genuinely
+   complementary, not a duplicate.
+2. `compute_drift_correction` — datashift.
+3. `detect_spikes` — `spikedetect.run` (universal templates, integer spike
+   times, PC features `tF`), then a first `clustering_qr.run(mode='spikes')`,
+   then `postprocess_templates` -> `align_U`, then
+   `template_matching.extract` (the deconvolution that produces most spikes).
+4. `cluster_spikes` — `clustering_qr.run(mode='template')` then
+   `template_matching.merging_function`.
+5. `save_sorting`.
+
+Two openings, both verified:
+- `align_U` aligns templates with `torch.roll(..., ops['nt']//2 - j, -2)` —
+  an **integer** shift. Kilosort has no sub-sample alignment anywhere, so
+  every template is an average of spikes each up to half a sample misplaced.
+- `CCG.similarity` scores merge candidates with a normalized template
+  cross-correlation **maximized over lag** — effectively a cosine, the exact
+  measure 5m/5t showed overstates spatial agreement. And
+  `merging_function` skips any cluster with `is_ref[kk]==0`, i.e. it uses
+  refractoriness as a *precondition* for merging — structurally the same
+  "absence of violation = permission" error corrected in 5l.
+
+### The claim under test, and the correction to it
+Claim: since a shifted waveform is `s(t-d) ~ s(t) - d*s'(t)`, random jitter
+makes the derivative a real axis of variance, so PCA should spend a whole
+component on timing — and Kilosort would then be clustering partly on
+sub-sample timing.
+
+Script: `demo_does_kilosort_pca_waste_a_component_on_jitter.py`. `wPCA` from
+ops.npy is 6 components x 61 samples, confirmed orthonormal (largest
+off-diagonal 2.2e-07).
+
+**The strong form of the claim is WRONG.** No component is the derivative:
+
+| component | \|cos\| with d(PC0)/dt | angle |
+|---|---|---|
+| PC0 | 0.000 | 90.0° |
+| PC1 | 0.255 | 75.2° |
+| **PC2** | **0.615** | **52.0°** |
+| PC3 | 0.415 | 65.5° |
+| PC4 | 0.554 | 56.3° |
+| PC5 | 0.112 | 83.6° |
+
+PC2 is the closest at 52° — related, not identical. So "Kilosort wastes a
+component on timing" is not true as stated, and I should not have asserted
+the mechanism that confidently before testing it.
+
+**The weaker, true form is still consequential.** The 6-component basis
+captures **93.5%** of the derivative direction's energy, so jitter enters the
+features fully — just *distributed* across PC2/PC3/PC4 rather than isolated
+in one. That distinction matters practically: you cannot fix this by dropping
+a component. The jitter itself has to be removed.
+
+### How big is the effect? (the decisive measurement)
+Shift each unit's peak-channel template by a sub-sample amount, project onto
+`wPCA`, and compare how far the feature vector moves against the spread of
+feature vectors across 443 real units (the signal Kilosort clusters on).
+
+| shift (samples) | feature displacement | as % of between-unit spread |
+|---|---|---|
+| 0.10 | 0.0350 | 3.6% |
+| 0.25 | 0.0876 | 9.0% |
+| **0.50** | **0.1754** | **18.0%** |
+
+A half-sample error — the worst residual integer alignment can leave — moves
+a unit's features by **18% of the distance separating genuinely different
+units**. Typical residual (~0.25 samples) gives ~9%. Jitter lands hardest on
+PC2, consistent with the geometry above.
+
+### Pair statistics, with the spatial restriction applied
+How many unit pairs sit closer together in feature space than jitter
+displaces a single unit? The all-pairs figure is 6.2% of 97,903 — and that
+number is **misleading** in the same way the "98% of random timepoints"
+error was (see caveats), because most pairs are far apart on the probe and
+could never be confused. Restricted to pairs Kilosort could actually confuse:
+
+| neighbourhood | pairs | closer than jitter | fraction |
+|---|---|---|---|
+| within 40 um | 1,876 | 221 | **11.8%** |
+| within 60 um | 2,727 | 294 | 10.8% |
+| within 100 um | 4,864 | 505 | 10.4% |
+
+The spatial restriction makes the case **stronger**, not weaker — nearby
+units have more similar waveforms, so more of them fall inside jitter
+distance. About **one in nine spatially-adjacent unit pairs** is separated by
+less than the feature displacement a half-sample timing error produces.
+
+### Conclusion
+The premise holds in its useful form: sub-sample jitter is a real,
+quantified contaminant of the features Kilosort clusters on, at ~9-18% of the
+between-unit signal, affecting ~11% of adjacent pairs. That justifies
+building sub-sample alignment as a flag-gated option at stage 3. It does NOT
+establish that fixing it improves sorting — that still needs the
+ground-truth harness. Caveats: this uses templates, not individual spikes
+(so it measures the systematic effect, not the per-spike noise), and
+peak-channel features only, whereas Kilosort uses a channel neighbourhood.
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-09-30 — read this first)
 
 ### The one-paragraph version
