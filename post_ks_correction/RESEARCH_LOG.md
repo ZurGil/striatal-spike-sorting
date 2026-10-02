@@ -3241,6 +3241,96 @@ Artifacts: `outputs/dv_decoding_timecourse.csv`, `dv_decoding_epochs.csv`,
 `dv_decoding_error_generalisation.csv`, `dv_decoding_absdv_rf.csv`,
 `outputs/reward_cue_figs/dv_decoding_timecourse.png`.
 
+---
+
+## 5ap. Leaving time, and the clean version of the DV/choice test
+
+Gil asked two things: whether the leaving time can be decoded (and whether it
+sharpens closer to the leave, using long-wait no-reward trials, errors and
+omissions kept apart), and whether my 5ao claim really amounts to "DV and
+choice are confounded, so we may just be decoding choice". The second is
+exactly right, and is now shown directly rather than by inference.
+
+### (A) Decoding DV WITHIN a single choice — and a correction to 5ao
+5ao used an error-trial generalisation test. The cleaner test is to decode DV
+among trials that share one choice, where choice is constant by construction so
+nothing decodable can be motor (`decode_leaving_time.py`, part A).
+
+| epoch | subset | DV R2 | \|DV\| R2 |
+|---|---|---|---|
+| stimulus | all 478 | **+0.216** | −0.024 (p=0.75) |
+| stimulus | left choice (208) | −0.046 (p=0.68) | −0.050 (p=0.70) |
+| stimulus | right choice (270) | **+0.062** | **+0.077** |
+| cue end → choice | all 478 | **+0.564** | +0.020 |
+| cue end → choice | left choice | +0.066 | −0.012 (p=0.14) |
+| cue end → choice | right choice | **+0.207** | **+0.187** |
+
+**The main conclusion of 5ao stands and is now exact:** conditioning on choice
+destroys most of the signal — 0.564 → 0.066/0.207 at cue end, 0.216 →
+−0.046/+0.062 during the stimulus. The large R2 was the choice.
+
+**But 5ao overstated one thing and it needs correcting.** I wrote that
+difficulty "carries no information while the stimulus is playing". That was
+based on pooling all trials. **Within right-choice trials, |DV| IS decodable
+during the stimulus (R2 = +0.077, p = 0.005)**, and more strongly at cue end
+(+0.187). Pooling hid it, which is what happens if the code is choice-dependent
+— opposite-signed contributions cancel. So stimulus information IS present
+during the stimulus; it is just small, and organised per choice.
+
+Two cautions on that. Within a choice group DV and |DV| are near-redundant
+(choosing right, correct trials carry large |DV| of one sign and errors small
+|DV| of the other), so this is substantially "will this be an error", which is
+still genuine stimulus information since errors happen on hard trials
+(mean |DV| 0.208 vs 0.533). And it is **asymmetric — right-choice trials
+only**. That is the contralateral side for this animal (`hemisphere: "L"`,
+ML −2.45), which is the expected direction for striatum, but n is also larger
+on the right (270 vs 208), so power is not controlled. Worth a proper test.
+
+### (B1) How much longer will the rat stay? NOT decodable.
+Rewarded trials are excluded (the valve ends them, not the rat) along with the
+49 abandoned trials; errors and catch trials kept separate, per Gil.
+
+**The confound that would otherwise fake this entire result:** a fixed window
+at lag T applied to every trial measures post-departure activity on trials that
+already ended, so a "decoder" would really be detecting whether the rat is
+still in the port. Every window therefore includes only trials still waiting
+when it closes, and n is reported per row — which is also why long-wait trials
+are the only well-posed regime, as Gil anticipated.
+
+Result: **cross-validated R2 is negative at every lag from 0 to 4 s, in both
+groups** (catch −0.20 to −0.38, error −0.14 to −0.31), against permutation
+nulls near −0.03, p = 0.54–0.87. Not a hint of signal. R2 falling *below* the
+shuffled null is the ridge selecting a weaker penalty on apparent structure
+that then fails to generalise — the signature of fitting noise.
+
+**Honest limit:** n is 64–71 per group and the SD of remaining wait is only
+1.6–1.9 s, so this is a low-powered negative, not a proof of absence.
+
+### (B2) Is the leave IMMINENT? Yes — strongly.
+Different question, and it works. Time points every 250 ms through the wait;
+from a 300 ms window, will the rat go within the next 500 ms? Cross-validated
+by trial (GroupKFold, no trial in both train and test); the null shuffles which
+trial got which leave time, which **preserves elapsed time as a predictor** —
+so chance here is 0.77, not 0.5.
+
+| group | trials | time points | AUC | chance (95th) | p |
+|---|---|---|---|---|---|
+| correct, no water (catch) | 67 | 1878 | **0.923** | 0.766 (0.811) | 0.005 |
+| error | 69 | 1715 | **0.901** | 0.769 (0.809) | 0.005 |
+
+**The dissociation is the result:** there is no graded countdown — nothing
+predicts *how much longer* — but the moment of leaving is strongly flagged
+about half a second ahead, well beyond what elapsed time alone gives. Both
+groups behave the same way, so this is not specific to being right or wrong.
+
+**Interpretation to hold loosely:** leaving is a movement, so a signal 500 ms
+ahead of it is at least partly motor preparation. Distinguishing "decided to
+quit" from "about to withdraw" needs an independent readout of the decision,
+which this task does not provide.
+
+Artifacts: `outputs/dv_within_choice.csv`, `leaving_time_decoding.csv`,
+`leaving_imminent.csv`, `outputs/reward_cue_figs/leaving_time_decoding.png`.
+
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
 
