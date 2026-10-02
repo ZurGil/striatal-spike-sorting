@@ -3034,6 +3034,92 @@ Artifacts: `outputs/v2_post_hoc_correction.csv` (per-placement),
 footprint score and whether it was a real missed spike — sweepable offline),
 `outputs/v2_merge_detector_truth.csv`.
 
+---
+
+## 5an. First physiology: reward and cue-end responses on the full session
+
+Gil asked for the sync pipeline to be run on the full sorted session and for
+neurons responding to reward and to the end of the cue stimulus, split by
+choice side, with incomplete trials removed.
+
+**Pipeline run** (`sync_pipeline` at `D:\Gil\sync_pipeline`, output in
+`...20260916_110311.kilosort\synced_20261002`). Sync is clean: **21,422 /
+21,422 Bpod state events matched (100%)**, local-interpolation held-out error
+**median 0.000 ms / max 43 ms**, `gaps=[]` so all 953 trials are `sync_valid`.
+The README's critical ephys-offset fix engaged — row 0 of `probe1.dat` is
+absolute sample 2,625,402 = **87.5134 s**, which would silently have shifted
+every spike by that much. `sync_status` reads `needs_review`, which is expected
+and not a problem: that flag describes the GLOBAL affine fit (363.9 ms median
+residual from real Bpod clock drift), while the actual conversion uses local
+interpolation.
+
+One snag worth recording: the cached `.pkl` beside the Bpod `.mat` was written
+by a numpy 2.x environment and cannot be unpickled under this machine's numpy
+1.26 (`ModuleNotFoundError: numpy._core.numeric`). Fixed without touching Gil's
+files by staging a scratch `rat_root` holding a copy of the `.mat` and the
+`rat_metadata.json`, so the pipeline rebuilt its own cache.
+
+**Trials and units.** 953 trials, **478 completed and sync-valid (50%)** —
+`sync_valid & TrialCompleted`. The other 475 are genuine incompletes (never
+poked centre, broke fixation, early withdrawal, no side poke). Units are the
+**111 clusters Gil labelled `good` in the review tool**, NOT Phy and NOT
+KSLabel — note `units.parquet`'s own `quality_label` column is KSLabel and
+would have given 189 units, so using it would have been the wrong curation.
+
+**The two events, taken from `TASK_TIMELINE.md`.** Reward = start of
+`water_L`/`water_R`, the valve opening (291 trials; 153 right, 138 left). NOT
+`rewarded_Lin`/`rewarded_Rin`, which are the Step-11 waiting states named after
+the correct side and re-entered thousands of times by the grace loop. Cue end =
+end of `stimulus_delivery`, verified identical to the start of `wait_Sin` on
+all 479 trials because `AuditoryStimulusTime - MinSampleAud` = 0.35 - 0.35 = 0 s
+this session.
+
+### Results (`analyse_reward_and_cue_responses.py`)
+
+| event | responsive (FDR<0.05) | substantial (abs mod >= 0.10) | up / down | side-selective |
+|---|---|---|---|---|
+| end of cue | 54/111 (49%) | **44/111 (40%)** | 27 / 27 | 45 (41%) |
+| reward delivery | 30/111 (27%) | **21/111 (19%)** | 21 / 9 | 15 (14%) |
+| give-up, no water (control) | 13/111 (12%) | 10/111 (9%) | 6 / 7 | 18 (16%) |
+
+Significance alone overstates this — with 478 paired trials the test detects
+very small shifts — so the substantial column is the one to quote.
+
+**Strongest reward responses are large and sharply time-locked:** unit 35
+(ch345, 6.20 mm) goes **19.0 -> 80.1 Hz** at valve open; unit 250 **32.4 ->
+13.8 Hz** (a decrease); unit 131 **27.0 -> 41.1 Hz**. Onsets sit on the valve
+instant, not on the choice poke a median 1.61 s earlier.
+
+**Cue-end responses split hard by side.** Unit 368 (ch77) fires **0.6 Hz on
+left-choice trials and 14.5 Hz on right** in the 150 ms after cue offset, from
+a 1.2 Hz baseline. 45 of 111 units differ between left and right choices there,
+against 15 at reward — side information is carried at the choice point, not at
+the outcome.
+
+**Reward responses look reward-specific.** All 21 substantially
+reward-responsive units were re-tested at the give-up moment with the same
+windows: **18 show no response there at all, and the remaining 3 (250, 319,
+310) respond in the OPPOSITE direction.** None responds the same way.
+
+**Overlap:** 32 units cue-end only, 8 reward only, 22 both, 49 neither.
+
+### Two honest limits on the cue-end result
+1. **Cue offset, side-lights-on and movement onset are the same instant in this
+   task.** `MT` is measured from `wait_Sin`'s start and its median is 0.253 s.
+   The test window was cut to 0.15 s to close before the 10th-percentile
+   movement time (0.205 s), but no window can separate "responds to the
+   stimulus ending" from "responds to initiating a choice" given this design.
+2. **A matched reward-omission control does not exist in this session.** All
+   187 unrewarded completed trials ended in `skipped_feedback` — the rat gave
+   up waiting — including all 71 incorrect choices, because `GUI.CatchError=1`
+   stretches the incorrect wait to 20 s so it is never sat out. The give-up
+   moment is therefore a different behaviour, not an omission at a matched
+   time, and the specificity result above is suggestive rather than decisive.
+
+Artifacts: `outputs/session_20260916_reward_cue_responses.csv` (per unit per
+event), `outputs/reward_cue_figs/{reward,cue_end}_top_units.png` (raster + PSTH,
+split left/right).
+
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
 
