@@ -2966,6 +2966,33 @@ filed under a DIFFERENT cluster.** The tool is recovering real spikes belonging
 to other neurons. That is 5h's and 5p's conclusion, now quantified against
 truth instead of inferred: a SPECIFICITY failure, not a detection failure.
 
+**WHAT KIND of spike did it recover?** (`analyse_recovery_breakdown.py`, added
+after Gil asked whether the tool pulled back spikes that were never detected or
+spikes misfiled under another unit — the 5am headline collapsed the two.) Every
+spike absent from a unit's best cluster is either MISFILED (some other cluster
+has a spike within tolerance; detection worked, attribution did not) or
+UNDETECTED (no cluster anywhere has one).
+
+| config | missed | misfiled | undetected | recovered misfiled | recovered undetected |
+|---|---|---|---|---|---|
+| vanilla | 3122 | 2480 (79.4%) | 642 (20.6%) | 212 (8.5%) | 47 (7.3%) |
+| footprint_cluster_strong | 2852 | 2085 (73.1%) | 767 (26.9%) | 262 (12.6%) | 25 (3.3%) |
+| coarse_then_align | 3473 | 2625 (75.6%) | 848 (24.4%) | 208 (7.9%) | 34 (4.0%) |
+
+So the answer is **both, and mostly re-attribution**: of vanilla's 259
+recoveries, 82% were spikes Kilosort had already detected and filed elsewhere,
+18% were genuinely new detections. The tool does work in both modes — it is not
+only finding noise, and it is not only moving spikes around — but it reaches
+only ~8% of what is available in either category, at 2.3% precision.
+
+Two things worth keeping from this table. First, **the 79/21 misfiled-to-
+undetected split independently reproduces 5ad's 84% clustering-failure finding**
+on different data and a different method, which is the strongest corroboration
+that result has. Second, **footprint_cluster_strong recovers noticeably more
+misfiled spikes (12.6% vs 8.5%) and fewer undetected ones (3.3% vs 7.3%)** —
+exactly the signature of a method that is better at attribution and no better
+at detection, and one more reason the open lead is footprint-first attribution.
+
 **Gate sweep — no threshold rescues it.** Recovery precision / share of all
 misses recovered, vanilla: matched filter alone 1.6% / 15.0%; footprint gate
 only 2.7% / 10.2%; whitened R² only 1.6% / 11.0%; both 2.3% / 8.3%; both with
