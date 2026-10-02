@@ -2850,6 +2850,163 @@ hard .593 / .655 / .609 (unreliable) | **pair .486 / .555 / .591**
 OVERALL recall: footprint_cluster_strong .812 > vanilla .794 > others
 OVERALL precision: footprint_cluster .654 > vanilla .600
 
+---
+
+## 5al. Is the problem only splitting? No — and the answer is the same for every algorithm
+
+Gil's question, twice: if a unit was split into three clusters, what are the
+recall and precision of all three COMBINED? If the pieces are clean and
+together hold ~100% of the spikes, the only thing to fix is merging. If
+combining imports contamination, it is a different problem needing a different
+fix. `analyse_split_vs_contamination.py`, extended to all eight configurations.
+
+Method: a fragment is a cluster holding at least `max(15, 2%)` of the unit's
+spikes. Matching is global one-to-one across ALL clusters, so no true spike can
+be claimed twice — which is why best-cluster recall reads ~7 points lower here
+than in the headline tables, where each cluster is matched independently.
+Compare within a file, never across the two.
+
+**Finding 1 — the premise does not hold. Units are barely split.** Mean
+fragments per unit is 1.27–1.38 across every configuration, the maximum
+anywhere is 3, and 67–77% of units have exactly ONE substantial cluster. There
+is no three-way split to merge.
+
+**Finding 2 — combining always trades down. 16 algorithm×tier cells, negative
+in all 16.** Recall gain vs precision cost:
+
+| algorithm | easy | collision | pair | hard |
+|---|---|---|---|---|
+| vanilla | +3.3 / −5.9 | +7.1 / −10.3 | +5.3 / −10.0 | +6.4 / −10.9 |
+| footprint_cluster_strong | +3.2 / **−3.6** | +3.4 / −7.5 | +2.9 / −9.5 | +3.5 / −22.4 |
+| footprint_cluster | +5.0 / −10.0 | +4.6 / −11.0 | +5.0 / −11.0 | +7.4 / −12.1 |
+| coarse_then_align | +4.3 / −16.1 | +3.7 / −7.0 | +4.5 / −8.3 | +6.8 / −5.7 |
+
+Best case anywhere: footprint_cluster_strong on easy, +3.2 recall for −3.6
+precision. Still a loss, on the easiest tier.
+
+**Finding 3 — a perfect merge tool converges every algorithm to the same
+place.** Pooled combined recall/precision: vanilla 77.7/45.8,
+footprint_cluster_strong 78.6/47.4, footprint_cluster 75.7/49.0,
+coarse_then_align 75.8/44.7. Merging cannot separate the algorithms.
+
+**Threshold discipline.** At `>= 5` spikes the fragment count rises to 2.46 and
+combined precision falls to 0.340 — but the same counting against RANDOM times
+invents **6.02 fragments from nothing**, so that threshold is measuring the
+procedure, not the data. At `>= 15` chance gives 0.00 and the conclusion is
+stable to `>= 30`. Fourth time the base-rate trap has been caught in this
+project; it is now checked by default.
+
+**Union ceiling: 94.4–95.8%** of injected spikes land in SOME cluster. So
+detection is near-perfect and the loss is assignment — but not into a few clean
+pieces. 14–22 spikes per 100 sit in thin scatter, a handful each across many
+clusters, none large enough to be a fragment, and those clusters belong to
+other neurons.
+
+---
+
+## 5am. The post-Kilosort correction pipeline, finally tested against truth — and it does not work
+
+Gil's second question: run the post-hoc correction we built before (timing
+alignment + whitening to find missed spikes, plus merge detection) on the v2
+synthetic data, because post-hoc correction may be more efficient and accurate
+than changing Kilosort itself. `test_post_hoc_on_v2.py`, 52 placements × 3
+configurations, all 4 replicates.
+
+**Why this run matters: the pipeline had been run twice before and both times
+the headline had to be withdrawn, for a structural reason.** On real data a
+recovered candidate cannot be checked — the only available test was "does some
+other unit already have a spike here", which answers a different question. 5h
+ended at "these look like collisions, not misses". 5p watched the
+genuinely-new count fall 115 → 40, and for the cleanest unit 29 → 1, once the
+frequency rule was fixed. Neither could say whether a recovered spike truly
+belonged to the unit. The v2 benchmark removes that limitation completely.
+
+**The pipeline under test, strictly truth-blind** (sees Kilosort's output and
+the raw voltage, never the truth): (1) template convergence — rebuild from the
+cluster's own empirical mean waveform, probe frequency by the timing criterion
+`f0*|W|`, wavelet-align and re-average to a fixed point (3.7 iterations mean,
+f0 787–5364 Hz); (2) AR(4) temporal whitening from the quietest spike-free
+stretch on that channel; (3) full-session matched filter with the rebuilt
+template over all 120 s — the earlier runs scanned only ±150 samples around
+existing spikes, which at these firing rates cannot reach most misses; (4) two
+gates, both calibrated on the cluster's OWN real spikes: whitened fit R² and
+footprint similarity.
+
+**A 20-sample sign error was found and fixed before any result was read.**
+`fftconvolve(..., mode="same")` indexes the template window's centre, so the
+event sits at `i - N//2 + NT0MIN`; I had the sign backwards, putting every
+candidate 20 samples late. It recovered exactly zero spikes while the gates
+still passed at 86%, because `align_snippet`'s ±25 coarse search walked back to
+the real event — a silent failure that looked like a finding. Caught by
+validating the convention against known truth times rather than reasoning about
+it: median offset is now +0.0 samples with 100% of detected spikes inside ±3.
+This is the fifth silent failure in this project that produced plausible output;
+the lesson is unchanged and now applied by default — validate conventions
+against truth, do not derive them.
+
+**THE RESULT (vanilla): recovery precision 2.3%.** 11,027 candidates accepted
+across 52 placements; **259 were real missed spikes of the unit.**
+
+| tier | missed | accepted | recovered | chance | recall before→after | precision before→after |
+|---|---|---|---|---|---|---|
+| easy | 34.1 | 143.6 | 4.0 | 0.03 | .883 → .897 | .765 → .739 |
+| collision | 49.2 | 207.9 | 4.0 | 0.08 | .832 → .845 | .594 → .539 |
+| pair | 81.2 | 334.1 | 5.4 | 0.19 | .720 → .739 | .486 → .440 |
+| hard | 68.7 | 121.9 | 6.3 | 0.10 | .764 → .786 | .593 → .551 |
+
+Pooled: recall .794 → .811 (**+1.7**), precision .600 → .557 (**−4.3**).
+Same shape for footprint_cluster_strong (.812 → .831, .621 → .552) and
+coarse_then_align (.771 → .787, .584 → .529).
+
+**It is finding real signal — 23× chance — but not this unit's spikes.** The
+chance control (same accepted set against random times at the same rate) gives
+0.1%, so 2.3% is genuinely above chance and the matched filter works. But **of
+the 10,768 false accepts, 10,070 (93.5%) coincide with a spike Kilosort already
+filed under a DIFFERENT cluster.** The tool is recovering real spikes belonging
+to other neurons. That is 5h's and 5p's conclusion, now quantified against
+truth instead of inferred: a SPECIFICITY failure, not a detection failure.
+
+**Gate sweep — no threshold rescues it.** Recovery precision / share of all
+misses recovered, vanilla: matched filter alone 1.6% / 15.0%; footprint gate
+only 2.7% / 10.2%; whitened R² only 1.6% / 11.0%; both 2.3% / 8.3%; both with
+R² at the median of real spikes 3.5% / 6.9%. The footprint gate is the one
+doing real work — it roughly doubles precision at every setting, consistent
+with 5q's AUC 0.999 — but doubling 1.6% is not useful. The ceiling with no gate
+at all recovers only 15–19% of misses.
+
+**The merge detector fails too, and for a diagnosable reason.** First test ever
+run against a known answer: same-neuron pairs are a unit's fragment vs its best
+cluster (truth: MERGE), different-neuron pairs are the two units of a pair-tier
+placement (truth: DO NOT MERGE). Sensitivity is **0.00–0.11** across all three
+configs and all three thresholds — it essentially never says merge for a true
+fragment. The reason is in the numbers: the merged refractory violation rate
+for TRUE fragments (0.066–0.076) is barely below that of genuinely DIFFERENT
+neurons (0.076–0.123), because the input clusters are already contaminated —
+the main cluster alone violates at 0.051–0.060. The refractory test needs clean
+inputs to have any headroom, and these clusters do not provide it.
+
+**CONCLUSION, answering Gil's question directly: post-hoc correction as built
+is NOT more efficient than fixing Kilosort.** It buys +1.7 recall for −4.3
+precision, the same trade-down that merging offers (5al), for far more
+machinery. Both fail for the identical underlying reason: on this probe,
+anything that scores as a unit's spike on its own channel is overwhelmingly
+likely to be a neighbour's real spike. That is one problem, and it is a
+per-spike attribution problem.
+
+**Honest limits of this test.** (1) The search is a single-channel matched
+filter with footprint used only as a post-hoc gate; 5q's finding was that
+footprint similarity should be the DISCRIMINATOR. A footprint-first search is
+untested and is the obvious next variant. (2) Candidates were capped at the top
+800 per placement by matched-filter score (28,908–29,499 refined in total);
+clusters on loud channels had tens of thousands above threshold, so the sweep's
+"no gate" row is the best 800 guesses, not all of them. (3) The hard tier
+remains unreliable (noise floor 0.444 recall).
+
+Artifacts: `outputs/v2_post_hoc_correction.csv` (per-placement),
+`outputs/v2_post_hoc_candidates.csv` (every refined candidate with its mf/R²/
+footprint score and whether it was a real missed spike — sweepable offline),
+`outputs/v2_merge_detector_truth.csv`.
+
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
 
@@ -2868,7 +3025,16 @@ here are spikes it DETECTED and then filed under the wrong cluster**, not
 spikes it missed. Round one was too small (n=3 per tier) and its sources were
 chosen by Kilosort's own labels, so **a rebuilt v2 benchmark now exists** —
 33 hand-reviewed units, 52 placements, 15,086 ground-truth spikes over four
-replicates — and it is waiting to run.
+replicates. Round two has RUN (5ak), and two follow-up analyses answered the
+question the benchmark was built for (5al, 5am): **neither merging fragments
+nor post-hoc spike recovery helps.** Both buy a couple of points of recall and
+cost four to ten points of precision, and both fail for one shared reason —
+93.5% of what a unit's own template matches on its own channel is a
+NEIGHBOUR'S real spike. The problem is per-spike attribution. Footprint
+similarity is the only signal measured to address it (5q, AUC 0.999 vs 0.749;
+5ak, the project's only statistically supported wins), and it has only ever
+been used as a clustering weight or a post-hoc gate — never as the
+discriminator in the detection path, which is the open lead.
 
 ### 6.2 THE IMMEDIATE STATE (what is happening right now)
 
@@ -2905,6 +3071,27 @@ only ~2.8 GB of the 6 GB) so this presents as a hang rather than an error.
 
 ### 6.3 WHAT TO RUN NEXT — the whole instruction
 
+**The sweep and both follow-up analyses are DONE. The open lead is one thing:**
+a footprint-FIRST search in the detection path. Every measurement points at it
+and nothing has tried it. 5q measured footprint similarity separating two
+same-channel neurons at AUC 0.999 where the single-channel score manages 0.749;
+5ak's only statistically supported wins are both footprint configs; 5am showed
+the footprint gate roughly doubles recovery precision at every threshold — but
+in all three it is a weight or an after-the-fact filter, never the thing that
+decides which neuron a spike belongs to. The test to write scores each
+candidate event against EVERY nearby unit's footprint and assigns it to the
+best, instead of asking one unit at a time "is this mine?". `test_post_hoc_on_v2.py`
+is the harness to extend — it already holds the truth-blind structure, the
+chance control, and the per-candidate score table.
+
+Analyses already run (do not repeat):
+```bash
+python analyse_v2_results.py                              # 5ak: paired tests, noise floor
+python analyse_split_vs_contamination.py                  # 5al: merging fragments
+python test_post_hoc_on_v2.py vanilla footprint_cluster_strong coarse_then_align   # 5am: ~25 min
+```
+
+To re-run the sweep itself from scratch:
 ```bash
 cd D:/Gil/spike_sorting_agent/post_ks_correction
 bash run_all_v2.sh          # ~70 min for all 36 runs
@@ -3086,6 +3273,9 @@ cross-correlogram refractory dip).
 - **Trodes and Kilosort cannot share this 6 GB GPU** (see 6.2).
 
 ### 6.10 WHAT HAS NOT BEEN DONE
+- **Footprint-first attribution — the one open lead.** See 6.3. Score each
+  candidate against every nearby unit's footprint and assign to the best,
+  rather than one unit at a time. Untried.
 - **Temporal whitening inside Kilosort** — built and validated on real noise
   (lag-1 0.72 → -0.09, ~3x discriminability) but never made a patch. By finding
   1 its ceiling is 4.8%, so it is the lowest-value remaining idea.
