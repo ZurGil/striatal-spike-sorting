@@ -3128,6 +3128,119 @@ Artifacts: `outputs/session_20260916_reward_cue_responses.csv` (per unit per
 event), `outputs/reward_cue_figs/{reward,cue_end}_top_units.png` (raster + PSTH,
 split left/right).
 
+---
+
+## 5ao. Decoding DV: the population carries the rat's DECISION, not the stimulus
+
+Gil asked whether DV can be decoded from the good units, at which stage, and by
+which method — expecting (correctly) that it would not be decodable before the
+stimulus. He also corrected my trial taxonomy, which is recorded first because
+it changes how the behaviour is read.
+
+### The taxonomy, corrected
+The 478 completed trials are **71 ERRORS**, **291 CORRECT+REWARDED** and **116
+CORRECT+OMISSION**. I had previously written that "a matched reward-omission
+control does not exist" (5an, now corrected in place). It does: on omission
+trials the rat chose correctly and no water came, and since it cannot tell
+those from a rewarded trial until the water fails to arrive, **how long it
+waits is a confidence report**. What genuinely does not exist is a *delivered*
+negative outcome at a matched time.
+
+The 116 must be split before anything is measured: **67 are catch trials**
+(wait stretched to 20 s — the designed confidence probe) and **49 are ordinary
+trials the rat abandoned early**, which wait a median of **0.83 s** and are a
+completely different population.
+
+### The confidence behaviour reproduces, on the matched comparison
+Catch trials and error trials are both stretched to 20 s (`GUI.CatchError=1`),
+so they are directly comparable:
+
+| group | n | median wait |
+|---|---|---|
+| CORRECT + catch | 67 | **7.14 s** |
+| ERROR | 71 | **6.25 s** |
+| CORRECT, normal delay, abandoned | 49 | 0.83 s |
+
+Correct > error, one-sided Mann-Whitney **p = 0.0029**. On catch trials the
+wait scales with difficulty (**rho = +0.330, p = 0.0064**, monotonic across
+quartiles 6.36 / 7.06 / 6.85 / 8.05 s); on error trials it does **not**
+(rho = +0.027, p = 0.83). That last contrast is the one worth having — when
+the rat was wrong, its persistence stops tracking the true stimulus strength.
+Pooling the 49 abandoned trials back in drops it to p = 0.10, which is why the
+split matters.
+
+### The decoding (`decode_dv.py`, `outputs/dv_decoding_*.csv`)
+111 good units, 478 completed trials, 200 ms sliding windows, 5-fold CV
+repeated 5x, **every number against its own permutation null** (never an
+assumed chance level — fifth time that discipline has mattered here).
+
+**Before the stimulus: nothing, across every method.** DV R2 = −0.009 (ridge,
+p=0.25), −0.073 (random forest, p=0.86); |DV| p=0.47–0.80; side AUC 0.47–0.48;
+choice AUC 0.51. A clean negative control, confirming the pipeline does not
+manufacture signal.
+
+**DV becomes decodable ~100 ms after stimulus onset and peaks at R2 = 0.568.**
+But the rat's CHOICE rises in lockstep and slightly ahead of it:
+
+| window centre from stim onset | DV R2 | correct-side AUC | choice AUC |
+|---|---|---|---|
+| 0.00 | −0.010 | 0.444 | 0.498 |
+| 0.10 | 0.054 | 0.606 | 0.672 |
+| 0.20 | 0.266 | 0.731 | 0.796 |
+| 0.35 (cue end) | 0.456 | 0.824 | 0.952 |
+| 0.55 (peak) | **0.568** | 0.901 | **0.998** |
+
+**THREE INDEPENDENT PROOFS THAT THIS IS CHOICE, NOT STIMULUS:**
+
+1. **The variance ceiling.** Knowing the rat's choice perfectly explains
+   **R2 = 0.533** of DV (because sign(DV) is the correct side and the rat is
+   right on 85.1% of trials). The decoder reached 0.564 — essentially nothing
+   beyond the choice. Knowing sign(DV) perfectly would give 0.709, which it
+   never approaches.
+2. **The error-trial test, the decisive one.** Train sign(DV) on the 407
+   correct trials, test on the 71 errors, where choice and correct side
+   DISAGREE. AUC = **0.002 / 0.001 / 0.003 / 0.030** from cue end onward — not
+   at chance but *inverted*, i.e. it predicts the choice just as well on error
+   trials. It was never reading the stimulus.
+3. **Nonlinearity adds nothing.** Random forest 0.240 vs ridge 0.251 during the
+   stimulus; 0.578 vs 0.571 at cue end; linear SVR worse than both. No hidden
+   structure the linear decoder missed.
+
+### The one genuinely non-motor signal: |DV| (difficulty)
+Difficulty is independent of which side was correct, so it cannot be a motor
+readout. Tested with ridge AND random forest:
+
+| epoch | ridge R2 | RF R2 | RF p |
+|---|---|---|---|
+| pre-stimulus | −0.023 | −0.045 | 0.47 |
+| **during stimulus** | **−0.018** | **−0.027** | **0.17** |
+| cue end -> choice | +0.039 | **+0.091** | 0.008 |
+| at choice poke | +0.011 | +0.060 | 0.008 |
+| after choice (wait) | +0.083 | +0.068 | 0.008 |
+| late wait | +0.011 | +0.035 | 0.008 |
+
+**Difficulty carries no information while the stimulus is playing — not even
+nonlinearly — and appears only after the choice**, peaking ~450–500 ms into the
+waiting period before decaying to chance by ~1 s. Random forest beats ridge
+here (0.091 vs 0.039 at cue end), so the difficulty code is somewhat nonlinear,
+which is the one place a nonlinear decoder earned its cost.
+
+**Interpretation.** That timing is exactly where the confidence behaviour sits.
+Difficulty also predicts how long the rat waits (rho=+0.33 on catch trials) and
+whether it was correct (mean |DV| 0.533 on correct vs **0.208** on errors). So
+the post-choice difficulty signal reads as **the rat's confidence state**, not
+a sensory representation.
+
+### The limit that no analysis here can get past
+Choice is decodable at AUC 0.672 within 100 ms of stimulus onset and 0.796 by
+200 ms. **The decision is forming while the tone is still playing**, so no time
+window in this task isolates sensory coding from the developing choice.
+Separating them needs a design where the choice is withheld or delayed.
+
+Artifacts: `outputs/dv_decoding_timecourse.csv`, `dv_decoding_epochs.csv`,
+`dv_decoding_error_generalisation.csv`, `dv_decoding_absdv_rf.csv`,
+`outputs/reward_cue_figs/dv_decoding_timecourse.png`.
+
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
 
