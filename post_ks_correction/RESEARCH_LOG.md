@@ -2750,6 +2750,107 @@ Scripts: `select_source_units.py` (now reads the manual verdicts),
 `run_v2_comparison.py`.
 
 
+## 5ak. THE v2 RESULTS — all 36 runs, and the first statistically real win
+
+All 9 configurations x 4 replicates completed (36/36, no failures, ~170 s
+each). 468 unit-placements scored. `outputs/v2_scores.csv`,
+`outputs/v2_paired_vs_vanilla.csv`, `analyse_v2_results.py`.
+
+### FIRST: the noise floor is no longer zero
+In round one `vanilla_repeat` reproduced `vanilla` exactly, which is what
+licensed treating every difference as signal. On v2 it does **not**:
+
+| tier | placements where two IDENTICAL runs disagree | largest disagreement |
+|---|---|---|
+| easy | 0 of 12 | — bit-identical |
+| collision | 0 of 12 | — bit-identical |
+| pair | 0 of 16 | — bit-identical |
+| **hard** | **2 of 12** | **0.444 recall, 0.817 precision** |
+
+Both unstable placements are on the hard tier at its loudest sites, and the
+mechanism is visible:
+- unit 278 (222.9 uV neighbour): same matched cluster (26) both runs, but
+  recall 0.966 vs 0.522 and precision 0.183 vs 1.000 — the cluster absorbed a
+  mass of resident spikes in one run and not the other.
+- unit 297 (466.5 uV, the loudest site): matched cluster flips 123 -> 125.
+
+So Kilosort is deterministic except where a clustering decision is genuinely
+marginal, which is exactly what a loud neighbourhood produces. **Consequence:
+easy/collision/pair differences are real signal; hard-tier differences below
+~0.44 recall are not evidence of anything.** No hard-tier claim in this
+section should be believed.
+
+### The result: footprint-aware clustering is confirmed, with significance
+Paired Wilcoxon against vanilla on the same 52 placements (paired because every
+config sees identical placements; this removes the between-unit variance that
+made round one's n=3 tier means unreadable).
+
+**`footprint_cluster_strong` on the PAIR tier — the tier it was built for:**
+recall **0.7205 -> 0.7977 (+7.7 points), 10 wins / 2 losses, p = 0.038**, on a
+tier with a bit-identical noise floor. Precision also up (0.4863 -> 0.5554)
+though not significantly. **This is the first statistically supported
+improvement over stock Kilosort in the whole project.**
+
+**`footprint_cluster` (weight 1.0) wins PRECISION:**
+overall **0.5998 -> 0.6542 (+5.4 points), 26 wins / 12 losses, p = 0.010**;
+on the pair tier **0.4863 -> 0.5906 (+10.4 points), p = 0.023**.
+
+So the two weights do different jobs: weight 3.0 buys recall on closely-spaced
+neurons, weight 1.0 buys precision broadly. Both beat stock; neither dominates.
+
+**Everything else is neutral or harmful.** `amplitude_normalize` overall recall
+-0.034 (p = 0.012) and `coarse_align_amp_norm` -0.036 (p = 0.023) are
+significantly WORSE. The alignment family is indistinguishable from stock.
+
+### Merge errors appear for the first time
+| config | merged pairs |
+|---|---|
+| vanilla | **1 of 8** (units 285+331, replicate 1) |
+| vanilla_repeat | 1 of 8 (same) |
+| coarse_align_amp_norm | 1 of 8 |
+| **both footprint configs** | **0 of 8** |
+| all other configs | 0 of 8 |
+
+Round one reported zero merge errors everywhere and concluded "Kilosort
+shatters rather than merges". With pairs now genuinely remote (181-242 um,
+similarity 0.000) the failure is detectable, and stock Kilosort does merge one
+pair in eight. Both footprint configurations prevent it. One pair is a single
+observation — not a result on its own, but it points the same way as the recall
+and precision effects.
+
+### What actually makes a placement hard — NOT the thing the hard tier tests
+Spearman against vanilla recall across all 52 placements:
+
+| predictor | rho |
+|---|---|
+| **donor contamination** | **-0.556** |
+| site max neighbour amplitude | -0.176 |
+| number of injected spikes | -0.179 |
+| site noise (MAD) | -0.137 |
+| site density | -0.019 |
+
+**The donor's own contamination predicts recall three times better than any
+property of where it was placed.** Site amplitude — the axis the whole hard
+tier was designed around — is weak, and density is nil.
+
+Caveat on direction of causation: this is partly a construction artefact.
+Snippets are drawn at random from the donor cluster, so a contaminated donor
+injects inconsistent waveforms, which Kilosort then splits. It is evidence that
+donor purity dominates the benchmark, not proof that contamination makes real
+neurons hard to sort. It argues for tightening the contamination cap below 10%
+in any future round.
+
+### Headline numbers (mean over 4 replicates, 52 placements)
+RECALL by tier — vanilla / footprint_cluster_strong / footprint_cluster:
+easy .883 / .868 / .862 | collision .832 / .850 / .805 |
+hard .764 / .736 / .700 (unreliable) | **pair .720 / .798 / .730**
+PRECISION by tier:
+easy .765 / .726 / .867 | collision .594 / .571 / .572 |
+hard .593 / .655 / .609 (unreliable) | **pair .486 / .555 / .591**
+OVERALL recall: footprint_cluster_strong .812 > vanilla .794 > others
+OVERALL precision: footprint_cluster .654 > vanilla .600
+
+
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
 
 This section is self-contained. Everything needed to resume with no memory of
@@ -2785,11 +2886,14 @@ source before declaring success.**
 **Trodes is CLOSED** (17:10, after confirming 0 bytes of disk I/O over 12 s and
 the source file untouched for 3 h). GPU is free: ~500 MiB / ~20%.
 
-**Kilosort is CONFIRMED WORKING once Trodes is closed.** A validation run
-(`vanilla`, replicate 0) launched 17:11 finished in **191 s**, producing
-224,347 spikes in 216 clusters. That settles the stall below: it was Trodes,
-not a code fault. **That run counts as 1 of the 36** — `run_all_v2.sh` will skip
-it. Expect ~3.2 min per run, so ~1.9 h for the remaining 35.
+**THE SWEEP IS DONE — see section 5ak for the results.** All 36 runs completed
+18:49-20:31, no failures. The copy finished and verified first (11 files,
+730.33 GB, exact byte match). Headline: `footprint_cluster_strong` improves
+pair-tier recall 0.720 -> 0.798 (p = 0.038) and `footprint_cluster` improves
+overall precision 0.600 -> 0.654 (p = 0.010) — the first statistically
+supported wins in the project. Everything else is neutral or worse. **The hard
+tier is NOT reliable**: two identical runs disagree on 2 of its 12 placements,
+by up to 0.44 recall.
 
 **THE STALL, and why Trodes was closed.** Three separate attempts to run
 Kilosort froze at exactly the same point — `spikedetect` logging "Detecting
