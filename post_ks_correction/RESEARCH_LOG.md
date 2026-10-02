@@ -3109,12 +3109,20 @@ windows: **18 show no response there at all, and the remaining 3 (250, 319,
    The test window was cut to 0.15 s to close before the 10th-percentile
    movement time (0.205 s), but no window can separate "responds to the
    stimulus ending" from "responds to initiating a choice" given this design.
-2. **A matched reward-omission control does not exist in this session.** All
-   187 unrewarded completed trials ended in `skipped_feedback` — the rat gave
-   up waiting — including all 71 incorrect choices, because `GUI.CatchError=1`
-   stretches the incorrect wait to 20 s so it is never sat out. The give-up
-   moment is therefore a different behaviour, not an omission at a matched
-   time, and the specificity result above is suggestive rather than decisive.
+2. **CORRECTED (see 5ao): I first wrote that "a matched reward-omission
+   control does not exist". That was wrong, and Gil corrected it.** The
+   omission condition is real and is a designed part of the task: of the 478
+   completed trials, 71 are ERRORS, 291 are CORRECT+REWARDED and **116 are
+   CORRECT+OMISSION** (67 of them catch trials). On those the rat chose
+   correctly and no water came, and because it cannot tell them from a
+   rewarded trial until the water fails to arrive, **how long it waits before
+   giving up is a readout of its confidence**. What genuinely does not exist
+   is a *delivered* negative outcome at a matched time — all 187 unrewarded
+   trials end in `skipped_feedback` because `GUI.CatchError=1` stretches the
+   incorrect wait to 20 s so it is never sat out. So the give-up moment is not
+   a passive omission marker, it is the behavioural report itself, which is
+   why the reward-specificity result above stays suggestive rather than
+   decisive.
 
 Artifacts: `outputs/session_20260916_reward_cue_responses.csv` (per unit per
 event), `outputs/reward_cue_figs/{reward,cue_end}_top_units.png` (raster + PSTH,
