@@ -3660,6 +3660,86 @@ Artifacts: `outputs/stimulus_evidence_profile.csv`,
 `post_ks_correction/stimulus_evidence_profile.py`.
 
 
+---
+
+## 5au. The mixture rule, verified exactly — and a loudness confound it exposes
+
+Gil asked how the mixture is actually computed and how it was worked out. Five
+properties, each measured (`verify_mixture.py`).
+
+### The rule
+    x(t) = omega * A(t) + (1 - omega) * B(t)
+
+A plain weighted sum of two fixed waveforms. `omega` = `Custom.AuditoryOmega`,
+one value per trial, constant for the whole 350 ms. A and B are the omega=1 and
+omega=0 endpoints; the settings label them `soundA = frogs2.wav` and
+`soundB = Passer_Montanus.wav`, which is the natural reading but cannot be
+confirmed without the files themselves.
+
+1. **Exact to double precision.** Solving for A and B from trials 953/954 and
+   predicting the held-out two: **max absolute error 2.2e-16 and 1.7e-16** on
+   signals of range 1.76 and 1.14. Not "a good fit" — machine epsilon.
+
+2. **Exactly two sources, not three.** The SVD of the four waveforms gives
+   singular values `[1, 0.465, 0, 0]`. They span a strictly 2-dimensional
+   space, so no third component exists.
+
+3. **omega -> side is deterministic.** Trials with DV > +0.5 have
+   `LeftRewarded = 1` on **100.0%**; DV < −0.5 on **0.0%**. High omega (more of
+   sound A) means LEFT is correct. (This also corrects a sloppy check in 5as
+   that compared a boolean against a float array and printed "False".)
+
+4. **No power normalisation.** Measured RMS matches the plain-weighted-sum
+   prediction to five decimals on all four trials.
+
+### The confound that falls out of (4), and it touches 5aq/5ar
+Because the two sources partially cancel, a plain weighted sum is **quietest
+near omega = 0.5** — exactly where the trial is hardest:
+
+| trial | omega | \|DV\| | RMS |
+|---|---|---|---|
+| 956 | 0.547 | 0.09 (hardest) | **0.0697** |
+| 954 | 0.251 | 0.50 | 0.0769 |
+| 955 | 0.865 | 0.73 | 0.0862 |
+| 953 | 0.874 | 0.75 (easiest) | **0.0869** |
+
+That is a ~25% RMS span, about **2 dB louder on easy trials than hard ones**.
+So `|DV|` is confounded with loudness in this task by construction.
+
+**What that does to the accumulation result (5aq, replicated in 5ar).** The
+finding was that the choice signal rises earlier and higher on strong-evidence
+trials. Strong-evidence trials are also ~2 dB louder, so part of that ordering
+could be a loudness effect rather than evidence integration. Two things keep it
+from sinking the result: 2 dB is a small change against the dynamic range of
+auditory responses, and the effect replicated across three sessions with the
+same direction and similar magnitude. But it is a real alternative explanation
+that the earlier sections did not know about and did not control, and it should
+be stated whenever that result is quoted.
+
+**It is also testable**, now that the stimulus is exactly reconstructible:
+regress the decoding onset against loudness and |DV| jointly across trials,
+since RMS is a known deterministic function of omega. Not yet done.
+
+### How this was found, in order
+1. Noticed `AuditoryStimulusType = 3` and read its popupmenu strings —
+   `['Clicks','Freqs','Natural']` — which showed the `Aud_*` tone settings I had
+   been reading belong to a variant this session never ran (5as).
+2. Found `AuditoryOmega` present on every trial and verified `DV = 2*omega - 1`
+   exactly, so the stimulus parameter was never missing.
+3. Found four real waveforms in `AudSound` (the unplayed look-ahead trials) and
+   noticed two of them had nearly equal omega and correlated at r = 0.9999 —
+   evidence of a deterministic rule rather than a random draw.
+4. Hypothesised a linear superposition, which is falsifiable: two waveforms at
+   known omega determine A and B per sample, leaving the other two as a genuine
+   held-out test. It passed at machine precision.
+5. Fitted omega independently in 10 ms frames to ask whether the ratio moves
+   within a trial. It does not (SD = 0.0000), which is what makes the
+   early-vs-late comparison impossible by design (5at).
+
+Artifacts: `verify_mixture.py` and `recover_sources.py` in the scratchpad,
+`post_ks_correction/stimulus_evidence_profile.py`.
+
+
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
 
