@@ -3331,6 +3331,85 @@ which this task does not provide.
 Artifacts: `outputs/dv_within_choice.csv`, `leaving_time_decoding.csv`,
 `leaving_imminent.csv`, `outputs/reward_cue_figs/leaving_time_decoding.png`.
 
+---
+
+## 5aq. Stimulus-period dynamics, and why the per-tone analysis is impossible here
+
+Gil asked how choice/DV evolve during the stimulus, and whether the signal
+tracks the individual evidence events — "some clicks are evidence for the left
+and some for the right".
+
+### The stimulus is a tone cloud, and the sequence was not saved
+This session is **not** the click-train variant (`ClickTask = 0`,
+`AuditoryTrial = 1`, `TaskType = 3`). It is the tone cloud: 30 ms tones from 18
+frequencies spanning 200 Hz–20 kHz (`Aud_ToneDuration = 0.03`,
+`Aud_nFreq = 18`), overlapping by 2/3 (`Aud_ToneOverlap = 0.6667`), so a tone
+starts every ~10 ms and the 350 ms stimulus carries **~35 of them**, each above
+or below `CategoryBoundary` and therefore evidence for one side. The question is
+the right one for this task.
+
+**But the realized sequence is not recorded.** `Custom.AudSound` has 957 entries
+and only **four** are non-empty — indices 953–956, the pre-generated look-ahead
+trials that were never played (953 ran). It is a rolling buffer for upcoming
+trials, not a log. Nothing else carries per-tone identity or timing:
+`AudFracHigh` is a single 2-element array and `DV` is one number per trial.
+
+**I got this wrong once before concluding it.** My first check read only the
+first three trials, found empty arrays, and I wrote that the sequence "was not
+saved anywhere". The size histogram then showed four entries of 128,251 samples
+— real waveforms. Only on checking *which* trials did it turn out they are the
+unplayed look-ahead ones. The conclusion survived; the reasoning behind it would
+not have.
+
+**To make this analysis possible on future sessions** the protocol must log, per
+trial, the tone frequencies and onset times (or the RNG seed that generated
+them). That is a protocol change, not an analysis one, and it is cheap.
+
+### What the dynamics actually look like
+`decode_stimulus_dynamics.py`, 100 ms windows stepped 25 ms (the earlier 200 ms
+windows were wider than half the stimulus and smeared exactly this period).
+
+| time from stimulus onset | choice AUC | DV R2 |
+|---|---|---|
+| −0.15 to 0.00 (pre) | 0.48–0.52, all p>0.2 | ~−0.012, all n.s. |
+| +0.075 | **0.586 (p=0.010)** — first significant | n.s. |
+| +0.125 | 0.636 | +0.048 |
+| +0.150 | 0.720 | +0.118 |
+| +0.250 | 0.826 | +0.256 |
+| +0.300 (stimulus ends 0.35) | **0.881** | +0.320 |
+| +0.550 (after the poke) | 0.995 | +0.543 |
+
+Choice becomes decodable **~75–100 ms after stimulus onset — about 7–10 tones
+in** — and climbs smoothly to **AUC 0.88 by the time the stimulus ends**, which
+is still ~250 ms before the median choice poke at +0.603 s. **The decision is
+essentially complete at stimulus offset**, which is the mechanistic reason no
+window in this task separates sensory coding from the choice (5ao).
+
+### The accumulation proxy: it behaves like evidence integration
+Without the tone stream, the closest available test is whether the choice signal
+rises FASTER when the net evidence is stronger. Trials split into |DV| tertiles:
+
+| evidence | n | mean \|DV\| | AUC≥0.60 | AUC≥0.70 | peak within stimulus |
+|---|---|---|---|---|---|
+| weak | 159 | 0.13 | +0.225 s | +0.250 s | 0.804 |
+| medium | 160 | 0.45 | +0.150 s | +0.200 s | 0.906 |
+| strong | 159 | 0.83 | **+0.100 s** | **+0.125 s** | **0.938** |
+
+**Perfectly monotonic: the choice signal appears 125 ms earlier on strong-
+evidence trials than on weak ones, and reaches a higher plateau.** That is the
+signature of accumulation — more evidence per unit time crosses the bound
+sooner.
+
+Two cautions kept with it. Easy trials also produce more consistent behaviour,
+so better decodability there is not by itself proof of integration. And the
+per-tertile curves are noisy before the stimulus (n=159 each, values wandering
+0.48–0.64), so the onset times carry real uncertainty; the "first window that
+*stays* above threshold" rule was used precisely to stop that noise setting the
+answer.
+
+Artifacts: `outputs/stimulus_dynamics.csv`,
+`outputs/reward_cue_figs/stimulus_dynamics.png`.
+
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
 
