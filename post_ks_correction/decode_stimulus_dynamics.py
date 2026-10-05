@@ -60,9 +60,16 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-SYNC = (r"F:\Gil\Shamir\20260916_110311.rec\20260916_110311.kilosort"
-        r"\synced_20261002")
-VERD = r"D:\Gil\spike_sorting_agent\outputs\manual_verdicts_20260916_110311.csv"
+import argparse
+_ap = argparse.ArgumentParser()
+_ap.add_argument("--sync", default=(r"F:\Gil\Shamir\20260916_110311.rec"
+                                    r"\20260916_110311.kilosort\synced_20261002"))
+_ap.add_argument("--units", default=(r"D:\Gil\spike_sorting_agent\outputs"
+                                     r"\manual_verdicts_20260916_110311.csv"),
+                 help="path to a review-tool verdicts csv, or the word 'kslabel'")
+_ap.add_argument("--tag", default="20260916_110311")
+_A = _ap.parse_args()
+SYNC, UNIT_SRC, TAG = _A.sync, _A.units, _A.tag
 OUT = r"D:\Gil\spike_sorting_agent\outputs"
 FIG = os.path.join(OUT, "reward_cue_figs")
 
@@ -74,9 +81,15 @@ STIM_DUR = 0.35
 trials = pd.read_parquet(os.path.join(SYNC, "trials.parquet"))
 se = pd.read_parquet(os.path.join(SYNC, "state_events.parquet"))
 units = pd.read_parquet(os.path.join(SYNC, "units.parquet"))
-ver = pd.read_csv(VERD)
-good = sorted(set(ver.loc[ver.verdict == "good", "unit"].astype(int))
-              & set(units.unit_id.astype(int)))
+if UNIT_SRC.lower() == "kslabel":
+    good = sorted(units.loc[units.quality_label == "good", "unit_id"].astype(int))
+    CURATION = "KSLabel 'good' (automatic — this session has no hand review)"
+else:
+    ver = pd.read_csv(UNIT_SRC)
+    good = sorted(set(ver.loc[ver.verdict == "good", "unit"].astype(int))
+                  & set(units.unit_id.astype(int)))
+    CURATION = "hand-reviewed 'good' in the review tool"
+print(f"session {TAG}: units = {CURATION}")
 clean = trials[trials.sync_valid & trials.TrialCompleted]
 
 
@@ -178,7 +191,7 @@ for s0 in starts:
           f"{by['weak']:>12.3f}{by['medium']:>9.3f}{by['strong']:>9.3f}", flush=True)
 
 df = pd.DataFrame(rows)
-df.to_csv(os.path.join(OUT, "stimulus_dynamics.csv"), index=False)
+df.to_csv(os.path.join(OUT, f"stimulus_dynamics_{TAG}.csv"), index=False)
 
 
 def onset(col, thresh, chance_col=None):
@@ -250,12 +263,12 @@ ax.set_title("Does the choice signal build faster on strong evidence?", fontsize
 ax.legend(fontsize=8, frameon=False, loc="upper left")
 ax.tick_params(labelsize=8)
 
-fig.suptitle("Stimulus-period dynamics, session 20260916_110311 — 478 completed trials, "
-             "111 good units\n100 ms windows stepped by 25 ms · dotted grey = "
+fig.suptitle(f"Stimulus-period dynamics, session {TAG} — {len(ev)} completed trials, "
+             f"{len(U)} good units\n100 ms windows stepped by 25 ms · dotted grey = "
              "permutation chance",
              fontsize=11, fontweight="bold")
 fig.tight_layout()
-p = os.path.join(FIG, "stimulus_dynamics.png")
+p = os.path.join(FIG, f"stimulus_dynamics_{TAG}.png")
 fig.savefig(p, dpi=125, bbox_inches="tight")
 print(f"\nsaved {p}")
-print("saved stimulus_dynamics.csv")
+print(f"saved stimulus_dynamics_{TAG}.csv")

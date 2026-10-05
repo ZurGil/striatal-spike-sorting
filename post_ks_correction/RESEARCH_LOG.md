@@ -3410,6 +3410,90 @@ answer.
 Artifacts: `outputs/stimulus_dynamics.csv`,
 `outputs/reward_cue_figs/stimulus_dynamics.png`.
 
+---
+
+## 5ar. Validating the stimulus-dynamics result: two more sessions, split-half, and the pre-stimulus leak explained
+
+Gil's challenge: the 5aq result is very strong for one session. He also asked
+for a within-session check comparing trials where evidence for the correct side
+arrives early vs late in the stimulus, and separately flagged that older
+sessions might not be correctly synchronised.
+
+**Gil's synchronisation worry was right, and it mattered.** Both other sorted
+sessions had `synced` folders predating the ephys-offset fix (made Sep 2 and
+Sep 16; the fix landed Sep 17). Both were reprocessed from scratch. The
+recovered offsets: **20260901_085606 = 25.79 s**, **20260911_100049 = 28.8 s**.
+Using the old folders would have silently destroyed the alignment. Both
+reprocessed cleanly — 15174/15174 and 23153/23153 events matched, held-out
+median 0.000 ms, no gaps.
+
+**The early-vs-late-evidence analysis remains impossible** for the reason in
+5aq: it needs per-tone timing, and `Custom.AudSound` holds only a rolling
+buffer of unplayed look-ahead trials. No analysis recovers it.
+
+### Cross-session replication (same code, `decode_stimulus_dynamics.py`)
+The two validation sessions have no hand review, so they use KSLabel `good` —
+a weaker curation, making it a harder test.
+
+| session | curation | trials | units | pre-stim DV | DV first significant |
+|---|---|---|---|---|---|
+| 20260916_110311 | hand-curated | 478 | 111 | n.s. (p≥0.34) | +0.100 s |
+| 20260901_085606 | KSLabel | 419 | 112 | n.s. (p≥0.72) | +0.075 s |
+| 20260911_100049 | KSLabel | 565 | 183 | n.s. (p≥0.089) | +0.075 s |
+
+**The accumulation proxy replicates in all three, on both measures:**
+
+| session | peak choice AUC in stimulus (weak/med/strong) | AUC≥0.70 onset (weak/med/strong) |
+|---|---|---|
+| 20260916_110311 | 0.804 / 0.906 / **0.938** | 0.250 / 0.200 / **0.125** s |
+| 20260901_085606 | 0.799 / 0.884 / **0.952** | 0.325 / 0.125 / **0.100** s |
+| 20260911_100049 | 0.857 / 0.943 / **0.964** | 0.225 / 0.150 / **0.100** s |
+
+Monotonic in all six comparisons. Stronger evidence produces an earlier and
+higher choice signal, in three independent sessions with two different curation
+methods.
+
+### Split-half within each session (`validate_stimulus_dynamics.py`)
+Independent fits on the first and second half of trials — a fluke of one subset,
+or an artefact of slow drift, would differ between halves.
+
+**Late-stimulus decoding is significant in all 6 half-sessions** (choice AUC
+0.761–0.928, DV R² +0.271 to +0.331, every p = 0.005). Early-stimulus DV is
+significant in 5 of 6. Pre-stimulus DV is non-significant in all 6. The result
+does not depend on which half of a session you look at.
+
+### THE PRE-STIMULUS LEAK, AND ITS CAUSE
+The validation sessions decode the rat's CHOICE above chance *before* the
+stimulus (0.60–0.63 and 0.54–0.60), where 20260916 is clean (0.48–0.52). That
+would contaminate any onset estimate for choice, so it had to be explained.
+
+**It is choice history, and the test is decisive:**
+
+| session | decode CURRENT choice | decode PREVIOUS choice | repeat rate | current, *within* previous-choice groups |
+|---|---|---|---|---|
+| 20260916_110311 | 0.502 (n.s.) | **0.702** (p=0.005) | 54.9% | 0.453 |
+| 20260901_085606 | 0.598 (p=0.005) | **0.717** (p=0.005) | 64.4% | 0.532 |
+| 20260911_100049 | 0.538 (n.s.) | **0.695** (p=0.005) | 55.1% | 0.480 |
+
+Pre-stimulus activity carries the PREVIOUS trial's choice at AUC ~0.70 in all
+three sessions. Because the rat repeats its last choice on 55–64% of trials,
+that alone predicts the current choice — and **conditioning on the previous
+choice collapses current-choice decoding to chance (0.45–0.53) in every
+session**. The leak is history, not a sorting or sync artefact, and the session
+with the weakest repeat rate (20260916, 54.9%) is the one with no leak.
+
+**This does not touch the DV result.** Pre-stimulus DV is at chance in all three
+sessions and in all six halves. Only the *choice* onset estimate is affected,
+and only in the two sessions with strong choice history.
+
+**A finding in its own right:** a persistent representation of the previous
+trial's choice, AUC ~0.70 in the 100 ms before the next stimulus, replicated
+across three sessions. Not something this project set out to look for.
+
+Artifacts: `outputs/stimulus_dynamics_{session}.csv`,
+`validation_split_half.csv`, `validation_prestim_history.csv`,
+`outputs/reward_cue_figs/stimulus_dynamics_{session}.png`.
+
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
 
