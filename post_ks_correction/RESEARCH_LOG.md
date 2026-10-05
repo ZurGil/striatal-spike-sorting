@@ -3578,6 +3578,88 @@ than by me. The pattern is the same: inspecting a few entries or a few fields
 without checking which configuration was actually in force.
 
 
+---
+
+## 5at. The stimulus fully reconstructed — and why early-vs-late is impossible by design, not by omission
+
+Gil pressed the point: "I didn't understand whether you were able to find the
+stimulus vector and perform the analysis for early vs late evidence. Each trial
+should have its own sound stimulus. Some are easy some are hard (that is the
+DV)." Both halves are now settled, by measurement rather than argument.
+
+### The stimulus vector: found, and exactly reconstructible
+The 'Natural' stimulus is a **linear superposition of two fixed sounds**:
+
+    x(t; w) = w * A(t) + (1 - w) * B(t)
+
+with A = frogs2.wav, B = Passer_Montanus.wav, and w = `AuditoryOmega`, saved
+for every trial (`DV = 2w - 1` exactly).
+
+Two of the four saved waveforms determine A and B per sample by solving a 2x2
+system. Predicting the remaining two from w alone:
+
+| held-out trial | omega | r | normalised RMSE |
+|---|---|---|---|
+| 955 | 0.8648 | **1.000000** | 0.0000 |
+| 956 | 0.5469 | **1.000000** | 0.0000 |
+
+So **the exact played waveform of all 953 trials is recoverable** from data
+already in hand — the rig's `.wav` files are no longer needed. Gil was right
+that the file contains all the trial information; it just stores the stimulus
+as one parameter rather than as audio.
+
+### Why early-vs-late has no referent: the mixing ratio is constant
+Fitting the mixture ratio independently in 10 ms frames returns the trial's own
+w in **every frame, with SD = 0.0000**:
+
+| trial | true w | per-frame w (median, IQR, SD) |
+|---|---|---|
+| 953 | 0.8735 | 0.8735, 0.8735-0.8735, 0.0000 |
+| 954 | 0.2511 | 0.2511, 0.2511-0.2511, 0.0000 |
+| 955 | 0.8648 | 0.8648, 0.8648-0.8648, 0.0000 |
+| 956 | 0.5469 | 0.5469, 0.5469-0.5469, 0.0000 |
+
+The ratio is fixed for the whole 350 ms. Two trials sharing a w are the same
+sound sample-for-sample. **There is therefore no trial on which evidence for
+the correct side arrived early and none on which it arrived late** — the
+variability the comparison requires does not exist in the design. This is now a
+measured property of the stimulus, not an inference from missing data, and it
+supersedes both earlier explanations (5aq's "not saved", 5as's "deterministic
+morph").
+
+Gil's framing is exactly right and is the reason: each trial has its own sound,
+and its difficulty is DV — but difficulty lives in the *ratio*, a single number
+held constant in time, not in a temporal sequence of evidence events.
+
+### The within-trial version that IS possible — and is inconclusive
+Differentiating the mixture with respect to w gives `dx/dw = A - B`, so the
+instantaneous evidence rate is governed by `(A - B)^2`: moments where the two
+recordings differ are informative, moments where they coincide are not. That
+profile is fixed across trials, which is why it cannot split trials — but it
+can be tested *within* the trial. Integration predicts the choice signal should
+grow fastest while informative sound is arriving.
+
+Measured over the played 350 ms in 25 ms bins: `(A-B)^2` power varies **53x**
+between the least and most informative bin, spectral difference 11.2-18.5 dB.
+Against the increment in choice AUC per step:
+
+| evidence measure | Spearman | Pearson |
+|---|---|---|
+| `(A-B)^2` power | rho = +0.459, p = 0.114 | r = +0.361, p = 0.226 |
+| spectral difference | rho = -0.036, p = 0.908 | r = -0.001, p = 0.998 |
+
+**Inconclusive, and reported as such.** Only 13 windows fit inside the
+stimulus, so power is very low; and the two ways of quantifying
+"informativeness" disagree with each other (Spearman rho = -0.357 between them),
+which means the operationalisation is not robust enough to carry a claim either
+way. The positive trend on the power measure is the direction integration
+predicts, and that is all that can honestly be said.
+
+Artifacts: `outputs/stimulus_evidence_profile.csv`,
+`outputs/reward_cue_figs/stimulus_evidence_profile.png`,
+`post_ks_correction/stimulus_evidence_profile.py`.
+
+
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
 
