@@ -3333,7 +3333,12 @@ Artifacts: `outputs/dv_within_choice.csv`, `leaving_time_decoding.csv`,
 
 ---
 
-## 5aq. Stimulus-period dynamics, and why the per-tone analysis is impossible here
+## 5aq. Stimulus-period dynamics  [STIMULUS DESCRIPTION CORRECTED IN 5as]
+
+> **Read 5as before this section.** The stimulus is NOT a tone cloud. It is a
+> deterministic morph of two natural sounds indexed by AuditoryOmega, which IS
+> saved for every trial. The decoding results below are unaffected, but the
+> description of what the rat heard is wrong.
 
 Gil asked how choice/DV evolve during the stimulus, and whether the signal
 tracks the individual evidence events — "some clicks are evidence for the left
@@ -3493,6 +3498,85 @@ across three sessions. Not something this project set out to look for.
 Artifacts: `outputs/stimulus_dynamics_{session}.csv`,
 `validation_split_half.csv`, `validation_prestim_history.csv`,
 `outputs/reward_cue_figs/stimulus_dynamics_{session}.png`.
+
+---
+
+## 5as. CORRECTION: the stimulus is two natural sounds, it IS fully recorded, and 5aq described it wrongly
+
+Gil: "can't you find the original .mat bpod file and understand where the
+stimulus is? It should contain all the trials information. this task uses two
+natural sounds for the stimulus." He was right on every count.
+
+### What 5aq got wrong
+5aq described the stimulus as a **tone cloud** — 30 ms tones from 18
+frequencies, ~35 per trial — and concluded the per-tone sequence "was not
+saved". That description came from reading the `Aud_*` GUI settings without
+checking which stimulus variant was actually selected. **It is wrong.**
+
+`AuditoryStimulusType` is a popupmenu whose options are
+`['Clicks', 'Freqs', 'Natural']`, and this session's value is **3 = Natural**.
+The `Aud_nFreq` / `Aud_ToneDuration` / `Aud_ToneOverlap` parameters belong to
+the `AudFreq` GUI panel — the *Freqs* variant — and are inert here. The real
+stimulus is set by the `AudNatural` panel: `soundA = frogs2.wav`,
+`soundB = Passer_Montanus.wav` (a tree sparrow), from the protocol's
+`naturalsounds165` folder.
+
+### The stimulus IS fully recorded, contrary to 5aq
+`Custom.AuditoryOmega` is saved for **every trial** (956 distinct values in
+[0,1]) and **`DV = 2*omega - 1` exactly** — median absolute difference 0.00e+00,
+99.8% of trials matching to 1e-6 (the two exceptions are the StartEasyTrials at
+indices 0-1). So the stimulus parameter was never missing. 5aq's claim that
+"we know the NET evidence and not the stream that produced it" was the right
+sentence about the wrong task.
+
+### The sound is a DETERMINISTIC function of omega — measured, not assumed
+Four real stimulus waveforms are in the file (indices 953-956, the unplayed
+look-ahead trials; 128,251 samples = 0.668 s at 192 kHz, longer than the 0.35 s
+actually played). Comparing them pairwise:
+
+| pair | delta-omega | raw waveform r | spectrogram r |
+|---|---|---|---|
+| 953 vs 955 | **0.0087** | **0.9999** | 0.9998 |
+| 953 vs 956 | 0.327 | 0.857 | 0.934 |
+| 954 vs 956 | 0.296 | 0.849 | 0.951 |
+| 953 vs 954 | 0.622 | 0.455 | 0.832 |
+
+Two trials whose omega differs by 0.009 produce waveforms correlating at
+**0.9999**, and similarity falls off smoothly with delta-omega. There is **no
+random component**: the sound is a continuous, deterministic morph between two
+fixed recordings, indexed by omega alone.
+
+### What this means for Gil's early-vs-late question
+**It is not answerable, but for a completely different and better reason than
+5aq gave.** Not missing data — *the task has no such variability by design*.
+Evidence strength is one scalar per trial, and the sound for a given omega is
+always the same sound, so there are no trials where evidence for the correct
+side "arrived early" versus "late" to compare against each other. A click train
+has that structure; a deterministic morph does not.
+
+**But a real analysis path does exist, and it needs no protocol change.** The
+morph has genuine within-trial spectrotemporal structure (band power swings
+~15 dB across a trial, inherited from the natural sounds). With the two source
+.wav files one could compute, at each moment, how much the mixture locally
+resembles sound A versus sound B — a *time-resolved local evidence* signal,
+identical across trials sharing an omega — and regress neural activity against
+it. That is the closest thing this task permits to the click-train analysis,
+and it requires only frogs2.wav and Passer_Montanus.wav from the rig PC's
+protocol folder, which is not on any drive mounted here.
+
+### What survives from 5aq and 5ar
+Everything quantitative. None of the decoding depended on the stimulus
+description being right: the analyses used `DV` and `ChoiceLeft`, which are
+unaffected. The replication across three sessions, the split-half results, and
+the choice-history explanation of the pre-stimulus leak all stand. Only the
+prose describing what the rat heard was wrong, and only in 5aq.
+
+**Process note.** This is the second time in two sections that reading a subset
+and generalising produced a confident wrong statement — first the `AudSound`
+"all empty" claim, now the stimulus identity. Both were caught by Gil rather
+than by me. The pattern is the same: inspecting a few entries or a few fields
+without checking which configuration was actually in force.
+
 
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-01 17:10 — read this first)
