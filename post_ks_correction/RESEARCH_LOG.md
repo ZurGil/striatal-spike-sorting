@@ -3741,7 +3741,193 @@ Artifacts: `verify_mixture.py` and `recover_sources.py` in the scratchpad,
 
 
 
-## 6. WHERE THINGS STAND  (current as of 2026-10-08 — read this first)
+
+---
+
+## 5av. The external proposal audited against our own code, and three of its four surviving ideas measured dead
+
+Gil brought a detailed implementation specification for a Kilosort4 refinement
+package (overcomplete representation, nuisance-aware waveform families, robust
+reliability-aware learning) and asked two things: can we try all of it, and
+does any of its *implementation* detail improve something we already tried.
+
+5av answers the second by measurement. Section 1 is the code audit, section 2
+the four experiments it motivated. The short version: of the four items I had
+put on a keep-list after reading the proposal, **three are now measured and
+dead, one survives untested**, and the audit also retired one concern I had
+raised from code reading alone.
+
+### 1. What the audit found by reading our own code
+
+| plan item | our code | audit verdict |
+|---|---|---|
+| §4 families `m(t;a,τ,β)`, `q = −t·s′(t)` | `nuisance_model.fit_nuisance_prealigned` | **already built**, and ahead of the plan on identifiability (below) |
+| §5.A.1 whitening applied to data AND templates | `test_post_hoc_on_v2.py` whitens only the post-hoc R² gate, never the matched filter | **real gap** → tested, no effect (E3) |
+| §5.A.2 score the full informative footprint | footprint used only as a post-hoc gate; `multichannel_template` exists but is unused by the pipeline | **real gap** → tested, actively harmful (E3) |
+| §6 one joint regularized scorer, not separate votes | three independent gates (mf, R², fp) | **real gap** → tested, worse than the gates (E1) |
+| §6 competing hypotheses across units | one unit at a time, "is this mine?" | **real gap** → tested, 2× precision for 7× less recall (E2) |
+| §8.A graph hook, identity features for the kNN graph only | footprint columns appended to `Xd` inside `cluster()` | **genuinely different, still untested** |
+| §2 noise from representative blocks, not a quiet window | AR(4) from one 2 s min-spike-count window | tested, **exactly zero effect** (E3) |
+| pin the baseline (Sept 2026 refractory-veto fix) | installed **4.0.24** | does not apply to us — veto is live |
+
+**On §4 our implementation is ahead of the proposal.** The plan specifies the
+same first-order family and then enforces identifiability by orthogonalising a
+learned deformation against `span{s, s′, q}` in the whitened metric.
+`nuisance_model.py` already documents why that is not the real problem: `s′`
+and `q` are nearly parallel for real spikes (16–30°, cos 0.86–0.96) because
+`⟨s′,q⟩ = −∫t·s′(t)²dt` vanishes only for time-symmetric derivative energy,
+which real fast-rise/slow-fall spikes do not have. Gram–Schmidt does **not**
+fix it — done correctly with back-substitution it reproduces the identical
+fitted numbers, because OLS has one unique solution; the ambiguity is in what
+the data can distinguish, not in the arithmetic. Our fix was to drop `s′`
+entirely and supply τ from the independent phase-based estimator. That was
+found the right way: τ and β came out correlated at r=0.77 on burst spikes and
+**more strongly, r=0.97, on rested isolated spikes** that should show no
+stretch, which ruled out physiology and pointed at basis geometry.
+
+**Two verified facts about the installed source.** `clustering_qr.cluster()`
+does `if kn is None: kn, M = neigh_mat(...)` and then uses `M` unconditionally,
+so passing `kn` raises `UnboundLocalError` — the plan's implementation trap is
+real and present in 4.0.24. And `swarmsplitter.split` reaches
+`refractoriness()` with `meta=st0` passed at both live call sites, so the
+disabled-veto bug the plan warns about is not in our baseline. Also confirmed:
+`run_one` is dead code (never called, and would crash unpacking four returns
+into three), and the splitter receives the **unaugmented** `Xd`, so our
+footprint patch never reached the bimodality test.
+
+### 2. E1 — one joint scorer instead of three gates: REFUTED
+
+`audit_joint_scorer.py`, on the exact candidate table the 2.3% run produced
+(87,607 candidates, all three configs). Ridge-logistic on (mf, R², fp),
+unit-grouped CV so no unit trains and tests together.
+
+| config | candidates | base rate | AUC mf | AUC R² | AUC fp | AUC joint (OOF) |
+|---|---|---|---|---|---|---|
+| vanilla | 28,908 | 1.72% | 0.517 | 0.521 | 0.528 | **0.486** |
+| footprint_cluster_strong | 29,200 | 1.86% | 0.533 | 0.525 | 0.524 | **0.446** |
+| coarse_then_align | 29,499 | 2.09% | 0.546 | 0.503 | 0.483 | **0.394** |
+
+Recovery precision at matched acceptance count (vanilla, n = 11,027): current
+two gates **2.35%**, mf alone 1.57%, R² alone 1.53%, fp alone 1.90%, joint
+scorer **1.56%**. Every other config the same shape.
+
+**Inside the candidate pool all three scores are at chance and the joint
+scorer does not generalise across units at all.** The failure was never that
+we combined evidence badly — there is no evidence left to combine once the
+matched filter has proposed.
+
+**This also puts 5q's AUC 0.999 in its place.** That was unit 440 vs unit 439,
+one well-separated pair. Against the real mixture of everything a matched
+filter proposes, footprint similarity scores **0.528**. The headline number
+was a best case, not a representative one, and this is the first time it has
+been measured against the real impostor population.
+
+### 3. E2 — argmax over competing units: works correctly, and finds nothing
+
+`audit_argmax_attribution.py`, rep0 vanilla, 12 placements, 5,098 candidates
+(124 real, 2.43%). Each candidate's observed spatial energy vector is scored
+against the target unit's footprint **and** against every cluster peaking
+within 120 µm (2–28 competitors, median ~13), all on the **same channel set** —
+the plan's "same union of channels across competing explanations".
+
+| rule | accepted | real | precision |
+|---|---|---|---|
+| shipped two gates | 1,541 | 49 | 3.18% |
+| **argmax over units** | 110 | 7 | **6.36%** |
+| argmax AND gates | 73 | 4 | 5.48% |
+
+Attribution doubles precision and costs 7× the recoveries. The number that
+explains why:
+
+**mean footprint similarity of a candidate to the target 0.8759, to its best
+competitor 0.9757.**
+
+An average candidate matches some neighbour's footprint *better than* the
+target's. So argmax is not failing — it is working, and correctly concluding
+that the candidates belong to other neurons. There is nothing for an
+attribution rule to rescue. (Note also how compressed cosine between
+non-negative energy vectors is: 0.88 for the right unit. Rule 1 again — a
+score near 0.9 sounds like a match and is near the chance level here.)
+
+Building the expected footprints on unfiltered raw voltage — a domain mismatch
+the shipped pipeline really does contain — moves precision 6.36% → 8.33% on
+84 accepts. Too few to mean anything, and pointing the harmless way.
+
+### 4. E3 — the proposal stage, where the binding constraint actually is
+
+`audit_proposal_stage.py`, rep0, 7 placements with missed spikes, **template
+held fixed** so only the filter changes. Endpoint is what matters here: of the
+unit's genuinely missed spikes, how many does a 800-candidate pool *contain*?
+Everything downstream can only lose from there.
+
+| variant | pool | captured of 441 missed | purity | per-placement vs A |
+|---|---|---|---|---|
+| **A single-channel, unwhitened (shipped)** | 5,257 | **115 (26.1%)** | 2.19% | — |
+| B whitened, AR(4) from shipped quiet window | 4,924 | 101 (22.9%) | 2.05% | 2 better, 1 worse, 4 tied |
+| C whitened, AR(4) from representative blocks | 4,924 | 101 (22.9%) | 2.05% | 2 better, 1 worse, 4 tied |
+| D multichannel over footprint, unwhitened | 5,600 | 36 (8.2%) | 0.64% | **0 better, 4 worse, 3 tied** |
+| E multichannel, whitened | 5,600 | 48 (10.9%) | 0.86% | 1 better, 1 worse, 5 tied |
+
+**§5.A.1 whitening the detection statistic: no effect.** Applied consistently
+to trace and template as the plan specifies, it is 2 better / 1 worse / 4 tied;
+the pooled −14 spikes is one placement (unit 371, 72 → 56). This was the
+genuine code gap I found by reading — whitening had only ever touched the R²
+gate — and closing it changes nothing.
+
+**B and C are identical on all 7 placements.** The noise-estimation flaw I
+raised from code reading — AR(4) fitted on one 2 s window selected for having
+the fewest spikes, which the plan warns underestimates noise — has **exactly
+zero** measurable effect. A code-reading concern retired by measurement.
+
+**§5.A.2 scoring the full footprint: consistently and substantially worse**,
+26.1% → 8.2%, the only consistent direction in the table. Same mechanism 5q
+diagnosed for the concatenated fit (0.897 vs 0.999): the sum is dominated by
+the loudest channels, which is where neighbours look alike, and the
+low-amplitude channels contribute noise no template explains. Whitening
+recovers most of the loss (10.9%) without beating one channel.
+
+Note `RADIUS_UM = 60` yields **10 channels** on this probe, so "full
+informative footprint" here means 10, not a wide patch.
+
+### 5. What this leaves
+
+- **§6 is finished, both halves.** The joint scorer is worse than our gates;
+  argmax attribution is correct and finds almost nothing, because the pool is
+  genuinely other neurons' spikes (0.976 vs 0.876). **This retires the
+  footprint-first attribution lead** that 6.10 has carried as the one open
+  sorting idea. Three measurements pointed there; a fourth, direct one says
+  the pool it would operate on does not contain the spikes.
+- **§5.A is finished.** Neither whitening nor full-footprint scoring improves
+  the proposal, and the proposal is the ceiling: the best variant captures
+  **26.1%** of missed spikes, so even a perfect downstream scorer recovers at
+  most a quarter of them.
+- **§4 is already built**, and our version solved an identifiability problem
+  the plan's version walks into.
+- **§8.A, the graph hook, is the only genuinely new idea still standing.** Our
+  footprint patch augments `Xd` inside `cluster()`, so footprint reaches both
+  `kmeans_plusplus` seeding and `neigh_mat`; the plan's version touches the
+  neighbour graph only. Worth doing because it is aimed at the measured
+  failure (84% misfiling, 25.7% of all injected spikes) and because the
+  over-seeding hypothesis (5aa: `nclust=200`, hard-coded, slicing a unimodal
+  distribution) makes seeding and graph plausibly opposite in sign. Needs
+  patching `neigh_mat` to return a consistent `(kn, M)` pair, not passing
+  `kn`. Requires the GPU, so **Trodes must be closed** (mistake 4).
+
+Artifacts: `outputs/audit_argmax_attribution.csv`,
+`outputs/audit_proposal_stage.csv`; scripts `audit_joint_scorer.py`,
+`audit_argmax_attribution.py`, `audit_proposal_stage.py` in the scratchpad.
+
+**Honest limits.** E2 and E3 are one replicate and 7–12 placements, with 124
+and 441 real spikes respectively; only D's penalty is consistent across
+placements. E1 is all 4 replicates and 87,607 candidates and is the solid one.
+E2 and E3 both use energy-cosine footprints and a single fixed template, so
+they test the plan's *principles* with our best available discriminator, not
+its full §6 machinery (signed multichannel whitened residuals with joint
+refitting of neighbours). What makes the fuller version unpromising is not the
+machinery but the 0.976-vs-0.876 fact: the candidates are other neurons'
+spikes, which is a property of the pool, not of the scorer.
+
+## 6. WHERE THINGS STAND  (current as of 2026-10-09 — read this first)
 
 Self-contained. Everything needed to resume with no memory of the conversation.
 
@@ -3754,7 +3940,10 @@ nothing or hurt, merging a unit's fragments trades down in all 16 cells tested,
 and the post-hoc correction pipeline recovers spikes at 2.3% precision. They
 all fail for one measured reason — 93.5% of what a unit's template matches on
 its own channel is a NEIGHBOUR's real spike. The problem is per-spike
-attribution, and footprint-based attribution is the one untried lead. Work then
+attribution. **5av then closed the attribution lead too**: argmax over
+competing units works correctly and finds almost nothing, and the proposal
+stage itself captures only 26.1% of missed spikes, so the proposal - not the
+scorer - is the ceiling. Work then
 moved to **physiology**: the sync pipeline was run on session 20260916_110311,
 and reward responses, cue-end side selectivity, a confidence readout, DV
 decoding and leaving-time decoding were all measured, with the main
@@ -3951,17 +4140,29 @@ floor) · `analyse_split_vs_contamination.py` (merging) ·
 6. **`git add -A` from a subdirectory** once staged 2.6 GB and hung the push.
 
 ### 6.10 WHAT HAS NOT BEEN DONE
-- **Footprint-first attribution — the one open lead on sorting.** Score each
-  candidate event against EVERY nearby unit's footprint and assign to the best,
-  instead of asking one unit at a time "is this mine?". Three independent
-  measurements point here: footprint separates same-channel neurons at AUC
-  0.999 vs 0.749; the only supported wins are both footprint configs; the
-  footprint gate doubled recovery precision at every threshold. Extend
-  `test_post_hoc_on_v2.py`, which already has the truth-blind structure.
+- **RETIRED 2026-10-09 (5av): footprint-first attribution.** It was the one
+  open lead for months; it is now measured and dead. Argmax over every nearby
+  unit on a shared channel set doubles recovery precision (3.18% → 6.36%) and
+  costs 7× the recoveries, because a candidate's mean footprint similarity is
+  **0.976 to its best competitor vs 0.876 to the target** — the pool genuinely
+  is other neurons' spikes. 5q's AUC 0.999 was one well-separated pair; against
+  the real impostor mixture footprint similarity scores **0.528**.
+- **The clustering GRAPH HOOK — now the only open lead on sorting.** Our
+  footprint patch appends columns to `Xd` inside `cluster()`, so footprint
+  reaches `kmeans_plusplus` seeding AND `neigh_mat`. Build the narrower
+  version: identity features for the neighbour graph ONLY, PC features for
+  seeding and everything downstream, then ablate the two apart. Aimed at the
+  measured failure (84% misfiling, 25.7% of all injected spikes) and at the
+  over-seeding hypothesis (5aa). Implementation: patch `neigh_mat` to return a
+  consistent `(kn, M)`; do NOT pass `kn` to `cluster()` — `M` is then unbound
+  (verified in 4.0.24). Needs the GPU, so Trodes must be CLOSED.
 - **The loudness/|DV| disentangling** described in 6.5.
 - 10 units Gil has not reviewed (24, 102, 126, 144, 205, 236, 280, 289, 359,
   387).
-- Temporal whitening inside Kilosort (ceiling 4.8%, lowest value remaining).
+- Temporal whitening inside Kilosort. Ceiling was already 4.8% (5ad); 5av then
+  applied it to the post-hoc detection statistic exactly as the external
+  proposal specifies (trace AND template), and found **no effect** - 2 better,
+  1 worse, 4 tied across 7 placements. Deprioritised.
 
 ### 6.11 HONEST LIMITS
 One animal. Three sessions for the stimulus-dynamics result, one for everything
