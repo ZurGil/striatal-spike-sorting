@@ -73,6 +73,8 @@ from kilosort import clustering_qr
 _ORIGINAL_RUN = spikedetect.run
 _ORIGINAL_GET_DATA_CPU = clustering_qr.get_data_cpu
 _ORIGINAL_CLUSTER = clustering_qr.cluster
+_ORIGINAL_NEIGH_MAT = clustering_qr.neigh_mat
+_ORIGINAL_KMEANS_PP = clustering_qr.kmeans_plusplus
 _FP_APPLIED = 0
 _FP_SKIPPED = 0
 _LAST_FP = None     # footprint of the most recent get_data_cpu call
@@ -98,8 +100,23 @@ F_LO, F_HI, N_GRID = 300.0, 8000.0, 60
 
 AVAILABLE = ("subsample_align", "amplitude_normalize", "align_and_amp_norm",
              "coarse_then_align", "coarse_align_amp_norm",
-             "footprint_cluster", "footprint_cluster_strong")
-FOOTPRINT_WEIGHT = {"footprint_cluster": 1.0, "footprint_cluster_strong": 3.0}
+             "footprint_cluster", "footprint_cluster_strong",
+             "footprint_graph", "footprint_graph_strong", "footprint_seed")
+FOOTPRINT_WEIGHT = {"footprint_cluster": 1.0, "footprint_cluster_strong": 3.0,
+                    "footprint_graph": 1.0, "footprint_graph_strong": 3.0,
+                    "footprint_seed": 1.0}
+
+# Which STAGE inside clustering_qr.cluster() each footprint config feeds.
+# cluster() uses its feature matrix in exactly two places and nowhere else:
+#   neigh_mat(Xd)        -> the kNN graph (kn, M), which the whole iterative
+#                           assignment loop then runs on; Xd is not consulted
+#                           again after the graph is built
+#   kmeans_plusplus(Xg)  -> the initial seeding of nclust=200 centres
+# _FP_BOTH is the original patch (append to Xd, so both stages see it);
+# _FP_GRAPH and _FP_SEED split those two apart.
+_FP_BOTH = ("footprint_cluster", "footprint_cluster_strong")
+_FP_GRAPH = ("footprint_graph", "footprint_graph_strong")
+_FP_SEED = ("footprint_seed",)
 
 # -------------------------------------------------------------------------
 # WHY footprint_cluster EXISTS: it is the only idea left whose target has
@@ -230,8 +247,16 @@ def enable(config):
     _ENABLED = config
     if config in FOOTPRINT_WEIGHT:
         clustering_qr.get_data_cpu = _patched_get_data_cpu
-        clustering_qr.cluster = _patched_cluster
-        print(f"[{config}] footprint appended to clustering features, "
+        if config in _FP_BOTH:
+            clustering_qr.cluster = _patched_cluster
+            stage = "graph AND kmeans++ seeding"
+        elif config in _FP_GRAPH:
+            clustering_qr.neigh_mat = _patched_neigh_mat
+            stage = "kNN GRAPH only (seeding left on PC features)"
+        elif config in _FP_SEED:
+            clustering_qr.kmeans_plusplus = _patched_kmeans_plusplus
+            stage = "kmeans++ SEEDING only (graph left on PC features)"
+        print(f"[{config}] footprint -> {stage}, "
               f"weight {FOOTPRINT_WEIGHT[config]}")
     else:
         spikedetect.run = _patched_run
@@ -246,6 +271,8 @@ def disable():
     kilosort.spikedetect.run = _ORIGINAL_RUN
     clustering_qr.get_data_cpu = _ORIGINAL_GET_DATA_CPU
     clustering_qr.cluster = _ORIGINAL_CLUSTER
+    clustering_qr.neigh_mat = _ORIGINAL_NEIGH_MAT
+    clustering_qr.kmeans_plusplus = _ORIGINAL_KMEANS_PP
 
 
 def _patched_get_data_cpu(ops, xy, iC, PID, tF, ycenter, xcenter,
@@ -291,6 +318,72 @@ def _patched_cluster(Xd, *args, **kwargs):
               f"scale {scale:.3f}); templates unaffected")
     _FP_APPLIED += 1
     return _ORIGINAL_CLUSTER(Xa, *args, **kwargs)
+
+
+def _augment(X, fp):
+    """Append the normalized footprint block to a feature matrix, scaled so it
+    carries FOOTPRINT_WEIGHT times the median row norm of the existing
+    features. Identical scaling to _patched_cluster, so the graph-only and
+    seed-only configs are directly comparable to the combined one."""
+    scale = float(X.norm(dim=1).median()) * FOOTPRINT_WEIGHT[_ENABLED]
+    return torch.cat([X, fp.to(X.dtype).to(X.device) * scale], dim=1)
+
+
+def _patched_neigh_mat(Xd, nskip=10, n_neigh=30):
+    """GRAPH-ONLY hook: build the kNN graph from footprint-augmented features
+    while leaving everything else on the original PC features.
+
+    WHY THIS EXISTS, AND WHY IT IS NOT THE SAME AS footprint_cluster.
+    `cluster()` consults its feature matrix in exactly two places -- this
+    function, which produces the (kn, M) graph that the entire iterative
+    assignment loop then runs on, and `kmeans_plusplus`, which seeds 200
+    centres. After the graph is built, Xd is never looked at again: the loop is
+    purely graph-based. The original footprint patch appends to Xd before
+    `cluster()` is called, so it changes BOTH stages at once and cannot say
+    which one produced the measured win (pair recall .720 -> .798, p=0.038).
+
+    This matters because the two stages could plausibly pull in opposite
+    directions. 5aa measured that Kilosort slices a UNIMODAL amplitude
+    distribution, and named over-seeding as the live mechanism: `nclust=200`
+    is hard-coded, absent from parameters.py, and an over-seeded kmeans++
+    places boundaries along the direction of greatest within-unit spread.
+    Making footprint visible to the seeding could therefore add cut directions
+    while making it visible to the graph removes them.
+
+    Patching this function rather than passing `kn` into `cluster()` is
+    deliberate and necessary: `cluster()` does `if kn is None: kn, M =
+    neigh_mat(...)` and then uses `M` unconditionally, so supplying `kn`
+    raises UnboundLocalError (verified in the installed 4.0.24).
+    """
+    global _FP_APPLIED, _LAST_FP
+    fp = _LAST_FP
+    if fp is None or _ENABLED not in _FP_GRAPH or fp.shape[0] != Xd.shape[0]:
+        return _ORIGINAL_NEIGH_MAT(Xd, nskip=nskip, n_neigh=n_neigh)
+    Xa = _augment(Xd, fp)
+    if _FP_APPLIED == 0:
+        print(f"[{_ENABLED}] kNN graph features {tuple(Xd.shape)} -> "
+              f"{tuple(Xa.shape)} ({fp.shape[1]} footprint columns); "
+              f"seeding, splitter and templates all unaffected")
+    _FP_APPLIED += 1
+    return _ORIGINAL_NEIGH_MAT(Xa, nskip=nskip, n_neigh=n_neigh)
+
+
+def _patched_kmeans_plusplus(Xg, niter=200, seed=1, device=None):
+    """SEED-ONLY hook: the other half of the ablation. Footprint is visible to
+    the initial kmeans++ seeding and to nothing else -- the graph, and so the
+    whole assignment loop, stays on PC features."""
+    global _FP_APPLIED, _LAST_FP
+    fp = _LAST_FP
+    kw = {} if device is None else dict(device=device)
+    if fp is None or _ENABLED not in _FP_SEED or fp.shape[0] != Xg.shape[0]:
+        return _ORIGINAL_KMEANS_PP(Xg, niter=niter, seed=seed, **kw)
+    Xa = _augment(Xg, fp)
+    if _FP_APPLIED == 0:
+        print(f"[{_ENABLED}] kmeans++ seeding features {tuple(Xg.shape)} -> "
+              f"{tuple(Xa.shape)} ({fp.shape[1]} footprint columns); "
+              f"graph left on PC features")
+    _FP_APPLIED += 1
+    return _ORIGINAL_KMEANS_PP(Xa, niter=niter, seed=seed, **kw)
 
 
 def is_enabled():
