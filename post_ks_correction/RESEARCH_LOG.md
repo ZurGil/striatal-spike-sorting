@@ -3927,6 +3927,126 @@ refitting of neighbours). What makes the fuller version unpromising is not the
 machinery but the 0.976-vs-0.876 fact: the candidates are other neurons'
 spikes, which is a property of the pool, not of the scorer.
 
+
+---
+
+## 5aw. The graph hook built and run — the proposal's one surviving idea works, and it is the project's best sorting result
+
+5av left exactly one idea from the external proposal standing: its §8.A
+clustering hook, which puts identity features into the **kNN graph only** and
+leaves the rest of clustering on PC features. Our own footprint patch appends
+to `Xd` before `cluster()` is called and therefore moves two stages at once.
+Built, run on all 4 replicates, and it is the first thing from the proposal
+that helps — and it beats our own version of the same idea.
+
+### Why the two stages are the whole story
+`clustering_qr.cluster()` consults its feature matrix in exactly two places and
+nowhere else:
+
+    neigh_mat(Xd)        -> the (kn, M) graph; after this Xd is never read
+                            again, because the iterative assignment loop is
+                            purely graph-based
+    kmeans_plusplus(Xg)  -> the initial seeding of nclust=200 centres
+
+Three new configs in `ks_patches.py` hook them independently:
+`footprint_graph` / `footprint_graph_strong` patch `neigh_mat` (graph only,
+weights 1.0/3.0); `footprint_seed` patches `kmeans_plusplus` (seeding only).
+Identical scaling to the combined patch, so all three are comparable.
+
+Patching `neigh_mat` is **required**, not stylistic: `cluster()` does
+`if kn is None: kn, M = neigh_mat(...)` and then uses `M` unconditionally, so
+passing `kn` raises `UnboundLocalError`. The proposal flagged this trap and it
+is real in the installed 4.0.24.
+
+### THE RESULT — hard tier excluded, because it is not measurable
+Paired Wilcoxon on identical placements, easy + collision + pair only
+(noise floor on those three tiers is **bit-identical**, 0 of 40 placements
+differing between two identical runs; the hard tier differs on 2 of 12 by up to
+0.444 recall and is excluded throughout).
+
+| config | stage | recall | precision |
+|---|---|---|---|
+| `footprint_cluster` | graph+seed, w1 | −0.0104 p=0.925 | **+0.0657 p=0.009** |
+| `footprint_cluster_strong` | graph+seed, w3 | **+0.0320 p=0.015** | +0.0094 p=0.273 |
+| `footprint_graph` | graph only, w1 | −0.0150 p=0.283 | +0.0517 p=0.252 |
+| **`footprint_graph_strong`** | **graph only, w3** | **+0.0480 p=0.001** | −0.0332 p=0.245 |
+| `footprint_seed` | seeding only, w1 | −0.0099 p=0.418 | +0.0470 p=0.086 |
+
+**`footprint_graph_strong` gains +4.8 recall points at p=0.001** — half again
+the effect of the previous best (`footprint_cluster_strong`, +3.2, p=0.015) and
+an order of magnitude smaller p. It is **better in all four replicates** on
+pair-tier recall (0.992 / 0.727 / 0.562 / 0.942 against vanilla's 0.965 /
+0.551 / 0.500 / 0.866), so this is not one window. Overall recall 0.8173 is
+the highest any configuration has reached, and mean fragments fall from 3.08
+to 2.79.
+
+**Precision is the cost, and it is not significant.** −0.0332 at p=0.245, so it
+cannot be called a real loss, but the direction is consistent and the rule
+stands: never quote the recall without it. The two weights still do different
+jobs — w3 buys recall, w1 is where precision lives — and for precision the
+**combined** patch at w1 remains the best thing we have (+0.0657, p=0.009),
+unchanged by any of this.
+
+### The decomposition: the graph does the work, the seeding does nothing
+Paired tests of each half against the combination:
+
+- **Removing the seeding half** (`footprint_graph*` vs `footprint_cluster*`) is
+  **not significant on anything**, either metric, either weight. The seeding
+  contributes nothing measurable.
+- **Removing the graph half** (`footprint_seed` vs `footprint_cluster`) costs
+  precision significantly: −0.0152 p=0.012 overall, −0.0505 p=0.049 on the
+  pair tier. The graph half is load-bearing.
+- **Seeding-only on its own does nothing** for recall (−0.0099, p=0.418).
+- **The halves are sub-additive**: on pair-tier recall at w3, graph alone
+  **+0.0854**, seeding alone +0.0284, their sum +0.1138, the combination
+  actually measured **+0.0772**. Showing the footprint to the seeding slightly
+  *cancels* the graph gain.
+
+**This is what 5aa's over-seeding hypothesis predicts.** `nclust=200` is
+hard-coded and absent from `parameters.py`, and an over-seeded kmeans++ places
+boundaries along the direction of greatest within-unit spread. Giving the
+seeding an extra 10 footprint dimensions hands it more directions to cut along,
+which is why seeding-only buys no recall and why it drags on the graph-only
+gain. Giving the *graph* those dimensions instead changes which spikes are
+neighbours without adding cut directions. The two stages really do pull in
+opposite directions, exactly the reason the proposal gave for separating them.
+
+### The one real cost: merge-error protection is lost
+Pair-tier merge errors (correct answer is TWO clusters, 8 pairs):
+
+| config | merged |
+|---|---|
+| vanilla / vanilla_repeat | 1 of 8 |
+| **both `footprint_cluster` configs** | **0 of 8** |
+| `footprint_graph_strong` | 1 of 8 |
+| `footprint_seed` | 1 of 8 |
+
+The combined patch prevented the one merge stock Kilosort makes; neither half
+alone does. One pair is a single observation and nothing should be built on it,
+but it is the only axis on which the combined patch beats graph-only, and it is
+the axis where a false win is most dangerous.
+
+### Verdict
+The proposal was right about this one, and specific enough to be actionable:
+the narrow hook beats the broad one, for the mechanistic reason it gave. After
+a long run of negative results this is a genuine, replicated, statistically
+supported improvement to Kilosort on this data — **+4.8 recall points, p=0.001,
+better in all four replicates, on tiers with a bit-identical noise floor.**
+
+**Honest limits.** 52 placements, 4 replicates, one session, one animal. The
+hard tier is excluded and no claim here covers loud neighbourhoods. The
+recall gain comes with a non-significant precision cost and the loss of a
+single-observation merge protection, so `footprint_graph_strong` is the right
+choice when recall matters and `footprint_cluster` when precision does —
+neither dominates. Everything is still judged against Kilosort's own
+thresholds and PC basis, both tuned on unmodified data.
+
+Artifacts: `outputs/v2_scores.csv` (12 configs, 624 placements),
+`outputs/graph_vs_seed_paired.csv`, `outputs/v2_merge_errors.csv`,
+`outputs/graph_hook_sweep.log`; code in `ks_patches.py`
+(`_patched_neigh_mat`, `_patched_kmeans_plusplus`) and
+`analyse_graph_vs_seed.py`.
+
 ## 6. WHERE THINGS STAND  (current as of 2026-10-09 — read this first)
 
 Self-contained. Everything needed to resume with no memory of the conversation.
@@ -3970,10 +4090,17 @@ pair .720/.486 · overall .794/.600.
 **The hard tier is NOT measurable** — two identical runs disagree on 2 of its 12
 placements by up to 0.444 recall. Never quote a hard-tier number.
 
-**Only the two footprint configs beat stock, and they are the project's only
-statistically supported wins:** `footprint_cluster_strong` pair recall
-.720→.798 (p=0.038); `footprint_cluster` overall precision .600→.654 (p=0.010).
-Amplitude normalisation is actively harmful (p=0.012).
+**Only the footprint configs beat stock.** Best recall is now
+`footprint_graph_strong` (5aw, graph-only hook): **+4.8 recall points,
+p=0.001** on the measurable tiers, better in all four replicates, overall
+recall 0.8173 — the project's strongest sorting result. Best precision is
+`footprint_cluster` (+6.6, p=0.009). Previous best recall was
+`footprint_cluster_strong` (+3.2, p=0.015). Amplitude normalisation is
+actively harmful (p=0.012). The graph/seed decomposition says the **kNN graph
+does all the work and the kmeans++ seeding does nothing**, and the two are
+sub-additive — consistent with the over-seeding hypothesis (5aa). Cost: the
+graph-only config loses the combined patch's merge-error protection
+(1 of 8 pairs merged, same as stock, vs 0 of 8).
 
 **Merging fragments does not help (5al).** Units average 1.27–1.38 substantial
 clusters, max 3, and 67–77% have exactly one — there is no three-way split to
@@ -4147,7 +4274,11 @@ floor) · `analyse_split_vs_contamination.py` (merging) ·
   **0.976 to its best competitor vs 0.876 to the target** — the pool genuinely
   is other neurons' spikes. 5q's AUC 0.999 was one well-separated pair; against
   the real impostor mixture footprint similarity scores **0.528**.
-- **The clustering GRAPH HOOK — now the only open lead on sorting.** Our
+- **DONE 2026-10-09 (5aw): the clustering graph hook.** Built as
+  `footprint_graph` / `footprint_graph_strong` / `footprint_seed` and run on
+  all 4 replicates. It worked: +4.8 recall points at p=0.001. The note below
+  is kept for the implementation detail.
+- **The clustering GRAPH HOOK — was the only open lead on sorting.** Our
   footprint patch appends columns to `Xd` inside `cluster()`, so footprint
   reaches `kmeans_plusplus` seeding AND `neigh_mat`. Build the narrower
   version: identity features for the neighbour graph ONLY, PC features for

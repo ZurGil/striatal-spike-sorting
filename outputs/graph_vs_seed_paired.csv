@@ -1,0 +1,81 @@
+comparison,config,ref,metric,scope,n,diff,p,win,loss
+graph only vs stock,footprint_graph,vanilla,recall,ALL,52,-0.018436538461538463,0.6608844054935352,17,19
+graph only vs stock,footprint_graph,vanilla,recall,easy,12,-0.029799999999999993,0.30576630441940045,2,6
+graph only vs stock,footprint_graph,vanilla,recall,collision,12,0.003741666666666671,0.2969833598649648,4,1
+graph only vs stock,footprint_graph,vanilla,recall,pair,16,-0.017968750000000006,0.19580907962307126,4,9
+graph only vs stock,footprint_graph,vanilla,recall,hard,12,-0.02987500000000001,0.5047392591799146,7,3
+graph only vs stock,footprint_graph,vanilla,precision,ALL,52,0.06824807692307691,0.032950418379837136,24,13
+graph only vs stock,footprint_graph,vanilla,precision,easy,12,0.11749999999999998,0.3446593471696212,5,3
+graph only vs stock,footprint_graph,vanilla,precision,collision,12,-0.08984166666666665,0.5296506700533425,6,3
+graph only vs stock,footprint_graph,vanilla,precision,pair,16,0.10852499999999998,0.5688476948245473,6,6
+graph only vs stock,footprint_graph,vanilla,precision,hard,12,0.12338333333333333,0.022386358850697105,7,1
+graph only (w3) vs stock,footprint_graph_strong,vanilla,recall,ALL,52,0.02361730769230769,0.02574844005948566,26,10
+graph only (w3) vs stock,footprint_graph_strong,vanilla,recall,easy,12,0.01805000000000001,0.12316830666468202,6,1
+graph only (w3) vs stock,footprint_graph_strong,vanilla,recall,collision,12,0.02819166666666666,0.02342434054436848,6,0
+graph only (w3) vs stock,footprint_graph_strong,vanilla,recall,pair,16,0.08538125,0.04900418890061649,9,3
+graph only (w3) vs stock,footprint_graph_strong,vanilla,recall,hard,12,-0.057741666666666684,0.4101169916790808,5,6
+graph only (w3) vs stock,footprint_graph_strong,vanilla,precision,ALL,52,-0.04015576923076923,0.2006316682157836,18,28
+graph only (w3) vs stock,footprint_graph_strong,vanilla,precision,easy,12,-0.08251666666666667,0.30707611289773684,3,6
+graph only (w3) vs stock,footprint_graph_strong,vanilla,precision,collision,12,-0.07095000000000001,0.30126953125,5,7
+graph only (w3) vs stock,footprint_graph_strong,vanilla,precision,pair,16,0.03221249999999999,0.8563589864870352,6,8
+graph only (w3) vs stock,footprint_graph_strong,vanilla,precision,hard,12,-0.06349166666666667,0.5562984612747348,4,7
+seeding only vs stock,footprint_seed,vanilla,recall,ALL,52,-0.02312307692307693,0.0725393317362619,9,18
+seeding only vs stock,footprint_seed,vanilla,recall,easy,12,-0.03093333333333333,0.5925105082742703,1,2
+seeding only vs stock,footprint_seed,vanilla,recall,collision,12,-0.040016666666666666,0.45262801494869864,3,4
+seeding only vs stock,footprint_seed,vanilla,recall,pair,16,0.02839999999999998,0.9793042128380569,5,6
+seeding only vs stock,footprint_seed,vanilla,recall,hard,12,-0.06711666666666667,0.02342434054436848,0,6
+seeding only vs stock,footprint_seed,vanilla,precision,ALL,52,0.03920384615384615,0.06795178219404488,17,8
+seeding only vs stock,footprint_seed,vanilla,precision,easy,12,0.10045,0.5925105082742703,2,1
+seeding only vs stock,footprint_seed,vanilla,precision,collision,12,-0.015525000000000004,0.4990683548846472,4,2
+seeding only vs stock,footprint_seed,vanilla,precision,pair,16,0.05384999999999999,0.12492888241600811,7,3
+seeding only vs stock,footprint_seed,vanilla,precision,hard,12,0.013158333333333319,0.44996064795295154,4,2
+graph+seed vs stock (known win),footprint_cluster,vanilla,recall,ALL,52,-0.022898076923076924,0.9126681727007421,19,17
+graph+seed vs stock (known win),footprint_cluster,vanilla,recall,easy,12,-0.021175000000000003,0.5286949867577488,3,5
+graph+seed vs stock (known win),footprint_cluster,vanilla,recall,collision,12,-0.026216666666666676,0.9682827613458866,3,3
+graph+seed vs stock (known win),footprint_cluster,vanilla,recall,pair,16,0.009574999999999993,0.6046115136979389,8,5
+graph+seed vs stock (known win),footprint_cluster,vanilla,recall,hard,12,-0.0646,0.8136637157667919,5,4
+graph+seed vs stock (known win),footprint_cluster,vanilla,precision,ALL,52,0.05435769230769231,0.010179697559288527,26,12
+graph+seed vs stock (known win),footprint_cluster,vanilla,precision,easy,12,0.1022583333333333,0.11525679957791299,6,2
+graph+seed vs stock (known win),footprint_cluster,vanilla,precision,collision,12,-0.022308333333333336,0.6660165023369173,6,4
+graph+seed vs stock (known win),footprint_cluster,vanilla,precision,pair,16,0.104375,0.02266721339697315,9,3
+graph+seed vs stock (known win),footprint_cluster,vanilla,precision,hard,12,0.016433333333333317,0.5286949867577488,5,3
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,recall,ALL,52,0.018224999999999998,0.10418709362762757,25,13
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,recall,easy,12,-0.014616666666666667,0.7820110130495672,4,3
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,recall,collision,12,0.01845000000000001,0.07010243528785379,6,2
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,recall,pair,16,0.07721875,0.03828261172013551,10,2
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,recall,hard,12,-0.02781666666666668,0.5049031767231309,5,6
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,precision,ALL,52,0.021615384615384606,0.3480280407103661,17,27
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,precision,easy,12,-0.03820833333333334,0.3457785861511603,3,6
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,precision,collision,12,-0.022658333333333325,0.20361328125,4,8
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,precision,pair,16,0.0691,0.8360305749951222,6,7
+graph+seed (w3) vs stock,footprint_cluster_strong,vanilla,precision,hard,12,0.06239999999999998,0.906293509044724,4,6
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,recall,ALL,52,0.004461538461538467,0.7689256342960475,15,16
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,recall,easy,12,-0.008624999999999989,0.47848006035463064,3,5
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,recall,collision,12,0.029958333333333347,0.26156589850111656,4,1
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,recall,pair,16,-0.02754375,0.15260742215778095,3,7
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,recall,hard,12,0.034725,0.4309896784329883,5,3
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,precision,ALL,52,0.013890384615384612,0.5289363234076441,13,17
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,precision,easy,12,0.015241666666666659,0.6884470192363399,3,2
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,precision,collision,12,-0.0675333333333333,0.5823386191013513,4,5
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,precision,pair,16,0.004149999999999987,0.3359205447023338,3,7
+DECOMP: removing the seeding half,footprint_graph,footprint_cluster,precision,hard,12,0.10695,0.905048445217947,3,3
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,recall,ALL,52,0.00539230769230769,0.719970281823084,16,14
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,recall,easy,12,0.03266666666666668,0.19946296265989716,4,1
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,recall,collision,12,0.00974166666666665,0.4037149432334194,4,2
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,recall,pair,16,0.008162499999999994,0.4842568080251832,5,7
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,recall,hard,12,-0.029924999999999997,0.6351241151023415,3,4
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,precision,ALL,52,-0.061771153846153865,0.5868240330463107,18,19
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,precision,easy,12,-0.04430833333333334,0.8743183650990658,4,3
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,precision,collision,12,-0.04829166666666668,0.9687003809366239,5,5
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,precision,pair,16,-0.036887500000000004,0.6786081475105776,5,7
+DECOMP: removing the seeding half (w3),footprint_graph_strong,footprint_cluster_strong,precision,hard,12,-0.12589166666666665,0.8132388620141389,4,4
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,recall,ALL,52,-0.0002249999999999987,0.07472160619163433,13,23
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,recall,easy,12,-0.009758333333333327,0.8424108310645502,3,3
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,recall,collision,12,-0.013799999999999991,0.6937659064448405,4,4
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,recall,pair,16,0.018824999999999988,0.43719949885089704,4,8
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,recall,hard,12,-0.002516666666666667,0.07744208512638942,2,8
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,precision,ALL,52,-0.015153846153846157,0.011961554255322726,11,25
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,precision,easy,12,-0.001808333333333333,0.18065249875291167,2,6
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,precision,collision,12,0.006783333333333331,0.3874551722971866,3,6
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,precision,pair,16,-0.05052500000000001,0.049042141057593885,3,9
+DECOMP: removing the graph half,footprint_seed,footprint_cluster,precision,hard,12,-0.0032750000000000023,0.6073427995111216,3,4
