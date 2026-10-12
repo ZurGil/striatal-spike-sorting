@@ -4500,6 +4500,16 @@ code `run_external_sorters.py`, `features_locden.py`, `cluster_isosplit.py`,
 `diag_wavelet_alignment_truth.py`, `score_all_fair.py`.
 ## 5az. What recall and precision actually measure here, a per-unit alignment that the Kilosort control validates, and a LOCDEN result retracted
 
+> **READ 5ba FIRST. Every absolute number in this section is rep0 only, and
+> rep0 is the easiest of the four replicates.** Stock Kilosort scores
+> 0.882/0.710 here but 0.794/0.600 pooled over four replicates, which is what
+> the Shamir Sorting Audit reports. The claim below that footprint_cluster
+> beats stock in 6 of 8 tier cells is a rep0 artifact: pooled, its recall is
+> 2.3 points LOWER than stock and its win is precision only (+5.4, p=0.010).
+> What survives from this section is the definition of the metrics, the timing
+> measurements, the per-unit alignment method and its control, and the two
+> retractions.
+
 Gil asked three questions about the 5ay table that turned out to matter more
 than the table: how recall and precision are computed, whether the numbers
 were easy-tier only, and whether 238 clusters for 13 injected units is itself
@@ -4696,6 +4706,99 @@ code `score_per_unit_fair.py`, `diag_timing_jitter.py`,
 
 All of 5az is **rep0 only**, 13 placements. The footprint_cluster-vs-vanilla
 comparison is the exception: that one is pooled over four replicates (5aw).
+
+## 5ba. CORRECTION: 5az's tables are rep0 only, rep0 is the easiest replicate, and the audit's mediocre numbers are the correct ones
+
+Gil asked why 5az reports roughly 0.9 recall and 0.9 precision on every tier
+but hard, while the Shamir Sorting Audit reports mediocre numbers for the same
+tests. The answer is that **the audit is right and 5az was reported badly.**
+Every 5az table is rep0 only, rep0 is the easiest of the four replicates, and
+I led with those point estimates instead of the pooled figures.
+
+### The audit's numbers reproduce exactly
+
+The audit reports stock Kilosort4 per tier as easy 88/76, collision 83/59,
+pair 72/49, with the hard tier deliberately omitted as not reproducible.
+Re-scoring all four replicates confirms it to the digit: easy .883/.765,
+collision .832/.594, pair .720/.486, pooled **.794/.600** over 52 placements.
+Nothing is wrong with the audit.
+
+### rep0 is the easiest window, by a lot
+
+Stock Kilosort4, same code, same 13 placements per replicate:
+
+| replicate | recall | precision | easy | collision | pair |
+|---|---|---|---|---|---|
+| **rep0** | **0.882** | **0.710** | 1.00/0.78 | 0.96/0.93 | 0.97/0.75 |
+| rep1 | 0.674 | 0.518 | 0.92/0.81 | 0.59/0.50 | 0.55/0.30 |
+| rep2 | 0.764 | 0.529 | 0.65/0.59 | 1.00/0.63 | 0.50/0.21 |
+| rep3 | 0.855 | 0.642 | 0.96/0.88 | 0.77/0.32 | 0.87/0.69 |
+| **pooled** | **0.794** | **0.600** | .883/.765 | .832/.594 | .720/.486 |
+
+rep0 is the best replicate on both metrics. **Reporting it alone inflates
+recall by 8.8 points and precision by 11.0.** Worse, the per-tier spread
+across replicates is enormous -- pair recall runs 0.97, 0.55, 0.50, 0.87 and
+collision precision runs 0.93, 0.50, 0.63, 0.32 -- because a tier within one
+replicate is **3 or 4 units**. That is precisely the n=3 problem that motivated
+building the four-replicate v2 benchmark in the first place (5ab); 5az walked
+straight back into it.
+
+### The substantive error: footprint_cluster's recall is not an improvement
+
+5az said footprint_cluster "beats stock Kilosort in 6 of 8 tier cells" at
+0.911/0.832 against 0.882/0.710, and called it the project's one real
+improvement. Pooled over the four replicates:
+
+| | recall | precision | easy | collision | pair | hard |
+|---|---|---|---|---|---|---|
+| stock KS4 | **0.794** | 0.600 | .883/.765 | .832/.594 | .720/.486 | .764/.593 |
+| footprint_cluster | 0.771 | **0.654** | .862/.867 | .805/.572 | .730/.591 | .700/.609 |
+| delta | **-2.3** | **+5.4** | -2.1/+10.2 | -2.7/-2.2 | +1.0/+10.5 | -6.4/+1.6 |
+
+**Pooled recall is 2.3 points LOWER than stock, not higher**, and the tally is
+4 of 8 cells rather than 6 of 8, with every win on precision and recall losing
+in three of four tiers. This matches the audit's own row for this
+configuration -- "Footprint-aware clustering x1: -2.3 recall, +5.4 precision,
+precision 60->65, p=0.010" -- which has been right the whole time.
+
+So the configuration is still worth having, but **its win is precision and
+only precision.** The F1 figure of +0.044 at p=0.002 that 5ay and 5az both
+led with is real on non-hard tiers, and it is also the wrong summary: F1
+averaged away a recall loss, which is exactly what the standing rule against
+quoting a single combined number exists to prevent. The best-recall
+configuration remains `footprint_graph_strong` (5aw, +4.8 recall, p=0.001).
+
+### What survives from 5az, and what does not
+
+Still valid, because they are internal to rep0 and were cross-checked:
+
+  * the definition of what recall and precision measure -- 13 clusters out of
+    238, one best-matching cluster per injected unit;
+  * the per-spike timing measurements and the per-unit alignment method, with
+    its Kilosort null control at +0.000;
+  * the LOCDEN retraction (chance recall 0.237, clusters 8.16x bloated);
+  * `ms5_tuned` being worse than untuned MountainSort5.
+
+Not valid as stated:
+
+  * **every absolute number in 5az's tier tables.** They are rep0 and must be
+    labelled rep0 wherever they appear.
+  * **the four external sorters' figures carry the same inflation**, since all
+    of them were run on rep0 only. tridesclous2's precision of 0.862-0.965 per
+    tier -- the one live lead coming out of 5ay and 5az -- is a rep0 number and
+    is NOT yet established. Running it on rep1-3 is the decisive test and is
+    CPU-only, so it is not blocked by Trodes.
+
+### The rule this breaks, written down so it is not broken again
+
+The project already requires reporting recall and precision separately, per
+tier, **with spread**. A single replicate's tier cell is 3-4 units and has no
+spread to report, so **no tier-level number from one replicate should ever be
+quoted as a result.** Single-replicate runs are for comparing sorters to each
+other under identical conditions, which is what the external comparison
+legitimately did; the moment a number is presented as this project's
+performance, it must be the four-replicate pooled figure with its per-replicate
+range.
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-12 — read this first)
 
@@ -5043,7 +5146,11 @@ floor) · `analyse_split_vs_contamination.py` (merging) ·
   runs post-hoc on saved output with **no GPU**, so Trodes can stay open.
 - **NEW LEAD (5ay): consensus across sorters.** Six-plus independent outputs
   now exist on identical data (Kilosort configs, lupin, tridesclous2,
-  mountainsort5, LOCDEN). **Note after 5az: do NOT enter LOCDEN into a
+  mountainsort5, LOCDEN). **Note after 5ba: every external sorter figure is
+  rep0 only, and rep0 is the easiest replicate (stock Kilosort 0.882/0.710
+  there vs 0.794/0.600 pooled), so tridesclous2's precision lead is not yet
+  established -- it needs rep1-3, which is CPU-only work.** **Note after 5az:
+  do NOT enter LOCDEN into a
   consensus as a recall source.** Its apparent 0.920 recall is a merging
   artifact (clusters 8.16x bloated, chance recall 0.237 against ~0.07 for
   everyone else) and its per-spike timing is the worst measured (MAD 3
