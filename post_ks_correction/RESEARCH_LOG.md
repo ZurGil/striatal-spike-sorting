@@ -4262,6 +4262,242 @@ Artifacts: `outputs/locden_vs_ks_misses.csv`,
 `diag_detect2_sweep.py`, `diag_locden_vs_ks_misses.py`,
 `diag_locden_matched_pool.py`. Event caches live in
 `hybrid_v2_rep{r}/ks_locden_cache/` (gitignored, regenerable).
+
+---
+
+## 5ay. Four third-party sorters on our benchmark, a time-convention error corrected, and the deconvolution question answered without building it
+
+Gil asked for three things — iterative template subtraction, a multi-axis
+wavelet-aligned feature representation, and a general think about what else is
+worth trying — and mentioned a MountainSort environment somewhere on D. That
+last remark was the most valuable part of the message.
+
+`D:\conda_envs\si_ms5` holds SpikeInterface 0.104.8 with five **installed**
+sorters (`mountainsort5`, `spykingcircus2`, `tridesclous2`, `lupin`, `simple`)
+and `isosplit6` importable on its own. Two consequences, one of which
+retires a question that would otherwise have cost several hundred lines.
+
+### 1. A TIME-CONVENTION ERROR THAT WAS CORRUPTING EVERY EXTERNAL COMPARISON
+
+5ax recorded that "truth times are **trough samples**, and Kilosort agrees to
+a median of 0 and ±1 sample." The second half is true. **The first half is
+wrong**, and the agreement was over-read.
+
+Measured directly, as the spike-triggered average on each unit's destination
+channel at the truth times: the **physical trough sits a median of +13 samples
+AFTER the truth time** (range +8 to +17 across the 13 rep0 units; unit 331 is
+inverted at −1). Truth times are the `nt0min=20` index of the 61-sample
+extraction window. Kilosort uses that same `nt0min` convention, which is
+exactly *why* truth and Kilosort agree at 0 — and that agreement never implied
+either sits at the trough.
+
+**Consequence.** A sorter that reports the real trough is ~13 samples outside
+the scorer's 10-sample tolerance and scores near zero for pure bookkeeping:
+
+| sorter | scored naively | at its own alignment |
+|---|---|---|
+| `tridesclous2` | 0.276 / 0.492 | **0.562 / 0.900** |
+| `mountainsort5` | 0.089 / 0.221 | **0.323 / 0.691** |
+| `lupin` | 0.101 / 0.203 | **0.689 / 0.778** |
+
+MountainSort5 was about to be written down at 0.089 recall. Lupin would have
+been written down at 0.101 instead of 0.689 — a factor of **6.8**.
+
+**Is sweeping the shift cheating?** It uses the ground truth, so it needs a
+justification rather than a wave-through. It is a one-integer-per-sorter
+*convention calibration*, not parameter tuning: it cannot invent spikes,
+cannot change which clusters exist, and cannot trade recall against precision
+— a wrong shift lowers **both**, as every sweep shows. And the optimum is a
+broad plateau (tridesclous2: −16 through −10 within 0.003 recall; lupin: −16
+through −12 within 0.001), so it identifies a convention rather than fitting
+noise. Both columns are reported everywhere so the size of the correction
+stays visible. A truth-free alternative was built first
+(`run_external_sorters.realign`, per-cluster template trough from the
+recording alone) and it correctly returns offset 0 for MountainSort5 —
+confirming MS5 really is at the trough and that the mismatch is on the
+benchmark's side, not the sorter's.
+
+### 2. THE FIRST EXTERNAL REFERENCE POINT THIS PROJECT HAS EVER HAD
+
+Every sorting number from 5a to 5ax compares Kilosort to our own
+modifications of Kilosort. Nothing external has ever said whether 0.882 recall on
+these placements is good, average or poor.
+
+rep0, 13 placements, identical matching rule, each sorter at its own best
+alignment:
+
+| sorter | spikes | clusters | recall | precision |
+|---|---|---|---|---|
+| **`footprint_cluster` (ours)** | 233k | 238 | **0.909** | **0.832** |
+| vanilla Kilosort4 | 224k | 216 | 0.882 | 0.710 |
+| **`lupin`** (template matching) | 178k | 244 | 0.689 | 0.778 |
+| `locden_iso` (ours, 5ay below) | 149k | 76 | 0.604 | 0.212 |
+| `tridesclous2` | — | 190 | 0.562 | **0.900** |
+| `mountainsort5` | 23k | 48 | 0.323 | 0.691 |
+
+**Kilosort4 is a strong baseline on this data, not a convenient one.** Three
+independent third-party sorters, two of them template-matching, all score
+below it on recall. Our `footprint_cluster` beats every one of them on both
+metrics.
+
+**But precision headroom is real and externally demonstrated.**
+`tridesclous2` reaches **0.900** precision and `lupin` **0.778**, against
+vanilla Kilosort's 0.710 — at much lower recall in both cases. So the
+contamination Kilosort carries is removable in principle; nobody has to take
+0.710 as a floor.
+
+`spykingcircus2` could not be run: it needs the standalone `hdbscan` package
+for its `iterative_hdbscan` clustering stage, which si_ms5 lacks. Not
+installed, to avoid disturbing a working environment. Its first failure was a
+different missing dependency (`torch`, for dredge motion correction); that one
+was fixed by `apply_motion_correction=False`, which is also the **matched**
+setting, since every Kilosort run here uses `nblocks=0`.
+
+### 3. THE DECONVOLUTION QUESTION, ANSWERED WITHOUT BUILDING IT
+
+5ax identified iterative template subtraction as the one component LOCDEN
+lacks and the only remaining structural idea on sorting, and quantified the
+tension that makes it necessary: an occlusion-safe detection footprint pins
+recall at 0.476, and the cure costs 3.35 detections per real spike. The
+obvious next step was to build it. `lupin` makes that unnecessary as a first
+step, because it *is* template matching, and it is mature.
+
+Per tier, `lupin` against vanilla Kilosort:
+
+| tier | lupin recall | KS recall | lupin precision | KS precision |
+|---|---|---|---|---|
+| easy | 0.930 | 1.000 | **0.937** | 0.782 |
+| **collision** | **0.596** | **0.961** | 0.703 | 0.933 |
+| pair | 0.874 | 0.965 | **0.910** | 0.749 |
+| hard | 0.295 | 0.574 | 0.516 | 0.365 |
+
+**The collision tier is where a deconvolution sorter should win, and it is
+where lupin loses worst** — 0.596 against Kilosort's 0.961. The collision tier
+is built from spikes placed deliberately 4–25 samples from a resident
+neuron's spike; resolving exactly that overlap is what subtraction is for. On
+easy and pair, where overlap is not the challenge, lupin's precision is
+*better* than Kilosort's (0.937 and 0.910 against 0.782 and 0.749).
+
+So the expected value of writing our own deconvolution engine is **much lower
+than 5ax assumed**. A mature implementation at defaults does not beat
+Kilosort here and is specifically weakest on the overlap tier. That does not
+prove subtraction cannot work — lupin is untuned and this is one replicate —
+but it removes the presumption that it is the obvious next build, for the
+price of one background job instead of a few hundred lines.
+
+### 4. GIL'S MULTI-AXIS REPRESENTATION: the biggest jump LOCDEN has had
+
+25 **named physical** axes rather than three peak-channel PCs — trough depth,
+peak before and after, peak-to-trough amplitude and duration (the classic
+striatal fast-spiking vs projection-neuron discriminator), trough half-width,
+repolarization and recovery slope, asymmetry, energy, trough area, zero
+crossings, skew, kurtosis, per-event best-match frequency `f0`, spectral
+centroid, fitted depth/distance/amplitude/fit-quality, footprint spread and
+dorsoventral asymmetry, channels above half-maximum, and propagation slope.
+PCs were avoided deliberately: they spend variance on whatever varies most,
+including sub-sample jitter, which 5ad measured Kilosort wasting a component
+on.
+
+Clustered with **ISO-SPLIT** instead of HDBSCAN:
+
+| LOCDEN variant | recall | precision |
+|---|---|---|
+| v1, HDBSCAN, 3 peak-channel PCs | 0.519 | 0.134 |
+| v2, band-wise HDBSCAN + footprint | 0.538 | 0.172 |
+| **ISO-SPLIT + 25 multi-axis** | **0.604** | **0.212** |
+
+Pair-tier recall 0.713. Still far behind Kilosort, but the first two
+improvements to LOCDEN's clustering that both metrics agree on.
+
+**ISO-SPLIT was verified before being trusted**, and it is well matched to
+this project's diagnosed failure. 5aa found `nclust=200` hard-coded and absent
+from `parameters.py`; 5aw found that giving that seeding extra dimensions
+*cancels* part of the graph gain — the signature of an over-seeded k-means
+slicing unimodal units. ISO-SPLIT takes no k and no minimum cluster size, and
+splits only where a projection fails a non-parametric unimodality test. On
+**200,000 points of pure Gaussian noise it returns ONE cluster, not 200** —
+the exact opposite failure mode — recovers five unequal well-separated blobs
+at ARI 1.000 in 0.06 s, and is ~35× faster than the HDBSCAN it replaces
+(4.6 s for 200k×10 against 170 s for 150k×6). It does call `abort()` on
+exactly-duplicate rows, which matters because several of the new axes are
+integer-valued, so the features get a jitter far below their own scale to
+break ties.
+
+### 5. THE WAVELET HALF OF GIL'S IDEA DOES NOT WORK, AND THE TRUTH FILE PROVED IT
+
+The benchmark builder drew a sub-sample shift for every injected spike from
+U(−0.5, 0.5) and **stored it** in the truth file as `shifts`. So the alignment
+has a per-spike correct answer, which makes this a direct accuracy test.
+
+On 1,240 matched injected spikes:
+
+| | value |
+|---|---|
+| correlation with the known shift | **−0.061** |
+| RMSE of the wavelet estimate | **1.402** samples |
+| RMSE of answering zero for every spike | **0.292** samples |
+
+It is **4.8× worse than no alignment at all**, and no better on the loudest
+half (corr −0.065). 61.6% of estimates saturated at the clamp. It is now off
+by default, with the measurement written beside the switch.
+
+**This does not contradict the earlier wavelet work, and the reason is in our
+own docstring.** `coarse_then_fine_shift` states that phase-only correction is
+trustworthy only within half an oscillation cycle of the true spike time,
+reached by a **coarse template match first**, with a reference phase
+**calibrated per unit**. At this point in a from-scratch sorter there are no
+units, so there is no template to calibrate against and no coarse stage to
+run. Phase-only alignment was being used outside its validated operating
+range.
+
+**The fix is an ordering, not a parameter.** Cluster first on the axes that
+are insensitive to sub-sample timing (amplitude, footprint, fitted position,
+|W| frequency), then align inside each cluster against that cluster's own
+template with a calibrated reference phase, then recompute the shape axes and
+re-cluster. That is an alternating scheme with the same shape as the
+deconvolution loop, and all the machinery for it already exists.
+
+### 6. WHAT THIS LEAVES, with the dead ends marked
+
+Checked against the log rather than proposed from intuition:
+
+- **Merging fragments — DEAD, at the oracle level.** 5al tested merging
+  knowing the true fragments and it trades down in **all 16** algorithm × tier
+  cells (+3 to +7 recall for −4 to −22 precision); 67–77% of units have
+  exactly one substantial cluster. Any ISO-SPLIT-based merge is strictly worse
+  than that oracle, so this must not be revisited.
+- **Post-hoc spike recovery — DEAD from both ends** (5av: ranking scores at
+  chance over 87,607 candidates; 5ax: a 4.6×-more-sensitive detector hits the
+  same 26.1% ceiling).
+- **Own deconvolution engine — DEPRIORITISED** by §3 above.
+- **SPLITTING Kilosort's mixed clusters with a unimodality test — the live
+  lead.** Untested, and it is the direction merging failed in rather than the
+  same one. Externally demonstrated headroom: tridesclous2 reaches 0.900
+  precision and lupin 0.778 against vanilla Kilosort's 0.710. `isocut6` gives
+  a principled one-dimensional test, and it runs post-hoc on saved output with
+  no GPU, so Trodes can stay open.
+- **Alternating align → cluster → realign**, per §5.
+- **Consensus across sorters.** Six-plus independent outputs now exist on
+  identical data; keeping only spikes two or more sorters agree on targets
+  precision directly and costs almost nothing to test.
+- **Extending the benchmark past 33 donor neurons** — more replicates with
+  fresh donors, and a drift-containing variant.
+
+**Honest limits.** Every number here is rep0 and 13 placements. All four
+third-party sorters ran at or near defaults, so none of these is that
+sorter's best achievable result and none should be quoted as a verdict on the
+software — `mountainsort5`'s defaults in particular contain the two settings
+this project has already measured to be wrong for this data
+(`detect_threshold` 5.5 when the injected units average 3.06 σ, and a 0.5 ms
+exclusion radius, the same occlusion trap that pinned our own detector at
+0.476). A tuned MountainSort5 run was still in flight when this was written.
+The alignment correction rests on a ground-truth sweep, justified in §1 but
+not free of it.
+
+Artifacts: `outputs/external_sorters_rep0.log`,
+`outputs/external_sorters_rep0b.log`, `outputs/wavelet_alignment_truth.csv`;
+code `run_external_sorters.py`, `features_locden.py`, `cluster_isosplit.py`,
+`diag_wavelet_alignment_truth.py`, `score_all_fair.py`.
 ## 6. WHERE THINGS STAND  (current as of 2026-10-12 — read this first)
 
 Self-contained. Everything needed to resume with no memory of the conversation.
@@ -4301,14 +4537,23 @@ Nothing is running. No background jobs, no copies, no Kilosort runs pending.
 Everything described below is complete, committed and pushed on branch
 `post-ks-correction`.
 
-**Two things a new session should know about the harness, both verified in
-5ax rather than assumed.** (1) `run_v2_comparison.score()` reads only
-`spike_times.npy` and `spike_clusters.npy` from
-`hybrid_v2_rep{r}/ks_{name}/`, so **any** sorter — not just Kilosort — can be
-dropped into the benchmark and scored by the identical rule, with no change to
-the harness. (2) Truth times are **trough samples** and Kilosort agrees with
-them to a median of 0 and ±1 sample at the 5–95% range, so a new sorter must
-report troughs.
+**Two things a new session should know about the harness.** (1)
+`run_v2_comparison.score()` reads only `spike_times.npy` and
+`spike_clusters.npy` from `hybrid_v2_rep{r}/ks_{name}/`, so **any** sorter —
+not just Kilosort — can be dropped into the benchmark and scored by the
+identical rule, with no change to the harness. (2) **THE TIME CONVENTION, and
+5ax got this wrong.** 5ax said "truth times are trough samples and Kilosort
+agrees to ±1 sample". The agreement is real; the conclusion was not. 5ay
+measured the spike-triggered average at the truth times directly: the
+**physical trough is a median of +13 samples AFTER the truth time** (range +8
+to +17 over 13 rep0 units). Truth times are the `nt0min=20` index of the
+61-sample extraction window, and Kilosort uses that same convention, which is
+*why* they agree — it never implied either was at the trough. **Any sorter
+reporting the real trough is ~13 samples outside the scorer's 10-sample
+tolerance and will score near zero for pure bookkeeping.** This cost nothing
+only because it was caught: lupin reads 0.101 recall unshifted and **0.689**
+at its own alignment, a factor of 6.8. Use `score_all_fair.py`, which reports
+both columns.
 
 **LOCDEN runs on the CPU only**, so unlike every Kilosort run in this project
 it is not blocked by Trodes holding the GPU (mistake 4).
@@ -4536,9 +4781,37 @@ floor) · `analyse_split_vs_contamination.py` (merging) ·
   height. Capture scales linearly with pool size (0.070 at 800, 0.843 at
   10,353), so the detection statistic has no ranking power either. Post-hoc
   recovery is closed from both ends.
-- **OPEN, and the only remaining structural idea on sorting: iterative
-  template subtraction (deconvolution).** 5ax measured the exact tension that
-  makes it necessary. A local-maximum footprint large enough to avoid
+- **DEPRIORITISED 2026-10-12 (5ay): building our own deconvolution engine.**
+  5ax called this the only remaining structural idea. `lupin` — a mature
+  template-matching sorter, installed in `D:\conda_envs\si_ms5` — settles the
+  premise for the cost of one background job: it scores **0.689 / 0.778**
+  against Kilosort's 0.882 / 0.710, and on the **collision** tier, the one
+  built from deliberately overlapping spikes and therefore the one
+  subtraction exists to fix, it gets **0.596 against Kilosort's 0.961**. A
+  mature implementation does not beat Kilosort here and is weakest exactly
+  where it should be strongest. Not disproven (lupin is untuned, one
+  replicate), but no longer the obvious build. The 5ax reasoning below is
+  kept because the tension it measured is real.
+- **NEW LEAD 2026-10-12 (5ay), now the strongest one: SPLIT Kilosort's mixed
+  clusters with a unimodality test.** Untested, and it is the direction
+  merging failed in rather than the same one (5al killed merging at the
+  oracle level). The headroom is externally demonstrated: `tridesclous2`
+  reaches **0.900** precision and `lupin` **0.778** against vanilla
+  Kilosort's **0.710**, so the contamination Kilosort carries is removable in
+  principle. `isocut6` from `isosplit6` gives a principled 1-D test, and it
+  runs post-hoc on saved output with **no GPU**, so Trodes can stay open.
+- **NEW LEAD (5ay): consensus across sorters.** Six-plus independent outputs
+  now exist on identical data (Kilosort configs, lupin, tridesclous2,
+  mountainsort5, LOCDEN). Keeping only spikes two or more sorters agree on
+  targets precision directly and is nearly free to test.
+- **NEW LEAD (5ay): alternating align -> cluster -> realign.** 5ay measured
+  that phase-only wavelet alignment without a per-unit template is at chance
+  (corr -0.061 with the known injected shifts, RMSE 1.402 vs 0.292 for
+  answering zero). The fix is an ordering: cluster on jitter-insensitive axes,
+  align inside each cluster against its own template with a calibrated
+  reference phase, recompute shape axes, re-cluster.
+- **Iterative template subtraction — the tension 5ax measured, kept for
+  reference.** A local-maximum footprint large enough to avoid
   duplicates (±10 samples × ±5 channels) pins detection recall at **0.476 no
   matter how low the threshold goes**, because a quiet spike beside a loud one
   is never a local maximum; shrinking it to ±3 × ±1 reaches 0.978 but admits
