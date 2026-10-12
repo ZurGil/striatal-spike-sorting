@@ -4047,7 +4047,222 @@ Artifacts: `outputs/v2_scores.csv` (12 configs, 624 placements),
 (`_patched_neigh_mat`, `_patched_kmeans_plusplus`) and
 `analyse_graph_vs_seed.py`.
 
-## 6. WHERE THINGS STAND  (current as of 2026-10-09 — read this first)
+
+---
+
+## 5ax. A sorter that is not Kilosort, built and measured on our own benchmark — five iterations, one important negative
+
+Gil asked whether the loop could be run iteratively to look for genuinely new
+sorting methods, not necessarily involving Kilosort, tested on the hybrid
+benchmark we built to evaluate Kilosort. It can, and it was: five iterations,
+each one's design chosen from the previous one's measurement rather than from
+intuition. The sorter loses to Kilosort end to end. The valuable output is not
+the sorter but two measurements it made possible, one of which independently
+confirms 5av's ceiling using a completely different instrument.
+
+**First, a correction to the record.** Earlier sessions described this
+benchmark as 13 units. 13 is the count *per replicate*. Across the four
+replicates the benchmark contains **33 distinct source neurons in 52
+placements**, with 18 neurons appearing in more than one replicate and
+**rotated through tiers** between them — unit 331 is hard in rep0, pair in
+rep1 and collision in rep3. That rotation is what makes tier effects
+measurable within neuron rather than only across neurons, and it is a
+stronger design than "13 units" suggests.
+
+### Why a second sorter was worth building
+Every result from 5a to 5aw is a modification of Kilosort4 judged against
+Kilosort's own detection threshold, its own PC basis and its own `nclust=200`
+seeding — all three tuned on unmodified data, which 5aw flagged as a standing
+confound. And the one real win in the whole project (5aw: footprint in the kNN
+graph, +4.8 recall at p=0.001, net flat on F1) says the across-channel energy
+split carries identity information Kilosort's features do not use. LOCDEN was
+the attempt to build a sorter around that fact from the start.
+
+**The benchmark needed no modification to accept it.** `run_v2_comparison.score()`
+reads only `spike_times.npy` and `spike_clusters.npy` from
+`hybrid_v2_rep{r}/ks_{name}/`. Anything that writes those two files is scored
+by the identical matching rule, the identical 10-sample tolerance and the
+identical fragment definition as all 12 Kilosort configurations. That is worth
+recording as a property of the harness: it was sorter-agnostic all along.
+
+Two facts verified before writing code rather than assumed: truth times are
+**trough samples**, and Kilosort's reported times agree with them to a median
+of 0 and a 5–95% range of ±1 sample, so a new sorter must report troughs or
+fail the matcher for a bookkeeping reason. And the probe is effectively
+**one-dimensional** — 2 staggered columns spanning 48 µm in x, 192 rows at
+20 µm — so a localizer here estimates depth, not 3-D position.
+
+### Iteration 1 — per-channel threshold detection: dead, and the reason is the data
+Classic architecture: bandpass + CAR, per-channel threshold on robust
+z-scores, spatiotemporal dedup, point-source localization, global HDBSCAN.
+
+Detection recall of injected spikes: **0.214 against a measured chance rate of
+0.009.**
+
+The first number computed was 0.556, and it was nearly reported. It was almost
+entirely base rate: it allowed a match to any event **anywhere on the probe**,
+and with 90,664 events over 3.6 M samples a random time has an event within
+±10 samples with probability **0.415**. Restricting the match to within 40 µm
+of the destination channel gives 0.214 against chance 0.009. Rule 1 again, and
+this time it moved a headline by a factor of 2.6.
+
+**Why no threshold can work here.** Measured directly, the injected units'
+spike-triggered-average trough on their own destination channel is a median of
+**3.06 noise SDs**, range **0.64 to 5.29**. Unit 371's deterministic signal is
+0.64 SD — *below* the single-sample noise. Only 11.7% of injected spikes reach
+z = −5 anywhere near their destination. A single-channel threshold detector is
+the wrong instrument for this population, and the reason Kilosort reaches 0.88
+recall is that whitened multichannel template matching integrates over ~10
+channels and ~60 samples.
+
+### Iteration 2 — whitened multichannel matched filter: a 4× better detector
+Three additions, each aimed at the measurement above: spatial whitening (ZCA
+over 384 channels), temporal matching against a **self-bootstrapped** basis
+(the top 5 PCs of the 8,000 loudest waveforms iteration 1 detected — large
+spikes teach the shape, the shape finds small ones), and pooling of the
+projection energy over ±5 channels in depth order. Under noise the pooled
+statistic is χ²(33).
+
+| detector | events/s/chan | detection recall | chance |
+|---|---|---|---|
+| iteration 1, per-channel threshold | 1.97 | 0.214 | 0.009 |
+| iteration 2, whitened matched filter | 4.02 | **0.949** | 0.015 |
+| iteration 2, more headroom | 8.04 | **0.978** | 0.026 |
+
+Over the full 120 s at the chosen operating point: **0.863**. Basis quality
+mattered: PCs from all 90,664 waveforms explained 24/18/16% of variance and
+gave recall 0.949; PCs from the loudest 8,000 explained **52/21/11%** and gave
+0.978.
+
+**Occlusion, not threshold, is the binding constraint.** With the
+local-maximum footprint at ±10 samples × ±5 channels, recall saturates at
+**0.476 no matter how low the threshold goes** — a quiet spike beside a loud
+one is never a local maximum, so no threshold can reach it. Shrinking the
+footprint to ±3 × ±1 lifted recall to 0.978 at the same event rate. This is
+the clearest statement yet of why the collision and pair tiers are hard, and
+it is a property of the detector, not of the clustering.
+
+### Iterations 3 and 4 — the clustering stage is where it loses
+With a detector at 0.978 detection recall, end-to-end performance against
+stock Kilosort on the identical 13 rep0 placements:
+
+| tier | recall LOCDEN | recall KS | precision LOCDEN | precision KS |
+|---|---|---|---|---|
+| easy | 0.511 | **1.000** | 0.191 | **0.781** |
+| collision | 0.601 | **0.961** | 0.221 | **0.933** |
+| pair | 0.522 | **0.965** | 0.089 | **0.749** |
+| hard | 0.439 | 0.574 | 0.051 | 0.365 |
+| **ALL** | **0.519** | **0.882** | **0.134** | **0.710** |
+
+The entire loss is in clustering, and two causes were visible in the output:
+**under-clustering** (134 clusters where Kilosort finds 216 — a single HDBSCAN
+over a 3.8 mm probe finds broad density modes, not neurons, which is exactly
+the 0.134 precision) and **too few features** (3 PCs of the peak channel only,
+against Kilosort's ~10 channels × 6 features).
+
+Iteration 4 fixed both in the obvious way — clustering in 8-channel depth
+bands with an 8-channel context margin, the L2-normalised 20-channel footprint
+entering as PCs alongside fitted depth, and a cross-band merge requiring
+footprint cosine ≥ 0.97 **and** waveform cosine ≥ 0.95 **and** depth within
+15 µm (all three, because 5av measured footprint alone as a weak
+discriminator). It did not help: 156 band clusters, **0 merges**, and the
+refractory rule removed **62.1%** of all events.
+
+**Why, measured.** Mean **3.35 detections per real spike** (median 3, p90 6,
+max 14). The small local-maximum footprint that cured occlusion necessarily
+admits multiple detections of one spike. The two failure modes trade off
+directly against each other, and the only thing that resolves both at once is
+**iterative template subtraction** — detect the strongest event, subtract its
+fitted waveform, re-detect. That is the core of Kilosort, SpyKING CIRCUS and
+YASS, and it is what LOCDEN does not have. That is the honest explanation of
+the gap, and it is an engineering gap, not a conceptual one.
+
+### Iteration 5 — the result worth keeping: 5av's ceiling confirmed by a different instrument
+The detector is strong even though the sorter is not, so the question worth
+asking is whether it finds the spikes **Kilosort** misses. 5av had established
+the ceiling on post-hoc recovery: with the template held fixed, the best
+candidate-proposal variant captured **26.1%** of a unit's genuinely missed
+spikes in an **800-candidate** pool, and neither of the external proposal's
+two recommended changes beat it.
+
+Raw answer: **0.843 of 445 missed spikes captured, chance 0.015.** Three times
+the ceiling.
+
+**That number is a pool-size artifact and does not survive.** 5av's pool was
+800 candidates per unit; the LOCDEN events within 40 µm of a unit over 120 s
+number **10,353**. Held at matched pool size, ranking candidates by the
+detection statistic:
+
+| pool size | capture | chance |
+|---|---|---|
+| 200 | 0.018 | 0.003 |
+| 400 | 0.034 | 0.001 |
+| **800 (5av's size)** | **0.070** | 0.001 |
+| 1,600 | 0.083 | 0.001 |
+| 3,200 | 0.164 | 0.003 |
+| all 10,353 | 0.843 | 0.014 |
+
+Capture scales almost exactly **linearly** with pool size: 800/10353 × 0.843 =
+0.065 predicted by an uninformative ranking, 0.070 measured. **The detection
+statistic carries essentially no information about which candidates are the
+missed spikes.** On the non-hard tiers at 800 candidates, capture is **0.243
+against 5av's 0.261** — indistinguishable, on 74 missed spikes.
+
+This is the valuable finding. 5av's 26.1% ceiling was measured with one family
+of single-channel matched filters, which left open the possibility that a more
+sensitive detector would break it. A completely different detector — spatially
+whitened, 5-component learned temporal basis, 11-channel pooling, 4× the
+detection sensitivity on injected spikes — hits **the same wall at the same
+height**. The ceiling is not about detector sensitivity. It is about *ranking*,
+and 5av already measured the ranking scores at chance (AUC 0.48–0.55 over
+87,607 candidates). Two independent routes, same conclusion: **post-hoc
+recovery of Kilosort's missed spikes is dead, and it is dead for a reason that
+does not depend on the proposal stage.**
+
+Note also that 371 of rep0's 445 missed spikes belong to the **hard** tier,
+which is not measurable in this benchmark (two identical Kilosort runs disagree
+there by up to 0.444 recall), so the non-hard rows are the ones carrying weight
+and they rest on 74 spikes. That is thin, and it is the main limit on this
+section.
+
+### Verdict
+Running the loop on genuinely new methods works, and the harness supports it
+for free. What it produced:
+
+- **A detection stage that is competitive and cheap.** 0.978 in-window /
+  0.863 full-recording detection recall at a Kilosort-comparable event rate,
+  CPU-only in ~5 minutes per replicate — so unlike every Kilosort run in this
+  project it does **not** require the GPU, which means no Trodes conflict.
+- **A quantitative reason the hard tiers are hard** that is independent of
+  clustering: occlusion pins detection recall at 0.476 for any
+  physically-sized local-maximum footprint, and the cure costs 3.35 duplicate
+  detections per spike. Only deconvolution resolves both.
+- **Independent confirmation of 5av's ceiling** with a 4×-more-sensitive
+  detector, which closes off the "we just need better candidate proposal"
+  escape route that 5av could not rule out.
+- **A corrected description of the benchmark**: 33 distinct neurons, 52
+  placements, units rotated through tiers.
+
+What it did not produce is a better sorter: **0.519/0.134 against Kilosort's
+0.882/0.710**, and the gap is the deconvolution stage. Recommendation on the
+sorting question is unchanged — `footprint_cluster` remains the best
+configuration measured (F1 +0.044, p=0.002).
+
+**Honest limits.** One replicate (rep0) for every end-to-end number; the
+iteration-2 sweep is one 10 s window; the matched-pool comparison rests on 74
+non-hard missed spikes; no LOCDEN result is replicated across the four
+replicates the way the Kilosort configurations are. Nothing here should be
+quoted as a four-replicate result, and the sorter's loss to Kilosort is large
+enough that replication would not change the conclusion.
+
+Artifacts: `outputs/locden_vs_ks_misses.csv`,
+`outputs/locden_matched_pool.csv`; code in `sorter_locden.py`
+(`detect`, `detect2`, `localize`), `cluster_locden.py`, `cluster_locden2.py`,
+`diag_locden_detection.py`, `diag_injected_amplitude.py`,
+`diag_detect2_sweep.py`, `diag_locden_vs_ks_misses.py`,
+`diag_locden_matched_pool.py`. Event caches live in
+`hybrid_v2_rep{r}/ks_locden_cache/` (gitignored, regenerable).
+## 6. WHERE THINGS STAND  (current as of 2026-10-12 — read this first)
 
 Self-contained. Everything needed to resume with no memory of the conversation.
 
@@ -4063,7 +4278,19 @@ its own channel is a NEIGHBOUR's real spike. The problem is per-spike
 attribution. **5av then closed the attribution lead too**: argmax over
 competing units works correctly and finds almost nothing, and the proposal
 stage itself captures only 26.1% of missed spikes, so the proposal - not the
-scorer - is the ceiling. Work then
+scorer - is the ceiling. **5aw** then found the one real win in the whole
+project — the footprint in Kilosort's kNN graph — but the combined measure
+settles it: `footprint_cluster` beats stock Kilosort on F1 (+0.044, p=0.002)
+while the newer graph-only hook is net flat (−0.002, p=0.984), its +4.8 recall
+cancelled by its precision cost. **5ax** then built a sorter that is not
+Kilosort at all (whitened multichannel matched-filter detection, point-source
+localization, HDBSCAN) and measured it on the same benchmark: a competitive,
+CPU-only detection stage (0.978 detection recall vs 0.214 for a plain
+threshold) but a decisive end-to-end loss (0.519/0.134 vs 0.882/0.710),
+because it lacks iterative template subtraction. Its one lasting contribution
+is that its 4×-more-sensitive detector hits 5av's 26.1% recovery ceiling at
+exactly the same height, which closes the "better candidate proposal" escape
+route. Work then
 moved to **physiology**: the sync pipeline was run on session 20260916_110311,
 and reward responses, cue-end side selectivity, a confidence readout, DV
 decoding and leaving-time decoding were all measured, with the main
@@ -4072,7 +4299,19 @@ stimulus-period result replicated across three sessions.
 ### 6.2 IMMEDIATE STATE
 Nothing is running. No background jobs, no copies, no Kilosort runs pending.
 Everything described below is complete, committed and pushed on branch
-`post-ks-correction`. Last commits: `8e63171`, `7964789`, `5993a2d`, `2ceb3c4`.
+`post-ks-correction`.
+
+**Two things a new session should know about the harness, both verified in
+5ax rather than assumed.** (1) `run_v2_comparison.score()` reads only
+`spike_times.npy` and `spike_clusters.npy` from
+`hybrid_v2_rep{r}/ks_{name}/`, so **any** sorter — not just Kilosort — can be
+dropped into the benchmark and scored by the identical rule, with no change to
+the harness. (2) Truth times are **trough samples** and Kilosort agrees with
+them to a median of 0 and ±1 sample at the 5–95% range, so a new sorter must
+report troughs.
+
+**LOCDEN runs on the CPU only**, so unlike every Kilosort run in this project
+it is not blocked by Trodes holding the GPU (mistake 4).
 
 ### 6.3 THE SORTING VERDICT (benchmark work, sections 5ag–5am)
 
@@ -4287,9 +4526,29 @@ floor) · `analyse_split_vs_contamination.py` (merging) ·
   over-seeding hypothesis (5aa). Implementation: patch `neigh_mat` to return a
   consistent `(kn, M)`; do NOT pass `kn` to `cluster()` — `M` is then unbound
   (verified in 4.0.24). Needs the GPU, so Trodes must be CLOSED.
+- **RETIRED 2026-10-12 (5ax): "a better candidate proposal will break the
+  26.1% ceiling."** 5av left this open, because its ceiling was measured with
+  one family of single-channel matched filters. A completely different
+  detector — spatially whitened, 5-component learned temporal basis,
+  11-channel pooling, 4× the detection sensitivity on injected spikes
+  (0.978 vs 0.214) — captures **0.243** of Kilosort's non-hard missed spikes
+  at 5av's 800-candidate pool size against 5av's **0.261**. Same wall, same
+  height. Capture scales linearly with pool size (0.070 at 800, 0.843 at
+  10,353), so the detection statistic has no ranking power either. Post-hoc
+  recovery is closed from both ends.
+- **OPEN, and the only remaining structural idea on sorting: iterative
+  template subtraction (deconvolution).** 5ax measured the exact tension that
+  makes it necessary. A local-maximum footprint large enough to avoid
+  duplicates (±10 samples × ±5 channels) pins detection recall at **0.476 no
+  matter how low the threshold goes**, because a quiet spike beside a loud one
+  is never a local maximum; shrinking it to ±3 × ±1 reaches 0.978 but admits
+  **3.35 detections per real spike** (median 3, max 14). Only detect-subtract-
+  redetect resolves both at once, and it is the one component LOCDEN lacks and
+  Kilosort has. This is a substantial build, not a patch.
 - **The loudness/|DV| disentangling** described in 6.5.
 - 10 units Gil has not reviewed (24, 102, 126, 144, 205, 236, 280, 289, 359,
   387).
+- The 5aw and 5ax results are not in the Shamir audit artifact / HTML / PDF.
 - Temporal whitening inside Kilosort. Ceiling was already 4.8% (5ad); 5av then
   applied it to the post-hoc detection statistic exactly as the external
   proposal specifies (trace AND template), and found **no effect** - 2 better,
