@@ -4787,7 +4787,10 @@ Not valid as stated:
     of them were run on rep0 only. tridesclous2's precision of 0.862-0.965 per
     tier -- the one live lead coming out of 5ay and 5az -- is a rep0 number and
     is NOT yet established. Running it on rep1-3 is the decisive test and is
-    CPU-only, so it is not blocked by Trodes.
+    CPU-only, so it is not blocked by Trodes. **RESOLVED the same day in 5bb:
+    it ran, and the precision lead SURVIVES pooling -- 0.851 vs stock's 0.600,
+    +0.252 at p = 4.27e-05, higher in all four replicates.** lupin,
+    mountainsort5 and LOCDEN remain rep0-only.
 
 ### The rule this breaks, written down so it is not broken again
 
@@ -4799,6 +4802,92 @@ other under identical conditions, which is what the external comparison
 legitimately did; the moment a number is presented as this project's
 performance, it must be the four-replicate pooled figure with its per-replicate
 range.
+
+## 5bb. tridesclous2 on all four replicates: the precision lead is real, p = 4e-05, and it names the headroom the audit has been pointing at
+
+5ba ended by saying tridesclous2's per-tier precision was the one live lead
+and was **not** established, because it had only ever run on rep0 and rep0 is
+the easiest window. It has now run on rep1-3 as well (CPU-only, 241-243 s per
+replicate, 56.8k-64.6k spikes, 172-197 units). The lead survives, and pooled
+it is larger than rep0 suggested.
+
+### Pooled over 4 replicates, 52 placements
+
+| | recall | precision | easy | collision | pair | hard |
+|---|---|---|---|---|---|---|
+| stock KS4 | **0.794** | 0.600 | .883/.765 | .832/.594 | .720/.486 | .764/.593 |
+| footprint_cluster | 0.771 | 0.654 | .862/.867 | .805/.572 | .730/.591 | .700/.609 |
+| **tridesclous2** | 0.392 | **0.851** | .445/**.942** | .347/**.801** | .405/**.824** | .369/**.848** |
+
+Paired Wilcoxon on the same 52 placements, the project's standard test:
+
+  * **precision +0.252, p = 4.27e-05**, better in **34 of 52** placements;
+  * recall **-0.401, p = 2.59e-09**, better in only 6 of 52.
+
+It is higher on precision in **all four replicates** -- 0.900 vs 0.710,
+0.710 vs 0.518, 0.908 vs 0.529, 0.887 vs 0.642 -- so no single window carries
+it. Note that rep1, the hardest window, drags tridesclous2 down too (0.710),
+which is the right behaviour: the replicates differ in genuine difficulty, not
+in some artifact.
+
+**The pair tier is the result.** The audit's own commentary on it is "on the
+pair tier, half of what Kilosort calls one neuron is another neuron", and it
+is the worst cell in the whole benchmark at 0.486. tridesclous2 scores
+**0.824 there, +0.337, p = 8.98e-03** on 16 placements. Whatever makes
+Kilosort merge neighbouring neurons is **not forced by this data.**
+
+### The control, this time pooled rather than rep0 only
+
+tridesclous2 is scored with 33 shifts of per-unit alignment freedom and stock
+Kilosort at a fixed 0, so the comparison needs its null. 5az ran that control
+on rep0 only; pooled over four replicates, giving per-unit freedom to a sorter
+that already shares the benchmark's convention is worth:
+
+| | recall gain | precision gain |
+|---|---|---|
+| stock KS4 | +0.0051 | +0.0020 |
+| footprint_cluster | +0.0058 | +0.0027 |
+
+**+0.002 of precision against the +0.252 being claimed**, two orders of
+magnitude smaller. The comparison is not rigged by the alignment.
+
+### The sharpest number, and another thing rep0 hid
+
+Matched-cluster bloat -- how many times larger the matched cluster is than the
+part of it that belongs to the injected unit -- pooled over four replicates:
+
+| sorter | bloat |
+|---|---|
+| **stock KS4** | **1.71x** |
+| footprint_cluster | 1.15x |
+| tridesclous2 | 1.06x |
+
+**Stock Kilosort's matched clusters are 71% larger than the unit they
+represent, while tridesclous2's are 6% larger on the same recordings.** On
+rep0 alone Kilosort measured 1.00x, so 5az reported Kilosort's clusters as
+essentially pure -- another thing the easiest replicate hid, and a direct
+quantification of the merging the audit describes.
+
+This is what makes the splitting lead concrete rather than hopeful: the
+contamination is **merging, it is large, it is measured on all four
+replicates, and a different algorithm avoids it on identical data.** Splitting
+operates on exactly that and does not have to touch recall.
+
+### The honest limit on this result
+
+tridesclous2 buys its purity by being conservative: 0.392 recall, finding
+roughly half the spikes Kilosort does, better on recall in 6 of 52 placements.
+**It is therefore not evidence that 0.79 recall and 0.85 precision are
+simultaneously achievable** -- it is evidence that the purity is attainable at
+all, and that the specific failure is merging rather than noise. The
+asymmetry that matters for the lead: a merge can in principle be undone after
+the fact by splitting, whereas an undetected spike cannot be recovered after
+the fact -- which 5am and 5ax already established from both ends.
+
+Artifacts: `outputs/allreps_per_unit_tridesclous2.csv`,
+`outputs/allreps_per_unit_vanilla.csv`,
+`outputs/allreps_per_unit_footprint_cluster.csv`; code
+`score_tdc_all_replicates.py`, `test_tdc_vs_stock.py`.
 
 ## 6. WHERE THINGS STAND  (current as of 2026-10-12 — read this first)
 
@@ -5139,7 +5228,14 @@ floor) · `analyse_split_vs_contamination.py` (merging) ·
   Kilosort's mixed
   clusters with a unimodality test.** Untested, and it is the direction
   merging failed in rather than the same one (5al killed merging at the
-  oracle level). The headroom is externally demonstrated: `tridesclous2`
+  oracle level). **The headroom is now measured on all four replicates (5bb),
+  not demonstrated on one:** stock Kilosort's matched clusters are **1.71x
+  larger** than the unit they represent, pooled, where tridesclous2 manages
+  **1.06x** on identical recordings; and on the pair tier, the benchmark's
+  worst cell, tridesclous2 holds **0.824 precision against stock's 0.486**
+  (+0.337, p = 9e-03). The contamination is merging, it is large, and another
+  algorithm avoids it on the same data. The headroom is externally
+  demonstrated: `tridesclous2`
   reaches **0.900** precision and `lupin` **0.778** against vanilla
   Kilosort's **0.710**, so the contamination Kilosort carries is removable in
   principle. `isocut6` from `isosplit6` gives a principled 1-D test, and it
