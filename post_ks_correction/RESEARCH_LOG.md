@@ -4498,6 +4498,192 @@ Artifacts: `outputs/external_sorters_rep0.log`,
 `outputs/external_sorters_rep0b.log`, `outputs/wavelet_alignment_truth.csv`;
 code `run_external_sorters.py`, `features_locden.py`, `cluster_isosplit.py`,
 `diag_wavelet_alignment_truth.py`, `score_all_fair.py`.
+## 5az. What recall and precision actually measure here, a per-unit alignment that the Kilosort control validates, and a LOCDEN result retracted
+
+Gil asked three questions about the 5ay table that turned out to matter more
+than the table: how recall and precision are computed, whether the numbers
+were easy-tier only, and whether 238 clusters for 13 injected units is itself
+a bad sign. Answering them properly exposed one methodological flaw of my own
+and killed one result I had reported an hour earlier.
+
+### What the two numbers actually cover
+
+From `run_v2_comparison.score()` (lines 90-142), for each of the 13 injected
+units:
+
+  * collect every cluster with a spike within TOLERANCE = 10 samples
+    (0.33 ms) of any of that unit's true spikes;
+  * keep **the single cluster with the most matches**, matched greedily
+    one-to-one so one detected spike cannot satisfy two true spikes;
+  * `recall = matched / that unit's true spike count`;
+  * `precision = matched / all spikes in that one cluster`;
+  * the headline figure is the **mean over the 13 units**.
+
+So **the metrics describe 13 clusters out of 238. The other ~225 are never
+scored at all** -- measured, not assumed:
+
+| sorter | injected units | clusters emitted | clusters the metrics touch |
+|---|---|---|---|
+| footprint_cluster | 13 | 238 | 13 |
+| vanilla KS4 | 13 | 216 | 13 |
+| tridesclous2 | 13 | 185 | 13 |
+| mountainsort5 | 13 | 48 | 11 |
+
+**238 clusters for 13 units is not inflation.** The benchmark is Shamir's real
+striatal recording with 13 synthetic units added on top; the other ~225
+clusters are resident neurons that were already in the tissue, have no ground
+truth, and therefore cannot be scored. This is the same point as 5ag, restated
+because the 5ay table invites the opposite reading.
+
+Two consequences worth keeping in front of anyone reading these tables:
+
+  * **"precision" is the purity of one cluster, not a false-positive rate.**
+    A matched cluster that also swallowed a resident neuron scores low. That
+    is a fair penalty -- a cluster you would accept as one unit is not one --
+    but it is not "X% of all spikes are wrong".
+  * **recall is credited against one cluster only.** A unit split across two
+    clusters is credited for the larger. Deliberate, since a split unit is a
+    failure for the user; splits are carried separately as `n_fragments`.
+
+### Per tier, which 5ay never printed
+
+rep0, 13 placements, each sorter at its own best alignment (recall/precision):
+
+| sorter | easy (n=3) | collision (n=3) | pair (n=4) | hard (n=3) |
+|---|---|---|---|---|
+| **footprint_cluster** | **0.986/1.000** | **0.954/1.000** | **0.971/0.895** | **0.711/0.411** |
+| vanilla KS4 | 1.000/0.781 | 0.961/0.933 | 0.965/0.749 | 0.576/0.365 |
+| lupin | 0.930/0.937 | 0.613/0.788 | 0.874/0.910 | 0.298/0.521 |
+| tridesclous2 | 0.723/0.965 | 0.610/0.862 | 0.519/0.907 | 0.409/**0.866** |
+| mountainsort5 | 0.632/0.992 | 0.303/0.658 | 0.255/0.742 | 0.133/0.335 |
+
+`footprint_cluster` beats stock Kilosort in 6 of 8 tier cells; both losses are
+trivial (easy recall 0.986 vs 1.000, collision recall 0.954 vs 0.961). It
+remains the one configuration in this project that is genuinely better than
+stock Kilosort, at F1 +0.044, p = 0.002 on non-hard tiers over all four
+replicates (5aw).
+
+### The flaw in 5ay's own fair-scoring method
+
+5ay justified sweeping one global integer shift per sorter as a "convention
+calibration", partly on the grounds that the optimum was a broad plateau.
+`diag_timing_jitter.py` tested that claim per spike rather than per sorter:
+
+| sorter | median offset | per-unit medians | per-spike MAD | within +-2 of own median |
+|---|---|---|---|---|
+| footprint_cluster | +0 | +0..+0 | 0.0 | 99% |
+| vanilla KS4 | +0 | +0..+0 | 0.0 | 99% |
+| lupin | +18 | +9..+20 | 1.0 | 87% |
+| tridesclous2 | +12 | +7..+17 | 4.0 | 28% |
+| mountainsort5 | +14 | +4..+17 | 3.0 | 39% |
+| locden_iso | +9 | +5..+15 | 3.0 | 39% |
+
+**The offset is not one constant per sorter -- it varies per unit, by 10 to 13
+samples.** That is not a sorter property: it is the per-unit trough position
+of the donor waveforms, measured in 5ay at +8..+17. One global integer shift
+cannot bring a 13-sample spread inside a 10-sample tolerance, so 5ay's shifted
+numbers were an under-correction for exactly the sorters they were meant to
+rescue. The plateau argument held only for Kilosort, whose plateau is flat at
+0.908-0.910 across shifts -8..+6 -- fifteen samples wide because the tolerance
+is +-10, the signature of a single clean convention. `locden_iso`'s profile is
+ragged by comparison (0.739 at -20, 0.890 at -14, 0.806 at -4, 0.604 at 0),
+because wide per-spike jitter means each candidate shift captures a different
+subset of spikes.
+
+`score_per_unit_fair.py` therefore scores with a **per-unit** offset. The
+shift search is a vectorised offset histogram; the reported score at the
+chosen shift is the project's own exact greedy `_match`, so the numbers stay
+comparable to every other table in this log. **The control that makes it
+readable: Kilosort shares the benchmark's convention, so per-unit freedom
+should buy it nothing.**
+
+| sorter | global shift (5ay) | per-unit | gain |
+|---|---|---|---|
+| vanilla KS4 | 0.882/0.710 | 0.882/0.710 | **+0.000/+0.000** |
+| footprint_cluster | 0.909/0.832 | 0.911/0.832 | **+0.002/+0.000** |
+| tridesclous2 | 0.562/0.900 | 0.562/0.900 | +0.000/+0.000 |
+| mountainsort5 | 0.323/0.691 | 0.325/0.687 | +0.002/-0.004 |
+| lupin | 0.689/0.778 | 0.694/0.799 | +0.005/+0.021 |
+| locden_iso | 0.890/0.241 | 0.920/0.284 | +0.030/+0.043 |
+
+The control holds: **+0.000 for Kilosort and +0.002 for footprint_cluster**, so
+the selection bias of taking a maximum over 33 shifts is about 0.002 and
+anything above that is real. The worry that drove the rebuild was mostly
+wrong, though: tridesclous2 and mountainsort5 gained essentially nothing,
+meaning a global shift had already absorbed their per-unit spread. Only
+`locden_iso`, the sorter with the worst timing, gained materially.
+
+Two bugs were caught in building it, both worth recording because the first
+produced plausible-looking output. (1) `a.shift` silently resolved to
+`DataFrame.shift`, the method, rather than a column -- hence the column is now
+`off`. (2) The offsets are `(detected - true)`, so the corrective shift is
+`-off`, but the search tested `|off - s| <= tol`. With the sign wrong and ties
+broken by scan order, `footprint_cluster` reported a +0-offset sorter as
+needing -9 while still scoring 0.908, because -9 is inside the tolerance. The
+fix was the sign plus **breaking ties toward s = 0**, without which a
+correctly-aligned sorter reports an arbitrary shift.
+
+### RETRACTED: locden_iso's recall is a merging artifact
+
+At per-unit alignment `locden_iso` scores recall **0.920**, the highest of any
+sorter tested, with hard-tier recall 0.837 against stock Kilosort's 0.576.
+Reported as such, that would be the project's most striking result. It does
+not survive its own controls.
+
+**Recall does not penalise merging.** A cluster holding three neurons contains
+nearly all of each one's spikes. `locden_iso` emits 76 clusters where Kilosort
+emits 238, so `diag_recall_chance_and_bloat.py` measured both controls: a
+chance rate from permuting cluster labels while preserving every cluster size
+and every spike time, and the bloat factor of the matched cluster.
+
+| sorter | recall | CHANCE recall | matched-cluster bloat | clusters |
+|---|---|---|---|---|
+| footprint_cluster | 0.911 | 0.072 | **1.00x** | 238 |
+| vanilla KS4 | 0.882 | 0.073 | 1.00x | 216 |
+| lupin | 0.694 | 0.068 | 1.11x | 244 |
+| tridesclous2 | 0.562 | 0.087 | 1.09x | 185 |
+| mountainsort5 | 0.325 | 0.092 | 1.02x | 48 |
+| **locden_iso** | **0.920** | **0.237** | **8.16x** | 76 |
+
+`locden_iso`'s chance baseline is **3.3x everyone else's**, and its matched
+clusters are **8.16x larger than the part that belongs to the unit**, against
+1.00x for both Kilosort configurations. Its recall is bought by
+under-clustering, not by finding spikes Kilosort misses. **The claim that
+LOCDEN's recall is at or above Kilosort's is withdrawn.** The honest statement
+is that LOCDEN is still badly under-clustered, which its precision of 0.284
+already said; the recall number added nothing.
+
+This is also the cleanest demonstration in the project of why the standing
+rule exists that every "X is near Y" statistic must carry its measured chance
+rate. The same rule killed the raw 0.843 capture figure in 5ax, by pool size,
+and it killed this one, by cluster size.
+
+### What stands after all of it
+
+  * `footprint_cluster` at **0.911/0.832** vs stock Kilosort's 0.882/0.710 is
+    the project's one real improvement, now with a per-tier breakdown and an
+    alignment method validated by its own null control.
+  * **tridesclous2's precision is the live headroom**: 0.862-0.965 in every
+    tier, including **0.866 on hard where ours is 0.411**. It finds far fewer
+    spikes, but what it finds is clean. This is the strongest evidence yet
+    that Kilosort's contamination is removable, and it is what the
+    cluster-splitting lead targets.
+  * **lupin's numbers are fair** -- MAD 1.0, 87% of spikes within +-2 samples,
+    so a global shift genuinely fixes it. The 5ay deconvolution conclusion,
+    which rested on lupin's collision tier, therefore stands unchanged.
+  * **`ms5_tuned` is worse than untuned**, 0.212/0.217 against 0.323/0.691,
+    collapsing on collision to 0.066/0.004. The tuning in 5ay's ALIAS dict was
+    chosen from our own occlusion measurement and was simply wrong; untuned
+    MountainSort5 defaults stand.
+
+Artifacts: `outputs/per_tier_rep0.csv`, `outputs/per_unit_fair_rep0.csv`,
+`outputs/per_unit_fair_<sorter>_rep0.csv`, `outputs/timing_jitter_rep0.csv`;
+code `score_per_unit_fair.py`, `diag_timing_jitter.py`,
+`diag_recall_chance_and_bloat.py`.
+
+All of 5az is **rep0 only**, 13 placements. The footprint_cluster-vs-vanilla
+comparison is the exception: that one is pooled over four replicates (5aw).
+
 ## 6. WHERE THINGS STAND  (current as of 2026-10-12 — read this first)
 
 Self-contained. Everything needed to resume with no memory of the conversation.
@@ -4537,11 +4723,25 @@ Nothing is running. No background jobs, no copies, no Kilosort runs pending.
 Everything described below is complete, committed and pushed on branch
 `post-ks-correction`.
 
-**Two things a new session should know about the harness.** (1)
+**Three things a new session should know about the harness.** (1)
 `run_v2_comparison.score()` reads only `spike_times.npy` and
 `spike_clusters.npy` from `hybrid_v2_rep{r}/ks_{name}/`, so **any** sorter —
 not just Kilosort — can be dropped into the benchmark and scored by the
-identical rule, with no change to the harness. (2) **THE TIME CONVENTION, and
+identical rule, with no change to the harness.
+
+(1b) **WHAT RECALL AND PRECISION ACTUALLY MEAN HERE (5az).** Per injected
+unit, the scorer keeps the ONE cluster holding the most of that unit's spikes
+(greedy one-to-one, ±10 samples) and reports `recall = matched / true` and
+`precision = matched / all spikes in that cluster`; the headline is the mean
+over the 13 units. So **the metrics score 13 clusters out of ~238 — the other
+~225 are never scored**, because the benchmark is Shamir's REAL recording with
+13 synthetic units added and the rest are resident neurons with no ground
+truth. A high cluster count is therefore not inflation. Two corollaries:
+"precision" is the purity of one cluster, NOT a false-positive rate; and
+recall credits only the largest fragment, with splits carried separately in
+`n_fragments`. Critically, **recall does not penalise merging** — see the
+LOCDEN retraction in 6.x and 5az, where 8.16x-bloated clusters produced the
+highest recall of any sorter tested. (2) **THE TIME CONVENTION, and
 5ax got this wrong.** 5ax said "truth times are trough samples and Kilosort
 agrees to ±1 sample". The agreement is real; the conclusion was not. 5ay
 measured the spike-triggered average at the truth times directly: the
@@ -4552,8 +4752,19 @@ to +17 over 13 rep0 units). Truth times are the `nt0min=20` index of the
 reporting the real trough is ~13 samples outside the scorer's 10-sample
 tolerance and will score near zero for pure bookkeeping.** This cost nothing
 only because it was caught: lupin reads 0.101 recall unshifted and **0.689**
-at its own alignment, a factor of 6.8. Use `score_all_fair.py`, which reports
-both columns.
+at its own alignment, a factor of 6.8.
+
+**Use `score_per_unit_fair.py`, not `score_all_fair.py`.** 5az measured that
+the offset is not one constant per sorter but **varies per unit by 10–13
+samples** (locden_iso +5..+15, tridesclous2 +7..+17, mountainsort5 +4..+17),
+because the trough position relative to `nt0min` is a property of each donor
+waveform. One global integer shift cannot bring a 13-sample spread inside a
+10-sample tolerance, so `score_all_fair.py` under-corrects. The per-unit
+scorer is validated by its own null control: Kilosort shares the convention
+and gains **+0.000**, footprint_cluster **+0.002**, so the selection bias of
+maximising over 33 shifts is ~0.002 and real gains sit above it. In practice
+only locden_iso moved materially (+0.030); tridesclous2 and mountainsort5
+gained nothing, so 5ay's global-shift table was not as wrong as feared.
 
 **LOCDEN runs on the CPU only**, so unlike every Kilosort run in this project
 it is not blocked by Trodes holding the GPU (mistake 4).
@@ -4781,6 +4992,22 @@ floor) · `analyse_split_vs_contamination.py` (merging) ·
   height. Capture scales linearly with pool size (0.070 at 800, 0.843 at
   10,353), so the detection statistic has no ranking power either. Post-hoc
   recovery is closed from both ends.
+- **RETRACTED 2026-10-12 (5az): "LOCDEN's recall matches or beats
+  Kilosort's".** At per-unit alignment locden_iso scores recall 0.920, the
+  highest of anything tested, hard-tier 0.837 against stock Kilosort's 0.576.
+  It fails both its controls: **chance recall 0.237** (vs ~0.07 for every
+  other sorter) and **matched clusters 8.16x larger** than the part belonging
+  to the unit (vs 1.00x for both Kilosort configs). Recall does not penalise
+  merging — 76 clusters where Kilosort emits 238 means each LOCDEN cluster is
+  several neurons, and a cluster holding three neurons contains nearly all of
+  each one's spikes. The recall figure added nothing its precision of 0.284
+  had not already said. LOCDEN remains badly under-clustered.
+- **MEASURED DEAD 2026-10-12 (5az): the `ms5_tuned` parameters.** Tuned
+  MountainSort5 (detect_threshold 4.0, detect_time_radius_msec 0.2,
+  scheme2_detect_channel_radius 75, chosen from our own occlusion
+  measurement) scores **0.212/0.217 against untuned 0.323/0.691**, collapsing
+  on collision to 0.066/0.004. Untuned defaults stand; the ALIAS entry is
+  kept only so the result is not re-derived.
 - **DEPRIORITISED 2026-10-12 (5ay): building our own deconvolution engine.**
   5ax called this the only remaining structural idea. `lupin` — a mature
   template-matching sorter, installed in `D:\conda_envs\si_ms5` — settles the
@@ -4792,7 +5019,8 @@ floor) · `analyse_split_vs_contamination.py` (merging) ·
   where it should be strongest. Not disproven (lupin is untuned, one
   replicate), but no longer the obvious build. The 5ax reasoning below is
   kept because the tension it measured is real.
-- **NEW LEAD 2026-10-12 (5ay), now the strongest one: SPLIT Kilosort's mixed
+- **NEW LEAD 2026-10-12 (5ay, strengthened by 5az), the strongest one: SPLIT
+  Kilosort's mixed
   clusters with a unimodality test.** Untested, and it is the direction
   merging failed in rather than the same one (5al killed merging at the
   oracle level). The headroom is externally demonstrated: `tridesclous2`
@@ -4802,7 +5030,14 @@ floor) · `analyse_split_vs_contamination.py` (merging) ·
   runs post-hoc on saved output with **no GPU**, so Trodes can stay open.
 - **NEW LEAD (5ay): consensus across sorters.** Six-plus independent outputs
   now exist on identical data (Kilosort configs, lupin, tridesclous2,
-  mountainsort5, LOCDEN). Keeping only spikes two or more sorters agree on
+  mountainsort5, LOCDEN). **Note after 5az: do NOT enter LOCDEN into a
+  consensus as a recall source.** Its apparent 0.920 recall is a merging
+  artifact (clusters 8.16x bloated, chance recall 0.237 against ~0.07 for
+  everyone else) and its per-spike timing is the worst measured (MAD 3
+  samples, only 39% of spikes within ±2 of their own unit's median), so
+  matching it to another sorter's times is loose. tridesclous2 and lupin are
+  the sound partners: both are 1.1x bloated with precise timing.
+  Keeping only spikes two or more sorters agree on
   targets precision directly and is nearly free to test.
 - **NEW LEAD (5ay): alternating align -> cluster -> realign.** 5ay measured
   that phase-only wavelet alignment without a per-unit template is at chance
