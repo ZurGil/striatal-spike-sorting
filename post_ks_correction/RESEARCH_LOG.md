@@ -4889,6 +4889,118 @@ Artifacts: `outputs/allreps_per_unit_tridesclous2.csv`,
 `outputs/allreps_per_unit_footprint_cluster.csv`; code
 `score_tdc_all_replicates.py`, `test_tdc_vs_stock.py`.
 
+## 5bc. Why rep0 is the easy replicate: not the window, not the amplitude, and nothing done differently — it drew cleaner donor neurons
+
+Gil asked whether rep0 might have been *built* differently, and whether it
+appears in the audit at all. Both answers are measurable and neither excuses
+5az.
+
+### Is rep0 in the audit? Yes, as one quarter of it
+
+The audit states its benchmark as "52 placements x 4 replicates" and "13
+placements per recording, 4 recordings from different windows of the session,
+~290 spikes each". So rep0 is **inside every audit number**, contributing 13
+of the 52 placements, and the audit never breaks it out -- the string "rep0"
+does not occur in it. It is not a separate or earlier test. 5az simply quoted
+one quarter of the audit's own data as though it were the whole thing.
+
+### Nothing was done differently
+
+  * All four replicate directories (`hybrid.bin`, `hybrid_truth.npz`,
+    `manifest.csv`) were written **within the same minute**, 2026-10-01
+    14:48-14:49: one generator run, one code version.
+  * The **destination sites are literally reused** across replicates -- the
+    same channels appear in several manifests with identical measured
+    properties (e.g. channel 71 is 20.66 uV noise and 333.8 uV largest
+    neighbour in all four).
+  * Consequently the site statistics are matched by construction: site noise
+    17.59-17.97 uV, largest neighbour 107.9-113.3 uV, residents 19.5-21.9,
+    density 8481-9793.
+  * Ground-truth spike counts are matched: 3755, 3787, 3765, 3779.
+  * Windows are evenly spaced -- `bg_start` at 2000 s, 4000 s, 6000 s and
+    8000 s into the session, 120 s each -- and **rep1, the worst, is the
+    second one**, so this is not progressive drift.
+
+### It is not the window, and this is the decisive test
+
+18 donors appear in more than one replicate, which is exactly what the
+rotation design was for. Comparing stock Kilosort on **the same neurons** in
+different replicates:
+
+| comparison | same neurons | recall there | recall here | delta |
+|---|---|---|---|---|
+| rep0 vs rep2 | 6 | 0.977 | 0.999 | **-0.022** |
+| rep0 vs rep3 | 7 | 0.800 | 0.830 | **-0.029** |
+| rep1 vs rep3 | 6 | 0.664 | 0.795 | -0.131 |
+
+**On identical neurons rep0 is marginally WORSE, not better.** Its whole
+apparent advantage vanishes once neuron identity is held fixed. The rep0
+window is not easier to sort.
+
+### It is not amplitude either
+
+The obvious guess -- rep0 drew louder, more separable spikes -- is wrong, and
+in the wrong direction:
+
+| | STA trough (uV) | SNR | stock recall |
+|---|---|---|---|
+| rep0 | 476 | **26.99 (lowest)** | **0.882 (best)** |
+| rep1 | 514 | 28.92 | 0.674 |
+| rep2 | 723 | **41.93 (highest)** | 0.764 |
+| rep3 | 526 | 29.89 | 0.855 |
+
+rep0 has the **smallest** spikes of the four and still scores best, while rep2
+has spikes 1.5x larger and scores worse. Across all 52 placements SNR does not
+predict recall at all (Spearman rho -0.178, p = 0.21) nor precision
+(rho -0.002, p = 0.99). This independently reproduces 5au's loudness finding
+by a different route.
+
+### What it is: donor cleanliness
+
+| predictor | vs recall | vs precision |
+|---|---|---|
+| **donor contamination %** | **rho -0.555, p < 1e-4** | **rho -0.678, p < 1e-4** |
+| SNR | -0.178, p 0.21 | -0.002, p 0.99 |
+| STA trough | -0.202, p 0.15 | +0.028, p 0.84 |
+| site noise | -0.136, p 0.34 | +0.039, p 0.78 |
+
+Donor contamination -- the donor unit's **own** refractory violation measured
+in the original recording, before any injection -- is the only strong
+predictor of either metric, and rep0 drew the cleanest donors: **mean 1.45%
+with 8 of 13 at exactly zero**, against rep1's 2.79% with only 4 at zero.
+
+Regressing each metric on contamination alone (R2 = 0.415 recall, 0.444
+precision) and comparing replicate means of the residuals:
+
+| | rep0 | rep1 | rep2 | rep3 | spread |
+|---|---|---|---|---|---|
+| raw recall | 0.882 | 0.674 | 0.764 | 0.855 | 0.208 |
+| contamination-adjusted | 0.845 | 0.718 | 0.754 | 0.858 | **0.139** |
+| raw precision | 0.710 | 0.518 | 0.529 | 0.642 | 0.192 |
+| contamination-adjusted | 0.657 | 0.581 | 0.515 | 0.646 | **0.142** |
+
+Contamination explains **42% of the recall gap and 48% of the precision gap**
+between rep0 and the other three. The rest is neuron identity with nothing
+further to attribute it to: **rep0 and rep1 share only 1 donor of 13**, so
+they are nearly independent draws of 13 neurons from a 33-neuron pool, and 13
+is a small sample of a population the project has repeatedly measured as
+dominated by unit identity rather than tier (5ab, 5ag).
+
+### The caveat this raises about the benchmark itself
+
+If a donor's own contamination predicts the score this strongly, then part of
+what the benchmark charges to the sorter is **the ground truth being impure**:
+a donor with 9.9% refractory contamination was already a slight mixture of two
+neurons in the original recording, so its injected spikes are not one
+neuron's. This cannot be the whole story -- contamination tops out near 10%,
+which cannot produce a pair-tier precision of 0.486 -- but it is a real
+modulator and it was not controlled for in the tier design, which stratified
+on the *destination* site rather than on donor quality. A future benchmark
+should either stratify on donor contamination or restrict to donors at 0%.
+
+Artifacts: `outputs/donor_amplitude_by_rep.csv`; code
+`diag_why_rep0_is_easy.py`, `diag_explain_rep_gap.py`.
+
 ## 6. WHERE THINGS STAND  (current as of 2026-10-12 — read this first)
 
 Self-contained. Everything needed to resume with no memory of the conversation.
@@ -4987,6 +5099,19 @@ channels apart on quiet sites), **hard** 223–466 µV.
 
 **Stock Kilosort4, recall / precision:** easy .883/.765 · collision .832/.594 ·
 pair .720/.486 · overall .794/.600.
+**These pooled figures are the project's canonical numbers** — they are what
+the Shamir Sorting Audit reports, and rep0 alone reads .882/.710, which 5az
+wrongly quoted as a result (5ba). **Never quote one replicate.**
+**Why the replicates differ (5bc):** not the window and not amplitude — on
+the SAME donor neurons rep0 is marginally worse than rep2 and rep3, and rep0
+has the LOWEST SNR of the four while scoring best. The driver is **donor
+contamination**, the donor's own refractory violation before injection
+(Spearman −0.555 on recall, −0.678 on precision, R² ≈ 0.42–0.44, explaining
+42–48% of the rep0 gap). rep0 drew the cleanest donors, 8 of 13 at exactly
+zero vs rep1's 4 of 13. **Caveat this raises:** part of what the benchmark
+charges to the sorter is the ground truth being impure, and the tier design
+stratified on the destination site, never on donor quality. A future benchmark
+should stratify on contamination or restrict to 0% donors.
 **The hard tier is NOT measurable** — two identical runs disagree on 2 of its 12
 placements by up to 0.444 recall. Never quote a hard-tier number.
 
