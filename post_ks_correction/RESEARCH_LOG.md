@@ -4623,6 +4623,19 @@ needing -9 while still scoring 0.908, because -9 is inside the tolerance. The
 fix was the sign plus **breaking ties toward s = 0**, without which a
 correctly-aligned sorter reports an arbitrary shift.
 
+**Cross-checked against an independent implementation.** The first attempt at
+per-unit scoring was a brute-force version that called the exact greedy
+`_match` at every one of the 33 shifts for every candidate cluster -- correct
+but slow enough to need a background run. It finished after the vectorised
+scorer had already been written, which makes it a free check on it, and **all
+twelve headline figures and all twenty-four per-tier cells agree to three
+decimals**. The two differ only in the *offset* they report: the brute-force
+version has no tie-break, so scanning from -24 it reports an arbitrary member
+of the tolerance plateau (lupin -24, tridesclous2 -18) where the vectorised
+version reports the plateau's centre. The scores are identical because every
+shift inside the plateau scores the same -- which is precisely what made the
+earlier sign bug dangerous: a wrong offset with a right-looking score.
+
 ### RETRACTED: locden_iso's recall is a merging artifact
 
 At per-unit alignment `locden_iso` scores recall **0.920**, the highest of any

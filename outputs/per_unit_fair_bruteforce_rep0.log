@@ -1,0 +1,16 @@
+  footprint_cluster    recall 0.911  precision 0.832   per-unit shifts -9..+7 (median -9)
+  vanilla              recall 0.882  precision 0.710   per-unit shifts -9..+8 (median -8)
+  lupin                recall 0.694  precision 0.799   per-unit shifts -24..+6 (median -24)
+  locden_iso           recall 0.920  precision 0.284   per-unit shifts -16..-6 (median -6)
+  tridesclous2         recall 0.562  precision 0.900   per-unit shifts -22..-15 (median -18)
+  mountainsort5        recall 0.325  precision 0.687   per-unit shifts -24..+8 (median -18)
+
+PER TIER at per-unit alignment (recall/precision)
+  locden_iso           easy 0.970/0.530   coll 0.887/0.130   pair 0.971/0.363   hard 0.837/0.085
+  footprint_cluster    easy 0.986/1.000   coll 0.954/1.000   pair 0.971/0.895   hard 0.711/0.411
+  vanilla              easy 1.000/0.781   coll 0.961/0.933   pair 0.965/0.749   hard 0.576/0.365
+  lupin                easy 0.930/0.937   coll 0.613/0.788   pair 0.874/0.910   hard 0.298/0.521
+  tridesclous2         easy 0.723/0.965   coll 0.610/0.862   pair 0.519/0.907   hard 0.409/0.866
+  mountainsort5        easy 0.632/0.992   coll 0.303/0.658   pair 0.255/0.742   hard 0.133/0.335
+
+[exited with code 0]
