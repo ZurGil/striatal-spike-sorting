@@ -1,4 +1,4 @@
-﻿import json, os, sys
+import json, os, sys
 
 # usage: python build_review_html.py <session_id>
 SESSION_ID = sys.argv[1] if len(sys.argv) > 1 else "20260901_085606"
@@ -618,6 +618,7 @@ async function renderRawSpikesPanel(container, uid){
    ===================================================================== */
 const TL = TIMELINE;
 const TL_MARKERS = TL ? TL.trial_markers.t_s : [];
+const GAPS = (TL && TL.recording_gaps) ? TL.recording_gaps : [];
 const countsCache = {};   // uid -> Uint16Array
 
 function decodeCounts(uid){
@@ -630,18 +631,6 @@ function decodeCounts(uid){
   for(let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
   countsCache[uid] = new Uint16Array(buf);   // little-endian, as written
   return countsCache[uid];
-}
-
-const ampCache = {};
-function decodeAmp(uid){
-  if(uid in ampCache) return ampCache[uid];
-  const b64 = TL && TL.amp ? TL.amp[String(uid)] : null;
-  if(!b64){ ampCache[uid] = null; return null; }
-  const bin = atob(b64);
-  const u8 = new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
-  ampCache[uid] = u8;   // 0 = no spikes in that bin
-  return u8;
 }
 
 // Wider bins, summed from the stored ones. A sparse unit at 0.16 Hz has ~3 spikes in a
@@ -742,7 +731,7 @@ function renderTimeline(panel, uid){
 
   panel.innerHTML = `
     <div class="timeline-head">
-      <div class="panel-label">Across the session &mdash; mark the stretches to keep</div>
+      <div class="panel-label">Firing rate across the session &mdash; mark the stretches to keep</div>
       <div class="timeline-hint">click start, click end &middot; or drag &middot; Esc cancels &middot;
         bin <select id="tlBinSel" class="tl-sel">
           <option value="20">20s</option><option value="60">60s</option>
@@ -762,39 +751,48 @@ function renderTimeline(panel, uid){
     wrap.innerHTML = `<div class="no-data">no timeline data for unit ${uid}</div>`;
     return;
   }
-  const agg = aggregate(rawCounts, decodeAmp(uid), (TL.amp_scale||{})[String(uid)] || 1, TL.bin_s, tlBin);
+  const agg = aggregate(rawCounts, null, 1, TL.bin_s, tlBin);
   const binS = agg.binS;
 
-  // Rate and amplitude get their own stacked band on a shared x-axis, never two y-scales
-  // on one plot. Amplitude is here because rate alone cannot tell "the cell went quiet"
-  // from "the cell drifted off the electrode" -- it is a second trace to read, not a
-  // detector; nothing in this tool judges a unit automatically.
-  const W=1000, H=330, padL=54, padR=16, padT=18, padB=52;
-  const rateB = padT + 150, ampT = rateB + 24, ampB = H - padB;
-  const rugTop = ampB + 7, rugBot = ampB + 16;
+  // There was a spike-amplitude band here. It was dropped 2026-10-15 because it carries
+  // no information in this pipeline, which the data settles: units 163 and 38 both
+  // collapse from ~50Hz to ~1Hz, and their amplitude trace stays flat at 14-15 straight
+  // through. amplitudes.npy is kilosort's scaling factor for spikes it ALREADY decided
+  // to assign to the unit, so it is selection-biased by construction -- as a unit fades,
+  // kilosort stops assigning spikes rather than assigning smaller ones. Measuring real
+  // fade needs raw-data amplitude at the peak channel, which is a different (and much
+  // more expensive) computation, not this field.
+  const W=1000, H=270, padL=54, padR=16, padT=18, padB=52;
+  const rateB = H - padB;
+  const rugTop = rateB + 7, rugBot = rateB + 16;
+  const ampB = rateB;   // kept so the shared geometry below reads the same
   const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, class:'timeline-plot'});
   const x = t => padL + (t - T0)/(T1 - T0 + 1e-9)*(W - padL - padR);
   const tAtX = px => T0 + Math.min(1, Math.max(0, (px - padL)/(W - padL - padR)))*(T1 - T0);
 
   const rates = Array.from(agg.counts, c => c/binS);
+  const inGap = t => GAPS.some(g => t >= g.t0 && t <= g.t1);
   const meanRate = rates.reduce((a,b)=>a+b, 0)/rates.length;
   const ymax = Math.max(...rates, 0.1)*1.1;
   const y = v => padT + (1 - v/ymax)*(rateB - padT);
-  const ampVals = Array.from(agg.amp).filter(v => !isNaN(v));
-  const hasAmp = ampVals.length > 1;
-  const amax = hasAmp ? Math.max(...ampVals)*1.1 : 1;
-  const ya = v => ampT + (1 - v/amax)*(ampB - ampT);
 
-  // y grid + ticks: Hz on the rate band, amplitude on its own
   niceTicks(0, ymax, 4).forEach(v => {
     svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:y(v), y2:y(v), stroke:'var(--border)','stroke-width':0.6}));
     const lbl = svgEl('text',{x:padL-6, y:y(v)+3, 'font-size':9, 'text-anchor':'end', fill:'var(--text-3)'});
     lbl.textContent = v.toFixed(ymax < 20 ? 1 : 0); svg.appendChild(lbl);
   });
-  if(hasAmp) niceTicks(0, amax, 3).forEach(v => {
-    svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:ya(v), y2:ya(v), stroke:'var(--border)','stroke-width':0.6}));
-    const lbl = svgEl('text',{x:padL-6, y:ya(v)+3, 'font-size':9, 'text-anchor':'end', fill:'var(--text-3)'});
-    lbl.textContent = v.toFixed(0); svg.appendChild(lbl);
+  // Dropped-packet gaps: read from timestamps.dat's own sample counter, identical for
+  // every unit, nothing to mark by hand. A hole here is not "the unit went quiet" -- no
+  // data exists at all, so the rate line is broken rather than drawn at zero.
+  GAPS.forEach(g => {
+    const gx = x(g.t0), gw = Math.max(x(g.t1) - x(g.t0), 2);
+    svg.appendChild(svgEl('rect',{x:gx, y:padT, width:gw, height:rateB-padT,
+      fill:'var(--bad)', opacity:0.22}));
+    [g.t0, g.t1].forEach(t => svg.appendChild(svgEl('line',{x1:x(t), x2:x(t), y1:padT, y2:rugBot,
+      stroke:'var(--bad)', 'stroke-width':1, 'stroke-dasharray':'3,2'})));
+    const lbl = svgEl('text',{x:gx + gw/2, y:padT+22, 'font-size':9, 'text-anchor':'middle',
+      fill:'var(--bad)', 'font-weight':600});
+    lbl.textContent = `no data · ${g.missing_s.toFixed(0)}s`; svg.appendChild(lbl);
   });
   // selected ranges, spanning both bands
   ranges.forEach((r, i) => {
@@ -809,26 +807,16 @@ function renderTimeline(panel, uid){
   // mean-rate reference
   svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:y(meanRate), y2:y(meanRate),
     stroke:'var(--text-3)', 'stroke-width':0.9, 'stroke-dasharray':'4,3', opacity:0.8}));
-  // the rate curve
-  let pts = [];
-  for(let i=0;i<rates.length;i++) pts.push(`${x(T0 + (i+0.5)*binS)},${y(rates[i])}`);
-  svg.appendChild(svgEl('polyline',{points:pts.join(' '), fill:'none', stroke:'var(--accent)','stroke-width':1.3}));
-  svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:rateB, y2:rateB, stroke:'var(--border)','stroke-width':1}));
-  // the amplitude curve, broken wherever the unit fired no spikes at all
-  if(hasAmp){
-    let seg = [];
-    const flush = () => { if(seg.length > 1) svg.appendChild(svgEl('polyline',{points:seg.join(' '),
-      fill:'none', stroke:'var(--violet)','stroke-width':1.3})); seg = []; };
-    for(let i=0;i<agg.n;i++){
-      if(isNaN(agg.amp[i])) flush();
-      else seg.push(`${x(T0 + (i+0.5)*binS)},${ya(agg.amp[i])}`);
-    }
-    flush();
-  } else {
-    const nd = svgEl('text',{x:(padL+W-padR)/2, y:(ampT+ampB)/2, 'font-size':10, 'text-anchor':'middle', fill:'var(--text-3)'});
-    nd.textContent = 'no amplitude data for this unit'; svg.appendChild(nd);
+  // the rate curve, broken across any dropped-packet gap
+  let seg = [];
+  const flush = () => { if(seg.length > 1) svg.appendChild(svgEl('polyline',{points:seg.join(' '),
+    fill:'none', stroke:'var(--accent)','stroke-width':1.3})); seg = []; };
+  for(let i=0;i<rates.length;i++){
+    const t = T0 + (i+0.5)*binS;
+    if(inGap(t)) flush(); else seg.push(`${x(t)},${y(rates[i])}`);
   }
-  svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:ampB, y2:ampB, stroke:'var(--border)','stroke-width':1}));
+  flush();
+  svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:rateB, y2:rateB, stroke:'var(--border)','stroke-width':1}));
 
   // trial-start rug: one mark per DIO code-1 event. At ~950 trials over ~3.5h these
   // sit sub-pixel apart, so the strip reads as density, not as countable ticks -- the
@@ -845,12 +833,9 @@ function renderTimeline(panel, uid){
   const ax = svgEl('text',{x:(padL+W-padR)/2, y:H-4, 'font-size':9, 'text-anchor':'middle', fill:'var(--text-3)'});
   ax.textContent = 'minutes from recording start (ranges are stored as absolute Trodes seconds) · violet rug = trial starts';
   svg.appendChild(ax);
-  const ay = svgEl('text',{x:12, y:padT+16, 'font-size':9, 'text-anchor':'start', fill:'var(--text-3)',
-    transform:`rotate(-90,12,${padT+16})`});
+  const ay = svgEl('text',{x:12, y:padT+20, 'font-size':9, 'text-anchor':'start', fill:'var(--text-3)',
+    transform:`rotate(-90,12,${padT+20})`});
   ay.textContent = 'firing rate (Hz)'; svg.appendChild(ay);
-  const ay2 = svgEl('text',{x:12, y:ampT+8, 'font-size':9, 'text-anchor':'start', fill:'var(--text-3)',
-    transform:`rotate(-90,12,${ampT+8})`});
-  ay2.textContent = 'spike amplitude (KS units)'; svg.appendChild(ay2);
 
   // live layer: drag preview, pending-start line, crosshair + readout
   const preview = svgEl('rect',{x:0, y:padT, width:0, height:ampB-padT, fill:'var(--warn)', opacity:0.18, visibility:'hidden'});
@@ -871,9 +856,9 @@ function renderTimeline(panel, uid){
     const vx = vbX(ev), t = tAtX(vx);
     cross.setAttribute('x1', x(t)); cross.setAttribute('x2', x(t)); cross.setAttribute('visibility','visible');
     const bin = Math.min(agg.n-1, Math.max(0, Math.floor((t-T0)/binS)));
-    const a = agg.amp[bin];
-    readout.textContent = `t=${t.toFixed(1)}s (${fmtMin(t)}min) · ${rates[bin].toFixed(2)} Hz · `
-      + `amp ${isNaN(a) ? '—' : a.toFixed(0)} · around trial #${markerIndexAt(t)}`;
+    readout.textContent = inGap(t)
+      ? `t=${t.toFixed(1)}s (${fmtMin(t)}min) · NO DATA — acquisition dropped out here`
+      : `t=${t.toFixed(1)}s (${fmtMin(t)}min) · ${rates[bin].toFixed(2)} Hz · around trial #${markerIndexAt(t)}`;
     if(downVX != null && Math.abs(vx - downVX) > 4){
       dragging = true;
       preview.setAttribute('x', Math.min(x(downT), x(t)));

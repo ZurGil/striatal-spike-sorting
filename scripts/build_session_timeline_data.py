@@ -90,6 +90,46 @@ def find_payload_offset(path):
     return end + len(b"<End settings>") + 1
 
 
+def find_recording_gaps(ts_map, fs, min_s=0.05):
+    """Stretches where acquisition dropped out and NOTHING was recorded.
+
+    This is read, not inferred. timestamps.dat holds the absolute Trodes sample counter
+    for every row of probe1.dat; if packets drop, the rows stay contiguous (they are
+    simply written one after the next) but that counter JUMPS. The jump is the dropout,
+    recorded by the hardware. There is no threshold and no guess involved -- the only
+    judgement is `min_s`, below which a "gap" is a one-or-two-sample glitch not worth
+    drawing (20261014_101945 has two of those, 24 samples and 1 sample, alongside a real
+    711.410 s dropout at 76.4% through the session).
+
+    Worth knowing how this differs from what sync_pipeline does: sync.py's _find_gaps()
+    infers a pause from unmatched Bpod runs cross-checked against jumps in the spacing of
+    DIO *events*. That cannot separate "the recording stopped" from "nothing happened for
+    a while", and it only looks where Bpod events went unmatched. This file settles it
+    directly. (Nothing in sync_pipeline is modified -- it is just not the better source
+    for this one question.)
+    """
+    n = len(ts_map)
+    gaps, prev, chunk = [], None, 20_000_000
+    for i in range(0, n, chunk):
+        blk = np.asarray(ts_map[i:i + chunk], dtype=np.int64)
+        base = i
+        if prev is not None:
+            blk = np.concatenate([[prev], blk])
+            base = i - 1
+        d = np.diff(blk)
+        for b in np.nonzero(d != 1)[0]:
+            row = base + int(b)
+            missing = int(d[b]) - 1
+            if missing / fs >= min_s:
+                gaps.append({"t0": round(float(ts_map[row]) / fs, 4),
+                             "t1": round(float(ts_map[row + 1]) / fs, 4),
+                             "missing_s": round(missing / fs, 4),
+                             "missing_samples": missing,
+                             "probe1_row": row})
+        prev = int(blk[-1])
+    return gaps
+
+
 def load_timestamp_map(ks_parent, session_id, n_probe_rows=None):
     ts_path = os.path.join(ks_parent, session_id + ".timestamps.dat")
     if not os.path.exists(ts_path):
@@ -137,6 +177,16 @@ def main():
     print("clock: probe1.dat row 0 = absolute sample %d = %.4fs; last row = %.4fs -> "
           "%d bins of %gs" % (int(ts_map[0]), t0, t1, n_bins, bin_s))
 
+    gaps = find_recording_gaps(ts_map, fs)
+    lost = sum(g["missing_s"] for g in gaps)
+    if gaps:
+        print("DROPPED-PACKET GAPS: %d, %.3fs of the session never recorded" % (len(gaps), lost))
+        for g in gaps:
+            print("   %.3f -> %.3f s (%.3fs missing, %.1f%% through)"
+                  % (g["t0"], g["t1"], g["missing_s"], 100.0 * g["probe1_row"] / len(ts_map)))
+    else:
+        print("dropped-packet gaps: none -- every sample between the first and last is present")
+
     # --- 2. trial markers, straight from DIO (no Bpod, no sync) ------------
     from sync_pipeline import dio_decoder  # read-only import
     codes, ev_t = dio_decoder.extract_ttls(dio_dir)
@@ -167,33 +217,14 @@ def main():
     row_of[uids] = np.arange(len(uids))
     print("spikes: %d across %d clusters" % (len(spike_samples), len(uids)))
 
-    # Spike amplitude per bin, alongside the rate. This is NOT a detector and nothing
-    # here decides anything: it is a second trace to read by eye, because rate alone
-    # cannot tell "the cell went quiet" from "the cell drifted off the electrode".
-    # Fading amplitude with falling rate = drift; steady amplitude with falling rate =
-    # the cell really stopped firing. kilosort_original/amplitudes.npy is the per-spike
-    # template scaling factor -- arbitrary units, so only its change WITHIN a unit means
-    # anything, which is exactly what is wanted here (and the same field
-    # build_burst_isi_metrics_session.py already uses).
-    amp_path = os.path.join(ks_dir, "amplitudes.npy")
-    amps = np.load(amp_path).ravel().astype(np.float64) if os.path.exists(amp_path) else None
-    if amps is None:
-        print("note: %s absent -- building the rate trace only." % amp_path)
-    elif args.max_units:
-        amps = amps[keep]
-
     flat = np.zeros(len(uids) * n_bins, dtype=np.int64)
-    amp_sum = np.zeros(len(uids) * n_bins, dtype=np.float64) if amps is not None else None
     for i in range(0, len(spike_samples), CHUNK):
         s = spike_samples[i:i + CHUNK].astype(np.int64)
         abs_t = ts_map[s].astype(np.float64) / fs          # the offset correction
         b = np.floor((abs_t - t0) / bin_s).astype(np.int64)
         np.clip(b, 0, n_bins - 1, out=b)
         r = row_of[spike_clusters[i:i + CHUNK]]
-        idx = r * n_bins + b
-        flat += np.bincount(idx, minlength=flat.size)
-        if amps is not None:
-            amp_sum += np.bincount(idx, weights=amps[i:i + CHUNK], minlength=flat.size)
+        flat += np.bincount(r * n_bins + b, minlength=flat.size)
         print("  binned %d/%d" % (min(i + CHUNK, len(spike_samples)), len(spike_samples)))
     counts = flat.reshape(len(uids), n_bins)
 
@@ -202,21 +233,6 @@ def main():
         raise ValueError("max bin count %d exceeds uint16; use a smaller --bin_s." % hi)
     packed = {str(int(u)): base64.b64encode(counts[k].astype("<u2").tobytes()).decode("ascii")
               for k, u in enumerate(uids)}
-
-    # Amplitude is stored per unit as uint8 on that unit's OWN scale (0 = no spikes in
-    # the bin, 1-250 = mean amplitude x amp_scale[uid]) -- a byte per bin instead of
-    # four, which matters because the whole page ships inside the HTML.
-    packed_amp, amp_scale = {}, {}
-    if amps is not None:
-        mean_amp = np.divide(amp_sum.reshape(len(uids), n_bins), np.maximum(counts, 1),
-                             where=counts > 0, out=np.zeros((len(uids), n_bins)))
-        for k, u in enumerate(uids):
-            row, has = mean_amp[k], counts[k] > 0
-            top = float(np.percentile(row[has], 99)) if has.any() else 0.0
-            sc = top / 250.0 if top > 0 else 1.0
-            q = np.where(has, np.clip(np.round(row / sc), 1, 255), 0).astype(np.uint8)
-            packed_amp[str(int(u))] = base64.b64encode(q.tobytes()).decode("ascii")
-            amp_scale[str(int(u))] = round(sc, 6)
 
     out = {
         "session_id": sid,
@@ -241,20 +257,19 @@ def main():
             "n": int(len(marker_t)),
             "t_s": [round(float(t), 4) for t in marker_t],
         },
+        "recording_gaps": gaps,
+        "recording_gaps_note": ("stretches where acquisition dropped out and nothing was "
+                                "recorded, read directly from jumps in timestamps.dat's "
+                                "absolute sample counter -- a recorded fact, not an estimate. "
+                                "No spikes and no DIO events exist inside these, for any unit."),
+        "recording_gaps_lost_s": round(lost, 4),
         "dio_code_census": {str(c): int(n) for c, n in sorted(census.items())},
         "counts_dtype": "uint16",
         "counts_encoding": "base64",
         "counts_note": "rate_hz[i] = count[i] / bin_s",
-        "amp_dtype": "uint8",
-        "amp_encoding": "base64",
-        "amp_note": ("mean kilosort template-scaling amplitude per bin, on each unit's OWN "
-                     "scale: 0 = no spikes in that bin, otherwise amp[i] * amp_scale[uid]. "
-                     "Arbitrary units -- only its change within one unit is meaningful."),
         "n_spikes_total": int(len(spike_samples)),
         "n_units": int(len(uids)),
         "counts": packed,
-        "amp": packed_amp,
-        "amp_scale": amp_scale,
     }
     out_path = os.path.join(OUT_DIR, "session_timeline_%s.json" % sid)
     with open(out_path, "w") as f:
