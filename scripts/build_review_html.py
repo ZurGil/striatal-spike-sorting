@@ -4,12 +4,28 @@
 SESSION_ID = sys.argv[1] if len(sys.argv) > 1 else "20260901_085606"
 IN_PATH = (r"D:\Gil\spike_sorting_agent\outputs\pipeline_review_data.json" if SESSION_ID == "20260901_085606"
            else rf"D:\Gil\spike_sorting_agent\outputs\pipeline_review_data_{SESSION_ID}.json")
+TIMELINE_PATH = rf"D:\Gil\spike_sorting_agent\outputs\session_timeline_{SESSION_ID}.json"
 OUT_PATH = rf"D:\Gil\spike_sorting_agent\outputs\unit_review_pipeline_{SESSION_ID}.html"
 
 with open(IN_PATH) as f:
     units = json.load(f)
 
-html = r"""<title>Unit Review Pipeline</title>
+# Session-level firing-rate timeline + DIO trial markers (scripts/build_session_timeline_data.py).
+# Optional: a session without it still builds, and the panel says so instead of breaking.
+if os.path.exists(TIMELINE_PATH):
+    with open(TIMELINE_PATH) as f:
+        timeline = json.load(f)
+    print(f"timeline: {timeline['n_units']} units x {timeline['n_bins']} bins of "
+          f"{timeline['bin_s']}s, {timeline['trial_markers']['n']} trial markers "
+          f"(TTL code {timeline['trial_markers']['ttl_code']})")
+else:
+    timeline = None
+    print(f"timeline: {TIMELINE_PATH} not found -- the firing-rate/trial-selection panel "
+          f"will render as 'not computed for this session'. Build it with "
+          f"scripts/build_session_timeline_data.py.")
+
+html = r"""<meta charset="utf-8">
+<title>Unit Review Pipeline</title>
 <style>
 :root{
   --bg:#f4f6f8; --surface:#ffffff; --surface-2:#eef1f4; --border:#d7dee4;
@@ -110,6 +126,26 @@ h1{font-size:16px;font-weight:700;margin:0 0 8px;}
 .nav-hint{font-size:10.5px;color:var(--text-3);margin-top:10px;}
 .db-status{font-size:10px;color:var(--text-3);margin-top:8px;}
 .count-note{font-size:11px;color:var(--text-3);margin-left:auto;}
+
+/* --- firing rate across the session + trial-range selection --- */
+.timeline-panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px;}
+.timeline-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.timeline-head .panel-label{margin-bottom:0;}
+.timeline-hint{font-size:10px;color:var(--text-3);font-family:'IBM Plex Mono',monospace;}
+.timeline-plot{width:100%;height:auto;display:block;cursor:crosshair;touch-action:none;user-select:none;}
+.timeline-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.range-chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent);
+  border:1px solid var(--accent);border-radius:14px;padding:2px 4px 2px 9px;font-size:10.5px;
+  font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+.range-chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:12px;line-height:1;padding:0 4px;}
+.range-chip button:hover{color:var(--bad);}
+.tl-btn{font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text-2);cursor:pointer;font-family:'IBM Plex Mono',monospace;}
+.tl-btn:hover{border-color:var(--text-3);color:var(--text);}
+.tl-state{font-size:10.5px;color:var(--text-3);margin-left:auto;text-align:right;}
+.tl-state b{color:var(--text-2);font-family:'IBM Plex Mono',monospace;}
+.tl-state.pending b{color:var(--warn);}
+.row .sel-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0;background:var(--violet);}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 
@@ -137,6 +173,8 @@ h1{font-size:16px;font-weight:700;margin:0 0 8px;}
         <option value="all">all units</option>
         <option value="unreviewed">unreviewed only</option>
         <option value="reviewed">reviewed only</option>
+        <option value="has_sel">with time selection</option>
+        <option value="no_sel">without time selection</option>
       </select>
       <select id="shapeFilter">
         <option value="all">any burst shape</option>
@@ -183,9 +221,12 @@ h1{font-size:16px;font-weight:700;margin:0 0 8px;}
 
 <script>
 const UNITS = __UNITS_JSON__;
+const TIMELINE = __TIMELINE_JSON__;   // null if not built for this session
+const SESSION_ID = "__SESSION_ID__";
 const CH_COLORS = ['var(--accent)','var(--violet)','var(--warn)','var(--blue)'];
 const byId = Object.fromEntries(UNITS.map(u => [u.unit_id, u]));
 let verdicts = {};   // unit_id -> {verdict, ts}
+let timeSel = {};    // unit_id -> [{t0,t1}, ...]  -- empty/absent means KEEP EVERY TRIAL
 let selected = UNITS[0].unit_id;
 let db = null;
 
@@ -203,6 +244,14 @@ async function initDb(){
     renderList();
     if(selected != null) renderDetail(selected);
   }, err => { console.error('db error', err); });
+  db.collection('trial_selections').onSnapshot(snap => {
+    snap.docs.forEach(doc => {
+      const d = doc.data();
+      if(d && Array.isArray(d.ranges)) timeSel[doc.id] = d.ranges;
+    });
+    renderList();
+    if(selected != null) renderDetail(selected);
+  }, err => { console.error('trial_selections db error', err); });
 }
 
 function setVerdict(uid, verdict){
@@ -548,6 +597,271 @@ async function renderRawSpikesPanel(container, uid){
   }
 }
 
+/* =====================================================================
+   Firing rate across the session + trial-range selection.
+
+   Data: TIMELINE (scripts/build_session_timeline_data.py) -- per-unit spike
+   counts per fixed time bin, plus trial-start markers decoded straight from
+   the Trodes DIO stream (TTL code 1 = each trial's first Bpod state). Both are
+   in ABSOLUTE TRODES SECONDS, the same clock sync_pipeline later uses, so the
+   ranges saved here stay meaningful once the session is synced.
+
+   Contract with the (not yet written) sync-pipeline consumer:
+     * doc id = unit_id, in collection 'trial_selections'
+     * ranges: [] or no doc at all  ==>  KEEP EVERY TRIAL for that unit
+     * a trial counts as inside a range iff its START falls inside it
+       (inclusion_rule, stored on the doc so the rule travels with the data)
+     * every trial is always kept in the output; the pipeline's job is to ADD a
+       per-(unit, trial) selected/unselected flag, never to drop rows.
+   ===================================================================== */
+const TL = TIMELINE;
+const TL_MARKERS = TL ? TL.trial_markers.t_s : [];
+const countsCache = {};   // uid -> Uint16Array
+
+function decodeCounts(uid){
+  if(uid in countsCache) return countsCache[uid];
+  const b64 = TL && TL.counts ? TL.counts[String(uid)] : null;
+  if(!b64){ countsCache[uid] = null; return null; }
+  const bin = atob(b64);
+  const buf = new ArrayBuffer(bin.length);
+  const u8 = new Uint8Array(buf);
+  for(let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
+  countsCache[uid] = new Uint16Array(buf);   // little-endian, as written
+  return countsCache[uid];
+}
+
+function fmtMin(t){ return ((t - TL.ephys_t0_s)/60).toFixed(1); }
+function rangesFor(uid){ return timeSel[String(uid)] || []; }
+
+function normalizeRanges(rs){
+  // sorted, clamped to the recording, and overlapping/abutting ranges merged --
+  // so "how many trials are inside" can never double-count a trial.
+  const out = [];
+  rs.map(r => ({t0: Math.min(r.t0, r.t1), t1: Math.max(r.t0, r.t1)}))
+    .filter(r => r.t1 - r.t0 > 0.05)
+    .map(r => ({t0: Math.max(r.t0, TL.ephys_t0_s), t1: Math.min(r.t1, TL.ephys_t1_s)}))
+    .sort((a,b) => a.t0 - b.t0)
+    .forEach(r => {
+      const last = out[out.length-1];
+      if(last && r.t0 <= last.t1) last.t1 = Math.max(last.t1, r.t1);
+      else out.push(r);
+    });
+  return out.map(r => ({t0: Math.round(r.t0*1000)/1000, t1: Math.round(r.t1*1000)/1000}));
+}
+
+function markersInside(ranges){
+  if(!ranges.length) return TL_MARKERS.length;   // nothing marked = everything kept
+  let n = 0;
+  TL_MARKERS.forEach(t => { if(ranges.some(r => t >= r.t0 && t <= r.t1)) n++; });
+  return n;
+}
+function markerIndexAt(t){
+  let lo = 0, hi = TL_MARKERS.length;
+  while(lo < hi){ const mid = (lo+hi)>>1; if(TL_MARKERS[mid] <= t) lo = mid+1; else hi = mid; }
+  return lo;  // 1-based count of markers at or before t
+}
+
+let tlSaveState = '';
+function setSelection(uid, ranges){
+  const norm = normalizeRanges(ranges);
+  timeSel[String(uid)] = norm;
+  tlSaveState = db ? 'saving...' : 'NOT SAVED (db unavailable in this view)';
+  renderList();
+  renderTimeline(document.querySelector('.timeline-panel'), uid);
+  if(!db) return;
+  db.collection('trial_selections').doc(String(uid)).set({
+    unit_id: Number(uid),
+    session_id: SESSION_ID,
+    clock: 'trodes_absolute_seconds',
+    inclusion_rule: 'trial_start_marker_inside_range',
+    trial_marker_source: 'dio_ttl_code_' + TL.trial_markers.ttl_code,
+    ranges: norm,
+    n_markers_inside: markersInside(norm),
+    n_markers_total: TL_MARKERS.length,
+    ephys_t0_s: TL.ephys_t0_s,
+    ephys_t1_s: TL.ephys_t1_s,
+    tool_version: 'timeline-v1',
+    updated_ms: Date.now(),
+  }).then(() => {
+    tlSaveState = norm.length ? 'saved' : 'saved (cleared -- all trials kept)';
+    const el = document.querySelector('.tl-state');
+    if(el) renderTimeline(document.querySelector('.timeline-panel'), uid);
+  }).catch(e => {
+    console.error('trial_selections save failed', e);
+    tlSaveState = 'SAVE FAILED: ' + (e.message || e);
+    renderTimeline(document.querySelector('.timeline-panel'), uid);
+  });
+}
+
+let pendingStart = null;   // first click of a click-click range, in seconds
+
+function renderTimeline(panel, uid){
+  if(!panel) return;
+  if(!TL){
+    panel.innerHTML = '<div class="panel-label">Firing rate across the session</div>' +
+      '<div class="no-data">not computed for this session &mdash; run ' +
+      'scripts/build_session_timeline_data.py and rebuild</div>';
+    return;
+  }
+  const counts = decodeCounts(uid);
+  const ranges = rangesFor(uid);
+  const binS = TL.bin_s, T0 = TL.ephys_t0_s, T1 = TL.ephys_t1_s;
+
+  panel.innerHTML = `
+    <div class="timeline-head">
+      <div class="panel-label">Firing rate across the session &mdash; mark the stretches to keep</div>
+      <div class="timeline-hint">click start, click end &middot; or drag &middot; Esc cancels &middot; ${binS}s bins</div>
+    </div>
+    <div class="tl-plot-wrap"></div>
+    <div class="timeline-foot"></div>
+  `;
+  const wrap = panel.querySelector('.tl-plot-wrap');
+  const foot = panel.querySelector('.timeline-foot');
+  if(!counts){
+    wrap.innerHTML = `<div class="no-data">no timeline data for unit ${uid}</div>`;
+    return;
+  }
+
+  const W=1000, H=250, padL=54, padR=16, padT=18, padB=52;
+  const plotB = H - padB;                 // y of the rate baseline
+  const rugTop = plotB + 7, rugBot = plotB + 16;
+  const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, class:'timeline-plot'});
+  const x = t => padL + (t - T0)/(T1 - T0 + 1e-9)*(W - padL - padR);
+  const tAtX = px => T0 + Math.min(1, Math.max(0, (px - padL)/(W - padL - padR)))*(T1 - T0);
+
+  const rates = Array.from(counts, c => c/binS);
+  const meanRate = rates.reduce((a,b)=>a+b, 0)/rates.length;
+  const ymax = Math.max(...rates, 0.1)*1.1;
+  const y = v => padT + (1 - v/ymax)*(plotB - padT);
+
+  // y grid + ticks (Hz)
+  niceTicks(0, ymax, 5).forEach(v => {
+    svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:y(v), y2:y(v), stroke:'var(--border)','stroke-width':0.6}));
+    const lbl = svgEl('text',{x:padL-6, y:y(v)+3, 'font-size':9, 'text-anchor':'end', fill:'var(--text-3)'});
+    lbl.textContent = v.toFixed(ymax < 20 ? 1 : 0); svg.appendChild(lbl);
+  });
+  // selected ranges, painted under the curve
+  ranges.forEach((r, i) => {
+    svg.appendChild(svgEl('rect',{x:x(r.t0), y:padT, width:Math.max(x(r.t1)-x(r.t0), 1), height:plotB-padT,
+      fill:'var(--accent)', opacity:0.16}));
+    [r.t0, r.t1].forEach(t => svg.appendChild(svgEl('line',{x1:x(t), x2:x(t), y1:padT, y2:rugBot,
+      stroke:'var(--accent)', 'stroke-width':1.2})));
+    const lbl = svgEl('text',{x:(x(r.t0)+x(r.t1))/2, y:padT+10, 'font-size':9, 'text-anchor':'middle',
+      fill:'var(--accent)', 'font-weight':600});
+    lbl.textContent = String(i+1); svg.appendChild(lbl);
+  });
+  // mean-rate reference
+  svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:y(meanRate), y2:y(meanRate),
+    stroke:'var(--text-3)', 'stroke-width':0.9, 'stroke-dasharray':'4,3', opacity:0.8}));
+  // the rate curve
+  let pts = [];
+  for(let i=0;i<rates.length;i++) pts.push(`${x(T0 + (i+0.5)*binS)},${y(rates[i])}`);
+  svg.appendChild(svgEl('polyline',{points:pts.join(' '), fill:'none', stroke:'var(--accent)','stroke-width':1.3}));
+  svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:plotB, y2:plotB, stroke:'var(--border)','stroke-width':1}));
+
+  // trial-start rug: one mark per DIO code-1 event. At ~950 trials over ~3.5h these
+  // sit sub-pixel apart, so the strip reads as density, not as countable ticks -- the
+  // exact number inside each range is printed below the plot instead.
+  if(TL_MARKERS.length){
+    const d = TL_MARKERS.map(t => `M${x(t).toFixed(2)} ${rugTop}V${rugBot}`).join('');
+    svg.appendChild(svgEl('path',{d:d, stroke:'var(--violet)', 'stroke-width':0.8, opacity:0.5, fill:'none'}));
+  }
+  // x ticks, in minutes from the recording's own start
+  niceTicks(T0, T1, 8).forEach(t => {
+    const lbl = svgEl('text',{x:x(t), y:plotB+30, 'font-size':9, 'text-anchor':'middle', fill:'var(--text-3)'});
+    lbl.textContent = fmtMin(t); svg.appendChild(lbl);
+  });
+  const ax = svgEl('text',{x:(padL+W-padR)/2, y:H-4, 'font-size':9, 'text-anchor':'middle', fill:'var(--text-3)'});
+  ax.textContent = 'minutes from recording start (ranges are stored as absolute Trodes seconds) · violet rug = trial starts';
+  svg.appendChild(ax);
+  const ay = svgEl('text',{x:12, y:padT+14, 'font-size':9, 'text-anchor':'start', fill:'var(--text-3)',
+    transform:`rotate(-90,12,${padT+14})`});
+  ay.textContent = 'Hz'; svg.appendChild(ay);
+
+  // live layer: drag preview, pending-start line, crosshair + readout
+  const preview = svgEl('rect',{x:0, y:padT, width:0, height:plotB-padT, fill:'var(--warn)', opacity:0.18, visibility:'hidden'});
+  const pendLine = svgEl('line',{x1:0, x2:0, y1:padT, y2:rugBot, stroke:'var(--warn)','stroke-width':1.4,
+    'stroke-dasharray':'4,3', visibility:'hidden'});
+  const cross = svgEl('line',{x1:0, x2:0, y1:padT, y2:plotB, stroke:'var(--text-3)','stroke-width':0.7, visibility:'hidden'});
+  const readout = svgEl('text',{x:padL+4, y:padT-6, 'font-size':9.5, fill:'var(--text-2)',
+    'font-family':'IBM Plex Mono,monospace'});
+  svg.appendChild(preview); svg.appendChild(pendLine); svg.appendChild(cross); svg.appendChild(readout);
+  if(pendingStart != null){ pendLine.setAttribute('x1', x(pendingStart)); pendLine.setAttribute('x2', x(pendingStart)); pendLine.setAttribute('visibility','visible'); }
+
+  const vbX = ev => {
+    const r = svg.getBoundingClientRect();
+    return (ev.clientX - r.left)/r.width*W;
+  };
+  let downVX = null, downT = null, dragging = false;
+  svg.addEventListener('pointermove', ev => {
+    const vx = vbX(ev), t = tAtX(vx);
+    cross.setAttribute('x1', x(t)); cross.setAttribute('x2', x(t)); cross.setAttribute('visibility','visible');
+    const bin = Math.min(rates.length-1, Math.max(0, Math.floor((t-T0)/binS)));
+    readout.textContent = `t=${t.toFixed(1)}s (${fmtMin(t)}min) · ${rates[bin].toFixed(2)} Hz · around trial #${markerIndexAt(t)}`;
+    if(downVX != null && Math.abs(vx - downVX) > 4){
+      dragging = true;
+      preview.setAttribute('x', Math.min(x(downT), x(t)));
+      preview.setAttribute('width', Math.abs(x(t) - x(downT)));
+      preview.setAttribute('visibility','visible');
+    }
+  });
+  svg.addEventListener('pointerleave', () => { cross.setAttribute('visibility','hidden'); readout.textContent=''; });
+  svg.addEventListener('pointerdown', ev => { downVX = vbX(ev); downT = tAtX(downVX); dragging = false; svg.setPointerCapture(ev.pointerId); });
+  svg.addEventListener('pointerup', ev => {
+    const t = tAtX(vbX(ev));
+    try{ svg.releasePointerCapture(ev.pointerId); }catch(e){}
+    if(dragging){                      // drag = one range in one gesture
+      setSelection(uid, ranges.concat([{t0: downT, t1: t}]));
+    } else if(pendingStart == null){   // first click: remember the start
+      pendingStart = t;
+      renderTimeline(panel, uid);
+    } else {                           // second click: close the range
+      const a = pendingStart; pendingStart = null;
+      setSelection(uid, ranges.concat([{t0: a, t1: t}]));
+    }
+    downVX = null; dragging = false;
+  });
+  wrap.appendChild(svg);
+
+  // --- footer: the range chips, the clear button, and what it all means ---
+  const nIn = markersInside(ranges);
+  ranges.forEach((r, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'range-chip';
+    const span = document.createElement('span');
+    span.textContent = `${i+1}. ${r.t0.toFixed(1)}–${r.t1.toFixed(1)}s (${fmtMin(r.t0)}–${fmtMin(r.t1)}min) · ${markersInside([r])} trials`;
+    const del = document.createElement('button');
+    del.textContent = '×'; del.title = 'remove this range';
+    del.addEventListener('click', () => setSelection(uid, ranges.filter((_,k) => k !== i)));
+    chip.appendChild(span); chip.appendChild(del);
+    foot.appendChild(chip);
+  });
+  if(ranges.length){
+    const clear = document.createElement('button');
+    clear.className = 'tl-btn'; clear.textContent = 'clear all';
+    clear.addEventListener('click', () => { pendingStart = null; setSelection(uid, []); });
+    foot.appendChild(clear);
+  }
+  if(pendingStart != null){
+    const cancel = document.createElement('button');
+    cancel.className = 'tl-btn'; cancel.textContent = 'cancel start';
+    cancel.addEventListener('click', () => { pendingStart = null; renderTimeline(panel, uid); });
+    foot.appendChild(cancel);
+  }
+  const state = document.createElement('div');
+  state.className = 'tl-state' + (pendingStart != null ? ' pending' : '');
+  if(pendingStart != null){
+    state.innerHTML = `start set at <b>${pendingStart.toFixed(1)}s</b> — click again for the end`;
+  } else if(!ranges.length){
+    state.innerHTML = `nothing marked → <b>all ${TL_MARKERS.length} trials</b> kept for this unit` +
+      (tlSaveState ? ` · ${tlSaveState}` : '');
+  } else {
+    state.innerHTML = `<b>${nIn}</b> of ${TL_MARKERS.length} trials inside ${ranges.length} range` +
+      (ranges.length>1?'s':'') + (tlSaveState ? ` · ${tlSaveState}` : '');
+  }
+  foot.appendChild(state);
+}
+
 function renderList(){
   const activeLabels = new Set([...document.querySelectorAll('#labelToggle button.active')].map(b=>b.dataset.kind));
   const q = document.getElementById('searchBox').value.trim();
@@ -559,6 +873,8 @@ function renderList(){
   if(q) list = list.filter(u => String(u.unit_id)===q || String(u.trodes_channel)===q);
   if(reviewFilter==='unreviewed') list = list.filter(u => !verdicts[u.unit_id]);
   if(reviewFilter==='reviewed') list = list.filter(u => verdicts[u.unit_id]);
+  if(reviewFilter==='has_sel') list = list.filter(u => rangesFor(u.unit_id).length);
+  if(reviewFilter==='no_sel') list = list.filter(u => !rangesFor(u.unit_id).length);
   if(shapeFilter!=='all') list = list.filter(u => u.burst_shape===shapeFilter);
   list = list.filter(passesFilters);
 
@@ -574,10 +890,12 @@ function renderList(){
     const row = document.createElement('div');
     row.className = 'row' + (u.unit_id===selected ? ' selected':'');
     const v = verdicts[u.unit_id];
+    const nSel = rangesFor(u.unit_id).length;
     row.innerHTML = `
       <span class="verdict-dot ${v?v.verdict:''}"></span>
       <span class="uid">#${u.unit_id}</span>
       <span class="badge ${core}">${core}</span>
+      ${nSel ? `<span class="sel-dot" title="${nSel} time range(s) selected"></span>` : ''}
       <span class="meta">ch${u.trodes_channel ?? '—'} &middot; ${u.mean_rate_hz.toFixed(1)}Hz</span>
     `;
     row.addEventListener('click', () => { selected = u.unit_id; renderDetail(u.unit_id); renderList(); });
@@ -594,7 +912,9 @@ function reasonText(u){
   return parts.length ? parts.join('<br>') : '<span style="color:var(--text-3)">no flags</span>';
 }
 
+let tlLastUid = null;
 function renderDetail(uid){
+  if(uid !== tlLastUid){ pendingStart = null; tlSaveState = ''; tlLastUid = uid; }
   const u = byId[uid];
   const core = u.label.replace('+NON-SOMA','');
   const v = verdicts[uid];
@@ -628,6 +948,7 @@ function renderDetail(uid){
       <div class="panel"><div class="panel-label">Autocorrelogram</div><div class="acg"></div></div>
       <div class="panel"><div class="panel-label">Amplitude vs. position in burst (shape: <span style="color:${SHAPE_COLORS[u.burst_shape]||'inherit'}">${SHAPE_LABELS[u.burst_shape]||u.burst_shape}</span>)</div><div class="burstcurve"></div></div>
     </div>
+    <div class="timeline-panel"></div>
     <div class="panel" style="margin-bottom:16px;">
       <div class="panel-label" style="display:flex;align-items:center;justify-content:space-between;">
         <span>Raw spike traces (verify shape in raw data)</span>
@@ -676,6 +997,7 @@ function renderDetail(uid){
   scatterYSel.addEventListener('change', () => { scatterYField = scatterYSel.value; renderScatter(el.querySelector('.clus'), u.cluster_points, scatterXField, scatterYField); });
   renderAcg(el.querySelector('.acg'), u);
   renderBurstCurve(el.querySelector('.burstcurve'), u.burst_curve, u.burst_shape);
+  renderTimeline(el.querySelector('.timeline-panel'), uid);
   el.querySelectorAll('.vbtn').forEach(b => b.addEventListener('click', () => setVerdict(uid, b.dataset.v)));
   if(db) document.getElementById('dbStatusText').textContent = 'saved to shared review database';
 
@@ -726,6 +1048,10 @@ document.getElementById('filterAdd').addEventListener('click', () => {
 document.addEventListener('keydown', (e) => {
   if(document.activeElement.tagName==='INPUT') return;
   const k = e.key.toLowerCase();
+  if(e.key==='Escape'){
+    if(pendingStart != null){ pendingStart = null; renderTimeline(document.querySelector('.timeline-panel'), selected); }
+    return;
+  }
   if(k==='g') setVerdict(selected,'good');
   else if(k==='m') setVerdict(selected,'mua');
   else if(k==='n') setVerdict(selected,'noise');
@@ -740,6 +1066,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+updateProgress();
 renderList();
 renderDetail(selected);
 initDb();
@@ -747,8 +1074,16 @@ initDb();
 """
 
 html = html.replace("__UNITS_JSON__", json.dumps(units))
+html = html.replace("__TIMELINE_JSON__", json.dumps(timeline) if timeline else "null")
+html = html.replace("__SESSION_ID__", SESSION_ID)
 html = html.replace("Unit Review Pipeline &middot; 20260901_085606", f"Unit Review Pipeline &middot; {SESSION_ID}")
 html = html.replace("<title>Unit Review Pipeline</title>", f"<title>Unit Review {SESSION_ID}</title>")
+# The header counts were hardcoded to the first session's 401 units and never substituted,
+# so every later session's tool opened claiming "401 units / 0 / 401 reviewed" (the progress
+# label self-corrected only once the db snapshot landed; the h1 never did).
+html = html.replace("<h1>401 units, your verdict per unit</h1>",
+                    f"<h1>{len(units)} units, your verdict per unit</h1>")
+html = html.replace('id="progressLabel">0 / 401 reviewed', f'id="progressLabel">0 / {len(units)} reviewed')
 
 out_path = OUT_PATH
 with open(out_path, "w", encoding="utf-8") as f:

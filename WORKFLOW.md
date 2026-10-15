@@ -204,6 +204,7 @@ were adapted from (hardcoded to `20260901_085606`) are left untouched as referen
 | `burst_curve`, `burst_shape`, `isi_amp_corr_all`, `isi_amp_corr_burst` | `scripts/build_burst_isi_metrics_session.py` | DONE 2026-09-15, but **this is a FRESH RECONSTRUCTION, not recovered original code** -- the original script that produced these fields for `20260901_085606` was never found. The shape-classification thresholds (decay/facilitation/dip_then_rise/rise_then_dip/flat) are a new, reasonable design documented in that script's own docstring, not a verified match to whatever exact logic produced the old session's values for those 5 shape categories. Uses `striatal_agent.firing_pattern.detect_bursts()` (the pipeline's own existing burst definition, not a second one) + `kilosort_original/amplitudes.npy`. Cheap -- spike-times/amplitudes only, no raw-data reads. |
 | `isi_amp_scatter` | **NOT COMPUTED, BY DESIGN -- do not add this back.** Confirmed 2026-09-15 by checking the review tool's own rendering code: this field is present in the *old* session's `pipeline_review_data.json` but nothing in `build_review_html.py`'s JS ever reads or renders it (only the two scalar correlations, `isi_amp_corr_all`/`isi_amp_corr_burst`, are actually displayed). It was dead weight even in the original session's data. Skip it entirely in any future session -- there is no panel that needs it, and no script should be written to produce it. |
 | Raw spike-trace examples (the "raw spikes" toggle panel) | `scripts/compute_raw_trace_snippets_session.py`, output pushed into the artifact's own `raw_traces` database collection (**not** baked into the HTML like everything else above -- see below) | DONE -- reusable, cheap (~100-110s per session, small windowed reads only) |
+| Firing-rate-across-the-session curve + trial-start ticks + the per-unit kept-time-range selection (the "Firing rate across the session" panel) | `scripts/build_session_timeline_data.py` -> `outputs/session_timeline_<session_id>.json`, embedded by `build_review_html.py`. **Not** part of `pipeline_review_data.json`: the bin grid and the trial markers are session-level, and the rate arrays ship as base64 uint16 rather than JSON numbers. | DONE 2026-10-15. Cheap -- 5.5s for 472 units / 25.2M spikes / a 3.5h session. **Trial ticks come from the raw DIO stream, not from sync**: the TTL code is the Bpod state number, so code 1 = each trial's first state = the trial start, and it needs no Bpod file and no sync fit (which is the point -- the review tool runs before sync exists). Verified exact against this session's own fully-synced `trials.parquet`: 954 code-1 markers vs 953 Bpod trials, ordered difference to `trial_start_trodes` 0.0 ms median **and** 0.0 ms max. Code 0 looks tempting (also once per trial) but sits a variable 0.4-4s earlier -- it is the inter-trial reset, don't use it. |
 | `cell_type`, `postSpikeSuppression_ms`, `propLongISI` | `outputs/striatal_celltypes.csv` (from `scripts/run_striatal_celltype.py`) + `scripts/build_full_unit_browser.py`'s merge pattern | **Still not built for a second session** -- `build_full_unit_browser.py` is from an early iteration (predates most of the fields above) and isn't a drop-in script; treat as a reference for the merge pattern only, not yet re-verified as needed by the current tool's rendering code the way `isi_amp_scatter` was checked and ruled out. If a future session needs it, check the JS rendering first (same method that ruled out `isi_amp_scatter`) before spending time computing it. |
 
 **Raw spike traces are architecturally different from every other field above** --
@@ -289,6 +290,17 @@ e.g. `F:\Gil\Shamir\20260911_100049.rec`) as CLI args:
    computed" in the relevant panel) rather than crashing — confirmed safe,
    except `co_located_units` needed a one-line null-guard fix in step 4's
    script (`(u.co_located_units||[]).length`, already applied).
+3b. **`build_session_timeline_data.py <session_id> <rec_root> [--bin_s 20]`** —
+   builds `outputs/session_timeline_<session_id>.json`: per-unit spike counts
+   per time bin across the whole session, plus trial-start markers decoded
+   from the raw Trodes DIO stream (TTL code 1). Feeds the "Firing rate across
+   the session" panel and its kept-time-range selection. Any numpy env
+   (`phy2_ky` is fine); ~5s per session. **Optional** — step 4 builds without
+   it and the panel says "not computed for this session". Two things not to
+   re-derive (both explained at length in the script's own docstring): spike
+   sample indices MUST go through `<session>.timestamps.dat` or the rate curve
+   slides relative to the trial ticks by the ephys export offset (87.5134s on
+   `20260916_110311`), and the trial ticks come from TTL code 1, not code 0.
 4. **`build_review_html.py <session_id>`** — reads
    `pipeline_review_data_<session_id>.json`, renders
    `outputs/unit_review_pipeline_<session_id>.html`, sets the page's `<title>`
@@ -917,3 +929,40 @@ Update `outputs/session_registry.json` with the new `synced_data_path` and
   order is run_pipeline batches -> consolidate -> bombcell -> everything
   else in 1f/1f-pre** -- update that section's own text to say this
   explicitly rather than relying on this change-log entry alone.
+
+- **2026-10-15**: Added the review tool's first per-unit *time-selection*
+  feature, plus the data step behind it (new `scripts/build_session_timeline_data.py`,
+  new step 3b in 1f, new row in 1f-pre). The panel draws that unit's firing
+  rate across the whole session with a trial-start rug underneath, and Gil
+  marks the stretches worth keeping -- click start / click end, or drag,
+  repeatable for several disjoint ranges. Saved to the artifact db
+  (collection `trial_selections`, doc id = unit_id) alongside the verdicts.
+  **The contract the not-yet-written sync-pipeline consumer must honour**, and
+  the reason it is written onto every saved doc rather than kept here: ranges
+  are in ABSOLUTE TRODES SECONDS; an empty `ranges` list (or no doc at all)
+  means KEEP EVERY TRIAL for that unit; a trial counts as inside a range iff
+  its *start* falls inside it (`inclusion_rule`); and the pipeline must ADD a
+  per-(unit, trial) selected/unselected flag, never drop a trial row -- every
+  trial always stays in the output. Nothing in `D:\Gil\sync_pipeline` was
+  touched (deliberately, per Gil: that code stays isolated); the only contact
+  with it is a read-only `import dio_decoder` for TTL decoding.
+  **The finding worth keeping**: trial boundaries ARE available before sync.
+  The DIO TTL code is the Bpod state number, so code 1 is each trial's first
+  state; checked against `20260916_110311`'s own synced `trials.parquet`,
+  the 954 code-1 markers match `trial_start_trodes` to 0.0 ms median AND
+  0.0 ms max over all 953 trials. (Code 0 also fires once per trial and is
+  the obvious-looking candidate, but it is the inter-trial reset: a variable
+  0.4-4s early, median -2147 ms, max |13991| ms. The first code-0 event is
+  not an event at all, just the zero-order-hold reconstruction starting with
+  all lines low.) There are normally a few more markers than saved Bpod
+  trials (954 vs 953 -- the last trial starts on the rig but never lands in
+  the Bpod file), so these are trial-start MARKERS, not trial_ids; mapping
+  marker -> trial_id stays the sync pipeline's job, where it is exact.
+  Two incidental fixes while in there: the page had no `<meta charset>`, so
+  every em-dash and middot in it rendered as mojibake when opened as a local
+  file; and the left header was hardcoded to the first session's "401 units"
+  (and "0 / 401 reviewed") for every session built since. **Size watch**: the
+  built HTML is now 14.3 MiB of the Artifact platform's 16 MiB page limit --
+  812 KB of that is the new timeline. Gil has said more panels are coming, so
+  the next one that adds real bulk should go into a published supporting file
+  or the artifact db (like `raw_traces` already does) rather than be embedded.
