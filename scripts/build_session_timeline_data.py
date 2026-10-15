@@ -167,14 +167,33 @@ def main():
     row_of[uids] = np.arange(len(uids))
     print("spikes: %d across %d clusters" % (len(spike_samples), len(uids)))
 
+    # Spike amplitude per bin, alongside the rate. This is NOT a detector and nothing
+    # here decides anything: it is a second trace to read by eye, because rate alone
+    # cannot tell "the cell went quiet" from "the cell drifted off the electrode".
+    # Fading amplitude with falling rate = drift; steady amplitude with falling rate =
+    # the cell really stopped firing. kilosort_original/amplitudes.npy is the per-spike
+    # template scaling factor -- arbitrary units, so only its change WITHIN a unit means
+    # anything, which is exactly what is wanted here (and the same field
+    # build_burst_isi_metrics_session.py already uses).
+    amp_path = os.path.join(ks_dir, "amplitudes.npy")
+    amps = np.load(amp_path).ravel().astype(np.float64) if os.path.exists(amp_path) else None
+    if amps is None:
+        print("note: %s absent -- building the rate trace only." % amp_path)
+    elif args.max_units:
+        amps = amps[keep]
+
     flat = np.zeros(len(uids) * n_bins, dtype=np.int64)
+    amp_sum = np.zeros(len(uids) * n_bins, dtype=np.float64) if amps is not None else None
     for i in range(0, len(spike_samples), CHUNK):
         s = spike_samples[i:i + CHUNK].astype(np.int64)
         abs_t = ts_map[s].astype(np.float64) / fs          # the offset correction
         b = np.floor((abs_t - t0) / bin_s).astype(np.int64)
         np.clip(b, 0, n_bins - 1, out=b)
         r = row_of[spike_clusters[i:i + CHUNK]]
-        flat += np.bincount(r * n_bins + b, minlength=flat.size)
+        idx = r * n_bins + b
+        flat += np.bincount(idx, minlength=flat.size)
+        if amps is not None:
+            amp_sum += np.bincount(idx, weights=amps[i:i + CHUNK], minlength=flat.size)
         print("  binned %d/%d" % (min(i + CHUNK, len(spike_samples)), len(spike_samples)))
     counts = flat.reshape(len(uids), n_bins)
 
@@ -183,6 +202,21 @@ def main():
         raise ValueError("max bin count %d exceeds uint16; use a smaller --bin_s." % hi)
     packed = {str(int(u)): base64.b64encode(counts[k].astype("<u2").tobytes()).decode("ascii")
               for k, u in enumerate(uids)}
+
+    # Amplitude is stored per unit as uint8 on that unit's OWN scale (0 = no spikes in
+    # the bin, 1-250 = mean amplitude x amp_scale[uid]) -- a byte per bin instead of
+    # four, which matters because the whole page ships inside the HTML.
+    packed_amp, amp_scale = {}, {}
+    if amps is not None:
+        mean_amp = np.divide(amp_sum.reshape(len(uids), n_bins), np.maximum(counts, 1),
+                             where=counts > 0, out=np.zeros((len(uids), n_bins)))
+        for k, u in enumerate(uids):
+            row, has = mean_amp[k], counts[k] > 0
+            top = float(np.percentile(row[has], 99)) if has.any() else 0.0
+            sc = top / 250.0 if top > 0 else 1.0
+            q = np.where(has, np.clip(np.round(row / sc), 1, 255), 0).astype(np.uint8)
+            packed_amp[str(int(u))] = base64.b64encode(q.tobytes()).decode("ascii")
+            amp_scale[str(int(u))] = round(sc, 6)
 
     out = {
         "session_id": sid,
@@ -211,9 +245,16 @@ def main():
         "counts_dtype": "uint16",
         "counts_encoding": "base64",
         "counts_note": "rate_hz[i] = count[i] / bin_s",
+        "amp_dtype": "uint8",
+        "amp_encoding": "base64",
+        "amp_note": ("mean kilosort template-scaling amplitude per bin, on each unit's OWN "
+                     "scale: 0 = no spikes in that bin, otherwise amp[i] * amp_scale[uid]. "
+                     "Arbitrary units -- only its change within one unit is meaningful."),
         "n_spikes_total": int(len(spike_samples)),
         "n_units": int(len(uids)),
         "counts": packed,
+        "amp": packed_amp,
+        "amp_scale": amp_scale,
     }
     out_path = os.path.join(OUT_DIR, "session_timeline_%s.json" % sid)
     with open(out_path, "w") as f:

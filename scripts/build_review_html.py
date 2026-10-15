@@ -132,6 +132,8 @@ h1{font-size:16px;font-weight:700;margin:0 0 8px;}
 .timeline-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
 .timeline-head .panel-label{margin-bottom:0;}
 .timeline-hint{font-size:10px;color:var(--text-3);font-family:'IBM Plex Mono',monospace;}
+.tl-sel{background:var(--surface);border:1px solid var(--border);color:var(--text-2);border-radius:5px;
+  padding:1px 3px;font-size:10px;font-family:'IBM Plex Mono',monospace;}
 .timeline-plot{width:100%;height:auto;display:block;cursor:crosshair;touch-action:none;user-select:none;}
 .timeline-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;}
 .range-chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent);
@@ -630,6 +632,37 @@ function decodeCounts(uid){
   return countsCache[uid];
 }
 
+const ampCache = {};
+function decodeAmp(uid){
+  if(uid in ampCache) return ampCache[uid];
+  const b64 = TL && TL.amp ? TL.amp[String(uid)] : null;
+  if(!b64){ ampCache[uid] = null; return null; }
+  const bin = atob(b64);
+  const u8 = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
+  ampCache[uid] = u8;   // 0 = no spikes in that bin
+  return u8;
+}
+
+// Wider bins, summed from the stored ones. A sparse unit at 0.16 Hz has ~3 spikes in a
+// 20s bin, so its rate trace is mostly Poisson noise and reads as fake dropouts -- at
+// 120s or 300s the real structure shows. Finer than the stored bin is not available
+// without rebuilding the data.
+let tlBin = 20;
+function aggregate(counts, amps, scale, binS, want){
+  const k = Math.max(1, Math.round(want / binS));
+  const n = Math.ceil(counts.length / k);
+  const c = new Float64Array(n), aw = new Float64Array(n);
+  for(let i=0;i<counts.length;i++){
+    const j = (i / k) | 0;
+    c[j] += counts[i];
+    if(amps && amps[i] > 0) aw[j] += amps[i] * scale * counts[i];  // count-weighted
+  }
+  const amp = new Float64Array(n);
+  for(let j=0;j<n;j++) amp[j] = (aw[j] > 0 && c[j] > 0) ? aw[j]/c[j] : NaN;
+  return {counts:c, amp:amp, n:n, binS: k*binS};
+}
+
 function fmtMin(t){ return ((t - TL.ephys_t0_s)/60).toFixed(1); }
 function rangesFor(uid){ return timeSel[String(uid)] || []; }
 
@@ -703,46 +736,69 @@ function renderTimeline(panel, uid){
       'scripts/build_session_timeline_data.py and rebuild</div>';
     return;
   }
-  const counts = decodeCounts(uid);
+  const rawCounts = decodeCounts(uid);
   const ranges = rangesFor(uid);
-  const binS = TL.bin_s, T0 = TL.ephys_t0_s, T1 = TL.ephys_t1_s;
+  const T0 = TL.ephys_t0_s, T1 = TL.ephys_t1_s;
 
   panel.innerHTML = `
     <div class="timeline-head">
-      <div class="panel-label">Firing rate across the session &mdash; mark the stretches to keep</div>
-      <div class="timeline-hint">click start, click end &middot; or drag &middot; Esc cancels &middot; ${binS}s bins</div>
+      <div class="panel-label">Across the session &mdash; mark the stretches to keep</div>
+      <div class="timeline-hint">click start, click end &middot; or drag &middot; Esc cancels &middot;
+        bin <select id="tlBinSel" class="tl-sel">
+          <option value="20">20s</option><option value="60">60s</option>
+          <option value="120">120s</option><option value="300">300s</option>
+        </select>
+      </div>
     </div>
     <div class="tl-plot-wrap"></div>
     <div class="timeline-foot"></div>
   `;
   const wrap = panel.querySelector('.tl-plot-wrap');
   const foot = panel.querySelector('.timeline-foot');
-  if(!counts){
+  const binSel = panel.querySelector('#tlBinSel');
+  binSel.value = String(tlBin);
+  binSel.addEventListener('change', () => { tlBin = parseFloat(binSel.value); renderTimeline(panel, uid); });
+  if(!rawCounts){
     wrap.innerHTML = `<div class="no-data">no timeline data for unit ${uid}</div>`;
     return;
   }
+  const agg = aggregate(rawCounts, decodeAmp(uid), (TL.amp_scale||{})[String(uid)] || 1, TL.bin_s, tlBin);
+  const binS = agg.binS;
 
-  const W=1000, H=250, padL=54, padR=16, padT=18, padB=52;
-  const plotB = H - padB;                 // y of the rate baseline
-  const rugTop = plotB + 7, rugBot = plotB + 16;
+  // Rate and amplitude get their own stacked band on a shared x-axis, never two y-scales
+  // on one plot. Amplitude is here because rate alone cannot tell "the cell went quiet"
+  // from "the cell drifted off the electrode" -- it is a second trace to read, not a
+  // detector; nothing in this tool judges a unit automatically.
+  const W=1000, H=330, padL=54, padR=16, padT=18, padB=52;
+  const rateB = padT + 150, ampT = rateB + 24, ampB = H - padB;
+  const rugTop = ampB + 7, rugBot = ampB + 16;
   const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, class:'timeline-plot'});
   const x = t => padL + (t - T0)/(T1 - T0 + 1e-9)*(W - padL - padR);
   const tAtX = px => T0 + Math.min(1, Math.max(0, (px - padL)/(W - padL - padR)))*(T1 - T0);
 
-  const rates = Array.from(counts, c => c/binS);
+  const rates = Array.from(agg.counts, c => c/binS);
   const meanRate = rates.reduce((a,b)=>a+b, 0)/rates.length;
   const ymax = Math.max(...rates, 0.1)*1.1;
-  const y = v => padT + (1 - v/ymax)*(plotB - padT);
+  const y = v => padT + (1 - v/ymax)*(rateB - padT);
+  const ampVals = Array.from(agg.amp).filter(v => !isNaN(v));
+  const hasAmp = ampVals.length > 1;
+  const amax = hasAmp ? Math.max(...ampVals)*1.1 : 1;
+  const ya = v => ampT + (1 - v/amax)*(ampB - ampT);
 
-  // y grid + ticks (Hz)
-  niceTicks(0, ymax, 5).forEach(v => {
+  // y grid + ticks: Hz on the rate band, amplitude on its own
+  niceTicks(0, ymax, 4).forEach(v => {
     svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:y(v), y2:y(v), stroke:'var(--border)','stroke-width':0.6}));
     const lbl = svgEl('text',{x:padL-6, y:y(v)+3, 'font-size':9, 'text-anchor':'end', fill:'var(--text-3)'});
     lbl.textContent = v.toFixed(ymax < 20 ? 1 : 0); svg.appendChild(lbl);
   });
-  // selected ranges, painted under the curve
+  if(hasAmp) niceTicks(0, amax, 3).forEach(v => {
+    svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:ya(v), y2:ya(v), stroke:'var(--border)','stroke-width':0.6}));
+    const lbl = svgEl('text',{x:padL-6, y:ya(v)+3, 'font-size':9, 'text-anchor':'end', fill:'var(--text-3)'});
+    lbl.textContent = v.toFixed(0); svg.appendChild(lbl);
+  });
+  // selected ranges, spanning both bands
   ranges.forEach((r, i) => {
-    svg.appendChild(svgEl('rect',{x:x(r.t0), y:padT, width:Math.max(x(r.t1)-x(r.t0), 1), height:plotB-padT,
+    svg.appendChild(svgEl('rect',{x:x(r.t0), y:padT, width:Math.max(x(r.t1)-x(r.t0), 1), height:ampB-padT,
       fill:'var(--accent)', opacity:0.16}));
     [r.t0, r.t1].forEach(t => svg.appendChild(svgEl('line',{x1:x(t), x2:x(t), y1:padT, y2:rugBot,
       stroke:'var(--accent)', 'stroke-width':1.2})));
@@ -757,7 +813,22 @@ function renderTimeline(panel, uid){
   let pts = [];
   for(let i=0;i<rates.length;i++) pts.push(`${x(T0 + (i+0.5)*binS)},${y(rates[i])}`);
   svg.appendChild(svgEl('polyline',{points:pts.join(' '), fill:'none', stroke:'var(--accent)','stroke-width':1.3}));
-  svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:plotB, y2:plotB, stroke:'var(--border)','stroke-width':1}));
+  svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:rateB, y2:rateB, stroke:'var(--border)','stroke-width':1}));
+  // the amplitude curve, broken wherever the unit fired no spikes at all
+  if(hasAmp){
+    let seg = [];
+    const flush = () => { if(seg.length > 1) svg.appendChild(svgEl('polyline',{points:seg.join(' '),
+      fill:'none', stroke:'var(--violet)','stroke-width':1.3})); seg = []; };
+    for(let i=0;i<agg.n;i++){
+      if(isNaN(agg.amp[i])) flush();
+      else seg.push(`${x(T0 + (i+0.5)*binS)},${ya(agg.amp[i])}`);
+    }
+    flush();
+  } else {
+    const nd = svgEl('text',{x:(padL+W-padR)/2, y:(ampT+ampB)/2, 'font-size':10, 'text-anchor':'middle', fill:'var(--text-3)'});
+    nd.textContent = 'no amplitude data for this unit'; svg.appendChild(nd);
+  }
+  svg.appendChild(svgEl('line',{x1:padL, x2:W-padR, y1:ampB, y2:ampB, stroke:'var(--border)','stroke-width':1}));
 
   // trial-start rug: one mark per DIO code-1 event. At ~950 trials over ~3.5h these
   // sit sub-pixel apart, so the strip reads as density, not as countable ticks -- the
@@ -768,21 +839,24 @@ function renderTimeline(panel, uid){
   }
   // x ticks, in minutes from the recording's own start
   niceTicks(T0, T1, 8).forEach(t => {
-    const lbl = svgEl('text',{x:x(t), y:plotB+30, 'font-size':9, 'text-anchor':'middle', fill:'var(--text-3)'});
+    const lbl = svgEl('text',{x:x(t), y:ampB+30, 'font-size':9, 'text-anchor':'middle', fill:'var(--text-3)'});
     lbl.textContent = fmtMin(t); svg.appendChild(lbl);
   });
   const ax = svgEl('text',{x:(padL+W-padR)/2, y:H-4, 'font-size':9, 'text-anchor':'middle', fill:'var(--text-3)'});
   ax.textContent = 'minutes from recording start (ranges are stored as absolute Trodes seconds) · violet rug = trial starts';
   svg.appendChild(ax);
-  const ay = svgEl('text',{x:12, y:padT+14, 'font-size':9, 'text-anchor':'start', fill:'var(--text-3)',
-    transform:`rotate(-90,12,${padT+14})`});
-  ay.textContent = 'Hz'; svg.appendChild(ay);
+  const ay = svgEl('text',{x:12, y:padT+16, 'font-size':9, 'text-anchor':'start', fill:'var(--text-3)',
+    transform:`rotate(-90,12,${padT+16})`});
+  ay.textContent = 'firing rate (Hz)'; svg.appendChild(ay);
+  const ay2 = svgEl('text',{x:12, y:ampT+8, 'font-size':9, 'text-anchor':'start', fill:'var(--text-3)',
+    transform:`rotate(-90,12,${ampT+8})`});
+  ay2.textContent = 'spike amplitude (KS units)'; svg.appendChild(ay2);
 
   // live layer: drag preview, pending-start line, crosshair + readout
-  const preview = svgEl('rect',{x:0, y:padT, width:0, height:plotB-padT, fill:'var(--warn)', opacity:0.18, visibility:'hidden'});
+  const preview = svgEl('rect',{x:0, y:padT, width:0, height:ampB-padT, fill:'var(--warn)', opacity:0.18, visibility:'hidden'});
   const pendLine = svgEl('line',{x1:0, x2:0, y1:padT, y2:rugBot, stroke:'var(--warn)','stroke-width':1.4,
     'stroke-dasharray':'4,3', visibility:'hidden'});
-  const cross = svgEl('line',{x1:0, x2:0, y1:padT, y2:plotB, stroke:'var(--text-3)','stroke-width':0.7, visibility:'hidden'});
+  const cross = svgEl('line',{x1:0, x2:0, y1:padT, y2:ampB, stroke:'var(--text-3)','stroke-width':0.7, visibility:'hidden'});
   const readout = svgEl('text',{x:padL+4, y:padT-6, 'font-size':9.5, fill:'var(--text-2)',
     'font-family':'IBM Plex Mono,monospace'});
   svg.appendChild(preview); svg.appendChild(pendLine); svg.appendChild(cross); svg.appendChild(readout);
@@ -796,8 +870,10 @@ function renderTimeline(panel, uid){
   svg.addEventListener('pointermove', ev => {
     const vx = vbX(ev), t = tAtX(vx);
     cross.setAttribute('x1', x(t)); cross.setAttribute('x2', x(t)); cross.setAttribute('visibility','visible');
-    const bin = Math.min(rates.length-1, Math.max(0, Math.floor((t-T0)/binS)));
-    readout.textContent = `t=${t.toFixed(1)}s (${fmtMin(t)}min) · ${rates[bin].toFixed(2)} Hz · around trial #${markerIndexAt(t)}`;
+    const bin = Math.min(agg.n-1, Math.max(0, Math.floor((t-T0)/binS)));
+    const a = agg.amp[bin];
+    readout.textContent = `t=${t.toFixed(1)}s (${fmtMin(t)}min) · ${rates[bin].toFixed(2)} Hz · `
+      + `amp ${isNaN(a) ? '—' : a.toFixed(0)} · around trial #${markerIndexAt(t)}`;
     if(downVX != null && Math.abs(vx - downVX) > 4){
       dragging = true;
       preview.setAttribute('x', Math.min(x(downT), x(t)));
