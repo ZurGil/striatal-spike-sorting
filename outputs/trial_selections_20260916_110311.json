@@ -1,0 +1,12 @@
+{
+  "_readme": "Per-unit kept-time-windows exported from the review tool's trial_selections database (artifact 74dec064-c86a-46a3-8c03-f112ee4ecb05) on 2026-10-15. Ranges are ABSOLUTE TRODES SECONDS. An empty ranges list, or a unit absent from this file, means KEEP EVERY TRIAL for that unit. A trial counts as inside a range iff its START falls inside it. This is a point-in-time export; the artifact database is the live source.",
+  "session_id": "20260916_110311",
+  "exported": "2026-10-15",
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "clock": "trodes_absolute_seconds",
+  "selections": {
+    "0": {"ranges": [], "note": "cleared by Gil in the tool -- all trials kept"},
+    "38": {"ranges": [{"t0": 700, "t1": 8900}], "n_markers_inside": 639, "n_markers_total": 954},
+    "163": {"ranges": [{"t0": 4500, "t1": 12690.39}], "n_markers_inside": 581, "n_markers_total": 954}
+  }
+}
