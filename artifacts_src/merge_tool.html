@@ -1,0 +1,964 @@
+<!-- Merge Adjudicator — pairwise merge decisions for one Kilosort session.
+     Data: data/merge_candidates.json, built by scripts/build_merge_candidates.py.
+     Decisions live in the artifact db (collection merge_verdicts, one doc per pair)
+     and export as the input JSON for scripts/write_unit_merges.py. -->
+<meta charset="utf-8">
+<title>Merge Adjudicator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    /* Instrument palette: cool graphite ground, one decisive accent, and two
+       categorical hues for unit A / unit B chosen across the orange-blue axis,
+       the pair that stays separable under every common colour-vision deficiency.
+       Line dash and an A/B glyph carry the same distinction, so colour is never
+       the only encoding. */
+    --ink:        #14181d;
+    --ink-2:      #3d4651;
+    --ink-3:      #6b7684;
+    --rule:       #d8dce2;
+    --rule-soft:  #e9ecf0;
+    --surface:    #f7f8fa;
+    --panel:      #ffffff;
+    --panel-2:    #f1f3f6;
+    --accent:     #1d5c7a;
+    --accent-ink: #ffffff;
+    --unit-a:     #a34a12;
+    --unit-b:     #15657f;
+    --merged:     #5b4a8a;
+    --good:       #1f6b45;
+    --warn:       #8a5a09;
+    --bad:        #9a2f2f;
+    --shade:      rgba(29, 92, 122, 0.10);
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+    --ui: "Archivo", system-ui, -apple-system, Segoe UI, sans-serif;
+    --body: "Source Sans 3", system-ui, -apple-system, Segoe UI, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink:        #e7eaee;
+      --ink-2:      #b3bcc7;
+      --ink-3:      #8491a0;
+      --rule:       #2b3238;
+      --rule-soft:  #222930;
+      --surface:    #11151a;
+      --panel:      #171c22;
+      --panel-2:    #1e242b;
+      --accent:     #6fb3d1;
+      --accent-ink: #0d1116;
+      --unit-a:     #e08a4a;
+      --unit-b:     #5fb6d6;
+      --merged:     #a496d6;
+      --good:       #5fbf8c;
+      --warn:       #e0ad52;
+      --bad:        #e58a8a;
+      --shade:      rgba(111, 179, 209, 0.14);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e7eaee; --ink-2: #b3bcc7; --ink-3: #8491a0;
+    --rule: #2b3238; --rule-soft: #222930;
+    --surface: #11151a; --panel: #171c22; --panel-2: #1e242b;
+    --accent: #6fb3d1; --accent-ink: #0d1116;
+    --unit-a: #e08a4a; --unit-b: #5fb6d6; --merged: #a496d6;
+    --good: #5fbf8c; --warn: #e0ad52; --bad: #e58a8a;
+    --shade: rgba(111, 179, 209, 0.14);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { font-family: var(--ui); margin: 0; text-wrap: balance; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------------------------------------------------------------- chrome */
+  header {
+    border-bottom: 1px solid var(--rule);
+    background: var(--panel);
+    padding: 14px 20px;
+    display: flex; flex-wrap: wrap; gap: 18px; align-items: baseline;
+  }
+  header h1 { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-3); font-size: 12.5px; font-family: var(--mono); }
+  .spacer { flex: 1 1 auto; }
+  .progress { font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
+  .progress b { color: var(--ink); }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr) 320px;
+    gap: 0;
+    align-items: stretch;
+    min-height: calc(100vh - 56px);
+  }
+  @media (max-width: 1180px) {
+    .shell { grid-template-columns: 1fr; }
+    .queue, .rail { border: none; border-bottom: 1px solid var(--rule); max-height: none; }
+  }
+
+  /* ---------------------------------------------------------------- queue */
+  .queue {
+    border-right: 1px solid var(--rule);
+    background: var(--panel);
+    display: flex; flex-direction: column;
+    max-height: calc(100vh - 56px);
+  }
+  .filters { padding: 12px 14px; border-bottom: 1px solid var(--rule-soft); }
+  .filters label { display: block; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--ink-3); margin-bottom: 5px; font-family: var(--ui); }
+  select, input[type="text"], textarea {
+    width: 100%; font-family: var(--body); font-size: 14px; color: var(--ink);
+    background: var(--panel-2); border: 1px solid var(--rule);
+    border-radius: 5px; padding: 6px 8px;
+  }
+  textarea { resize: vertical; min-height: 54px; font-size: 13.5px; }
+  .filters .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .filters .row input[type="checkbox"] { margin: 0; }
+  .filters .row span { font-size: 13px; color: var(--ink-2); }
+
+  .list { overflow-y: auto; flex: 1 1 auto; }
+  .cand {
+    width: 100%; text-align: left; display: block; cursor: pointer;
+    background: none; border: none; border-bottom: 1px solid var(--rule-soft);
+    padding: 9px 14px; font-family: var(--body); color: inherit;
+  }
+  .cand:hover { background: var(--panel-2); }
+  .cand[aria-current="true"] { background: var(--shade); box-shadow: inset 3px 0 0 var(--accent); }
+  .cand .ids { font-family: var(--mono); font-size: 13.5px; font-weight: 600; }
+  .cand .meta { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3);
+    display: flex; gap: 10px; margin-top: 2px; }
+  .cand .verdict { float: right; font-size: 11px; font-family: var(--ui);
+    font-weight: 600; letter-spacing: 0.03em; }
+  .v-merge { color: var(--good); }
+  .v-separate { color: var(--bad); }
+  .v-unsure { color: var(--warn); }
+
+  /* ---------------------------------------------------------------- centre */
+  main { padding: 18px 20px 48px; min-width: 0; }
+  .pairhead { display: flex; flex-wrap: wrap; gap: 14px; align-items: baseline;
+    margin-bottom: 14px; }
+  .pairhead h2 { font-size: 22px; font-weight: 700; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    margin-right: 5px; vertical-align: baseline; }
+  .sw-a { background: var(--unit-a); }
+  .sw-b { background: var(--unit-b); }
+  .sw-m { background: var(--merged); }
+
+  .evidence { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px; margin-bottom: 18px; }
+  .chip { border: 1px solid var(--rule); border-radius: 7px; padding: 9px 11px;
+    background: var(--panel); }
+  .chip .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); font-family: var(--ui); font-weight: 600; }
+  .chip .v { font-family: var(--mono); font-size: 19px; font-weight: 600; margin-top: 1px; }
+  .chip .n { font-size: 12px; color: var(--ink-2); line-height: 1.35; }
+  .chip.is-good { border-left: 3px solid var(--good); }
+  .chip.is-warn { border-left: 3px solid var(--warn); }
+  .chip.is-bad  { border-left: 3px solid var(--bad); }
+  .chip.is-flat { border-left: 3px solid var(--rule); }
+
+  .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 14px 16px 10px; margin-bottom: 16px; }
+  .panel > h3 { font-size: 14.5px; font-weight: 600; }
+  .panel > .why { color: var(--ink-3); font-size: 12.5px; margin: 2px 0 10px; max-width: 72ch; }
+  .charts3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .chartbox { min-width: 0; }
+  .chartbox h4 { font-size: 12px; font-weight: 600; color: var(--ink-2);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis { font-family: var(--mono); font-size: 9.5px; fill: var(--ink-3); }
+  .axis-line { stroke: var(--rule); stroke-width: 1; }
+  .grid { stroke: var(--rule-soft); stroke-width: 1; }
+  .bar { fill: var(--ink-2); }
+  .bar-refr { fill: var(--accent); }
+  .lbl { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-2); }
+  .lbl-strong { font-family: var(--mono); font-size: 11.5px; font-weight: 600; fill: var(--ink); }
+  .trace-a { stroke: var(--unit-a); fill: none; stroke-width: 2; }
+  .trace-b { stroke: var(--unit-b); fill: none; stroke-width: 2; stroke-dasharray: 5 2.5; }
+  .trace-m { stroke: var(--merged); fill: none; stroke-width: 2; }
+  .dot-a { fill: var(--unit-a); }
+  .dot-b { fill: var(--unit-b); }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-2);
+    font-family: var(--mono); margin-top: 6px; flex-wrap: wrap; }
+
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.cmp th, table.cmp td { text-align: right; padding: 4px 6px;
+    border-bottom: 1px solid var(--rule-soft); font-family: var(--mono);
+    font-variant-numeric: tabular-nums; }
+  table.cmp th:first-child, table.cmp td:first-child { text-align: left;
+    font-family: var(--body); color: var(--ink-2); }
+  table.cmp thead th { color: var(--ink); font-family: var(--ui); font-size: 12px; }
+
+  /* ---------------------------------------------------------------- rail */
+  .rail { border-left: 1px solid var(--rule); background: var(--panel);
+    padding: 16px 16px 40px; max-height: calc(100vh - 56px); overflow-y: auto; }
+  .rail h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--ink-3); margin: 18px 0 8px; font-weight: 600; }
+  .rail h3:first-child { margin-top: 0; }
+  .btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button.act {
+    font-family: var(--ui); font-weight: 600; font-size: 13.5px; cursor: pointer;
+    border: 1px solid var(--rule); background: var(--panel-2); color: var(--ink);
+    border-radius: 6px; padding: 9px 10px;
+  }
+  button.act:hover { border-color: var(--ink-3); }
+  button.act.wide { grid-column: 1 / -1; }
+  button.act[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink);
+    border-color: var(--accent); }
+  button.act:focus-visible, .cand:focus-visible, select:focus-visible,
+  textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .kbd { font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+    border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px; margin-left: 4px; }
+  .status { font-size: 12px; color: var(--ink-3); font-family: var(--mono);
+    margin-top: 8px; min-height: 1.4em; }
+  pre.out { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 10px; font-family: var(--mono); font-size: 11.5px; overflow-x: auto;
+    color: var(--ink-2); max-height: 230px; }
+  .note { font-size: 12.5px; color: var(--ink-3); }
+  .tip { position: fixed; pointer-events: none; z-index: 40; background: var(--ink);
+    color: var(--surface); font-family: var(--mono); font-size: 11.5px;
+    padding: 4px 7px; border-radius: 4px; opacity: 0; transition: opacity .09s; }
+  .tip.on { opacity: 1; }
+  .loading { padding: 40px 20px; color: var(--ink-3); font-family: var(--mono); }
+</style>
+
+<header>
+  <div>
+    <h1>Merge Adjudicator</h1>
+    <div class="sub" id="sess">loading…</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="progress" id="prog"></div>
+</header>
+
+<div class="shell">
+  <aside class="queue">
+    <div class="filters">
+      <label for="f-order">Order the queue by</label>
+      <select id="f-order">
+        <option value="dip">CCG refractory dip (the evidence)</option>
+        <option value="sim">Kilosort template similarity</option>
+        <option value="wf">Waveform correlation</option>
+        <option value="drift">Drift signature (anti-correlated rates)</option>
+        <option value="dist">Distance on the probe</option>
+      </select>
+      <div class="row">
+        <input type="checkbox" id="f-undecided">
+        <span>Undecided only</span>
+      </div>
+      <div class="row">
+        <input type="checkbox" id="f-measurable" checked>
+        <span>Only pairs whose dip is measurable</span>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+
+  <main id="main"><div class="loading">Loading candidates…</div></main>
+
+  <aside class="rail" id="rail"></aside>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+
+/* ============================================================== constants */
+/* A merged unit inherits this floor for its id; kept identical to
+   sync_pipeline.unit_merges.MERGED_ID_BASE so the exported manifest's ids mean the
+   same thing the pipeline means by them. */
+const MERGED_ID_BASE = 10000;
+
+/* Evidence thresholds. These are display thresholds only -- they colour a chip and
+   word a sentence, they never decide anything. Every number they are derived from is
+   shown next to them so a reader can disagree. */
+const DIP_ONE_NEURON = 0.45;   /* below: consistent with a single neuron */
+const DIP_TWO_NEURONS = 0.8;   /* above: flat CCG, two neurons */
+const DIP_SYNC = 1.5;          /* above: a zero-lag PEAK, i.e. synchrony, not identity */
+const EXPECTED_STRONG = 20;    /* expected refractory-window counts for a firm read */
+const EXPECTED_USABLE = 5;
+const WF_SAME_SHAPE = 0.9;
+const DRIFT_RATE_CORR = -0.1;  /* rate timelines trading places */
+const DRIFT_OVERLAP = 0.35;    /* little simultaneous activity */
+
+/* ============================================================== state */
+let DATA = null;
+let order = [];               /* pair_id list, in queue order */
+let current = null;           /* pair_id */
+let verdicts = Object.create(null);   /* pair_id -> {verdict, quality_label, note} */
+let db = null, downloads = null;
+let dbStatus = "connecting";
+
+/* ============================================================== helpers */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (v, d) => (v === null || v === undefined || Number.isNaN(v))
+  ? "—" : Number(v).toFixed(d === undefined ? 2 : d);
+const pair = (id) => DATA.pairs.find((p) => p.pair_id === id);
+const unit = (u) => DATA.units[String(u)];
+
+/* Is this pair's dip ratio actually a measurement? A ratio of 0.0 computed where the
+   correlogram expects 0.7 counts is not evidence of anything. */
+function dipStrength(p) {
+  const exp = p.ccg.expected_refractory || 0;
+  if (p.ccg.dip_ratio === null) return "none";
+  if (exp >= EXPECTED_STRONG) return "strong";
+  if (exp >= EXPECTED_USABLE) return "usable";
+  return "weak";
+}
+
+function dipVerdictText(p) {
+  const d = p.ccg.dip_ratio, s = dipStrength(p);
+  if (d === null || s === "none") return ["is-flat", "no coincident spikes at all"];
+  const conf = s === "strong" ? "" : s === "usable" ? " (thin statistics)" : " — too few coincidences to trust";
+  if (s === "weak") return ["is-flat", "only " + fmt(p.ccg.expected_refractory, 1) +
+    " counts expected in the window" + conf];
+  if (d >= DIP_SYNC) return ["is-bad", "a PEAK at zero lag: synchrony or a double-detected spike, not one neuron" + conf];
+  if (d >= DIP_TWO_NEURONS) return ["is-bad", "flat through the refractory window: two neurons" + conf];
+  if (d <= DIP_ONE_NEURON) return ["is-good", "a real refractory dip: consistent with ONE neuron" + conf];
+  return ["is-warn", "a partial dip: contaminated, or one neuron plus a neighbour" + conf];
+}
+
+function driftLike(p) {
+  return p.rate_corr !== null && p.rate_corr <= DRIFT_RATE_CORR
+      && p.active_overlap !== null && p.active_overlap <= DRIFT_OVERLAP;
+}
+
+/* ============================================================== charts */
+/* Every chart here is drawn from one scale, labels included, and takes its text
+   colour from the theme tokens rather than from the series colour. */
+
+function axisBottom(g, x0, x1, y, ticks, fmtTick) {
+  let s = '<line class="axis-line" x1="' + x0 + '" x2="' + x1 + '" y1="' + y + '" y2="' + y + '"/>';
+  ticks.forEach((t) => {
+    s += '<line class="axis-line" x1="' + t.x + '" x2="' + t.x + '" y1="' + y + '" y2="' + (y + 4) + '"/>';
+    s += '<text class="axis" x="' + t.x + '" y="' + (y + 14) + '" text-anchor="middle">' +
+      esc(fmtTick ? fmtTick(t.v) : t.v) + "</text>";
+  });
+  return s;
+}
+
+/* A correlogram: bars on a lag axis, with the refractory window shaded and the
+   flank rate drawn as the reference the dip is measured against. */
+function correlogramSVG(hist, binMs, maxLagMs, opts) {
+  opts = opts || {};
+  /* The small multiples get their own narrower viewBox rather than a shrunken copy
+     of the hero's: an SVG scaled into a third of the width scales its text down too,
+     and an axis you cannot read is not an axis. */
+  const W = opts.width || 460, H = opts.height || 150, L = 34, R = 8, T = 10, B = 26;
+  const n = hist.length, iw = W - L - R, ih = H - T - B;
+  const max = Math.max(1, ...hist);
+  const refr = opts.refractoryMs || DATA.refractory_ms;
+  const bw = iw / n;
+  const xOf = (i) => L + i * bw;
+  const lagOf = (i) => -maxLagMs + (i + 0.5) * binMs;
+  let s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="correlogram">';
+  /* refractory window first, so bars sit on top of it */
+  const rx0 = L + ((-refr + maxLagMs) / (2 * maxLagMs)) * iw;
+  const rx1 = L + ((refr + maxLagMs) / (2 * maxLagMs)) * iw;
+  s += '<rect x="' + rx0 + '" y="' + T + '" width="' + (rx1 - rx0) + '" height="' + ih +
+       '" fill="var(--shade)"/>';
+  s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + T + '" y2="' + T + '"/>';
+  for (let i = 0; i < n; i++) {
+    const h = (hist[i] / max) * ih;
+    const inRefr = Math.abs(lagOf(i)) <= refr;
+    s += '<rect class="' + (inRefr ? "bar-refr" : "bar") + '" x="' + (xOf(i) + 0.3) +
+         '" y="' + (T + ih - h) + '" width="' + Math.max(0.7, bw - 0.6) +
+         '" height="' + h + '" data-lag="' + lagOf(i).toFixed(2) + '" data-n="' + hist[i] + '"/>';
+  }
+  /* the flank rate: what a flat correlogram would put in every bin */
+  if (opts.flank !== undefined && opts.flank !== null && opts.flank > 0) {
+    const fy = T + ih - (opts.flank / max) * ih;
+    s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + fy + '" y2="' + fy +
+         '" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="3 3"/>';
+    s += '<text class="lbl" x="' + (L + 3) + '" y="' + (fy - 4) + '" text-anchor="start">flank ' +
+      fmt(opts.flank, 1) + "/bin</text>";
+  }
+  s += '<text class="axis" x="' + (W - R) + '" y="' + (T + 8) + '" text-anchor="end">' + max + "</text>";
+  s += '<text class="axis" x="' + (L - 4) + '" y="' + (T + ih) + '" text-anchor="end">0</text>';
+  const ticks = [-maxLagMs, -maxLagMs / 2, 0, maxLagMs / 2, maxLagMs].map((v) => (
+    { v: v, x: L + ((v + maxLagMs) / (2 * maxLagMs)) * iw }));
+  s += axisBottom(null, L, W - R, T + ih, ticks, (v) => v + "");
+  s += '<text class="axis" x="' + ((L + W - R) / 2) + '" y="' + (H - 2) +
+       '" text-anchor="middle">lag (ms)</text>';
+  s += "</svg>";
+  return s;
+}
+
+/* Two mean waveforms on one channel, in microvolts on one shared scale. The scale is
+   the point: a normalised overlay makes a 40 uV unit and a 400 uV unit look alike. */
+function waveformSVG(a, b, chIdx, chIdxB, label) {
+  const W = 300, H = 178, L = 38, R = 10, T = 12, B = 30;
+  const wa = a.waveform.uv[chIdx], wb = b.waveform.uv[chIdxB];
+  const n = wa.length, iw = W - L - R, ih = H - T - B;
+  const lo = Math.min(...wa, ...wb), hi = Math.max(...wa, ...wb);
+  const pad = (hi - lo) * 0.1 || 1;
+  const y0 = lo - pad, y1 = hi + pad;
+  const X = (i) => L + (i / (n - 1)) * iw;
+  const Y = (v) => T + ih - ((v - y0) / (y1 - y0)) * ih;
+  const path = (w) => w.map((v, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join(" ");
+  let s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="mean waveforms">';
+  const zy = Y(0);
+  s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + zy + '" y2="' + zy + '"/>';
+  s += '<path class="trace-a" d="' + path(wa) + '"/>';
+  s += '<path class="trace-b" d="' + path(wb) + '"/>';
+  [y0 + pad, y1 - pad].forEach((v) => {
+    s += '<text class="axis" x="' + (L - 4) + '" y="' + (Y(v) + 3) + '" text-anchor="end">' +
+      Math.round(v) + "</text>";
+  });
+  s += '<text class="axis" x="4" y="' + (T + 8) + '">µV</text>';
+  const msPer = 1000 / DATA.fs_hz;
+  const ticks = [0, Math.floor(n / 2), n - 1].map((i) => ({ v: ((i - 20) * msPer).toFixed(1), x: X(i) }));
+  s += axisBottom(null, L, W - R, T + ih, ticks, (v) => v);
+  s += '<text class="axis" x="' + ((L + W - R) / 2) + '" y="' + (H - 1) +
+       '" text-anchor="middle">ms from trough — ' + esc(label) + "</text>";
+  s += "</svg>";
+  return s;
+}
+
+/* Footprint: how big each unit is on each nearby channel, against real depth. Two
+   clusters that are one neuron decay the same way down the probe. */
+function footprintSVG(a, b) {
+  const W = 300, H = 198, L = 44, R = 12, T = 12, B = 32;
+  /* Neuropixels puts two channels at the same depth, staggered in x. Plotting both
+     against depth draws a zigzag that looks like structure and is only geometry, so
+     each depth contributes the LARGER of its channels -- the profile a neuron's
+     footprint actually has as you move along the probe. */
+  const rows = [];
+  const collect = (u, who) => {
+    const byDepth = new Map();
+    u.waveform.channels.forEach((c, i) => {
+      const amp = Math.max(...u.waveform.uv[i].map(Math.abs));
+      const d = u.waveform.channel_um[i][1];
+      const prev = byDepth.get(d);
+      if (!prev || amp > prev.amp) byDepth.set(d, { ch: c, depth: d, amp: amp, who: who });
+    });
+    byDepth.forEach((r) => rows.push(r));
+  };
+  collect(a, "a");
+  collect(b, "b");
+  const depths = rows.map((r) => r.depth), amps = rows.map((r) => r.amp);
+  const d0 = Math.min(...depths), d1 = Math.max(...depths);
+  const amax = Math.max(1, ...amps);
+  const iw = W - L - R, ih = H - T - B;
+  const X = (v) => L + (v / amax) * iw;
+  const Y = (d) => T + ih - ((d - d0) / Math.max(1, d1 - d0)) * ih;
+  let s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="footprint by depth">';
+  s += '<line class="axis-line" x1="' + L + '" x2="' + L + '" y1="' + T + '" y2="' + (T + ih) + '"/>';
+  ["a", "b"].forEach((who) => {
+    const set = rows.filter((r) => r.who === who).sort((p, q) => p.depth - q.depth);
+    s += '<path class="' + (who === "a" ? "trace-a" : "trace-b") + '" d="' +
+      set.map((r, i) => (i ? "L" : "M") + X(r.amp).toFixed(1) + " " + Y(r.depth).toFixed(1)).join(" ") +
+      '"/>';
+    set.forEach((r) => {
+      s += '<circle class="' + (who === "a" ? "dot-a" : "dot-b") + '" cx="' + X(r.amp).toFixed(1) +
+        '" cy="' + Y(r.depth).toFixed(1) + '" r="2.6" data-tip="ch ' + r.ch + " · " +
+        Math.round(r.amp) + " µV · " + Math.round(r.depth) + ' µm"/>';
+    });
+  });
+  [d0, d1].forEach((d) => {
+    s += '<text class="axis" x="' + (L - 5) + '" y="' + (Y(d) + 3) + '" text-anchor="end">' +
+      Math.round(d) + "</text>";
+  });
+  s += '<text class="axis" x="4" y="' + (T + 8) + '">µm</text>';
+  const ticks = [0, amax / 2, amax].map((v) => ({ v: Math.round(v), x: X(v) }));
+  s += axisBottom(null, L, W - R, T + ih, ticks, (v) => v);
+  s += '<text class="axis" x="' + ((L + W - R) / 2) + '" y="' + (H - 1) +
+       '" text-anchor="middle">peak amplitude (µV) by channel depth</text>';
+  s += "</svg>";
+  return s;
+}
+
+/* Both units' firing rate across the whole session. This is the panel that catches a
+   drift pair, where the CCG has nothing to say because the two units are never
+   present at the same time. */
+function timelineSVG(a, b) {
+  const W = 920, H = 158, L = 44, R = 12, T = 12, B = 32;
+  const bin = DATA.timeline.bin_s, t0 = DATA.timeline.t0_s;
+  const ra = (a.rate_timeline || []).map((c) => c / bin);
+  const rb = (b.rate_timeline || []).map((c) => c / bin);
+  const n = Math.max(ra.length, rb.length);
+  const max = Math.max(1, ...ra, ...rb);
+  const iw = W - L - R, ih = H - T - B;
+  const X = (i) => L + (i / Math.max(1, n - 1)) * iw;
+  const Y = (v) => T + ih - (v / max) * ih;
+  const path = (arr) => arr.map((v, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join(" ");
+  let s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="firing rate across the session">';
+  s += '<line class="axis-line" x1="' + L + '" x2="' + L + '" y1="' + T + '" y2="' + (T + ih) + '"/>';
+  s += '<path class="trace-a" d="' + path(ra) + '"/>';
+  s += '<path class="trace-b" d="' + path(rb) + '"/>';
+  s += '<text class="axis" x="' + (L - 5) + '" y="' + (T + 8) + '" text-anchor="end">' +
+    Math.round(max) + "</text>";
+  s += '<text class="axis" x="' + (L - 5) + '" y="' + (T + ih) + '" text-anchor="end">0</text>';
+  s += '<text class="axis" x="4" y="' + (T - 2) + '">Hz</text>';
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => (
+    { v: Math.round((t0 + f * (n - 1) * bin) / 60), x: L + f * iw }));
+  s += axisBottom(null, L, W - R, T + ih, ticks, (v) => v);
+  s += '<text class="axis" x="' + ((L + W - R) / 2) + '" y="' + (H - 1) +
+       '" text-anchor="middle">minutes into the recording (' + bin + ' s bins)</text>';
+  s += "</svg>";
+  return s;
+}
+
+/* ============================================================== rendering */
+function queueOrder() {
+  const mode = $("f-order").value;
+  const undecidedOnly = $("f-undecided").checked;
+  const measurableOnly = $("f-measurable").checked;
+  let ps = DATA.pairs.slice();
+  if (undecidedOnly) ps = ps.filter((p) => !verdicts[p.pair_id]);
+  if (measurableOnly && mode === "dip") {
+    ps = ps.filter((p) => dipStrength(p) === "strong" || dipStrength(p) === "usable");
+  }
+  const key = {
+    dip: (p) => (p.ccg.dip_ratio === null ? 99 : p.ccg.dip_ratio),
+    sim: (p) => -(p.template_similarity || 0),
+    wf: (p) => -(p.waveform_corr === null ? -9 : p.waveform_corr),
+    drift: (p) => (p.rate_corr === null ? 99 : p.rate_corr),
+    dist: (p) => p.distance_um,
+  }[mode];
+  ps.sort((x, y) => key(x) - key(y));
+  return ps.map((p) => p.pair_id);
+}
+
+function renderQueue() {
+  order = queueOrder();
+  const html = order.map((id) => {
+    const p = pair(id), v = verdicts[id];
+    const vtxt = v ? '<span class="verdict v-' + v.verdict + '">' +
+      ({ merge: "MERGE", separate: "SEPARATE", unsure: "UNSURE" }[v.verdict] || "") + "</span>" : "";
+    return '<button class="cand" data-id="' + id + '" aria-current="' + (id === current) + '">' +
+      vtxt +
+      '<div class="ids">' + p.unit_a + " + " + p.unit_b + "</div>" +
+      '<div class="meta"><span>dip ' + (p.ccg.dip_ratio === null ? "—" : fmt(p.ccg.dip_ratio)) +
+      "</span><span>r " + fmt(p.waveform_corr) + "</span><span>" +
+      fmt(p.distance_um, 0) + "µm</span></div></button>";
+  }).join("");
+  $("list").innerHTML = html || '<div class="loading">Nothing matches this filter.</div>';
+  const n = Object.keys(verdicts).length;
+  const merges = Object.values(verdicts).filter((v) => v.verdict === "merge").length;
+  $("prog").innerHTML = "<b>" + n + "</b> of " + DATA.pairs.length + " pairs decided · <b>" +
+    merges + "</b> marked merge · " + dbStatus;
+}
+
+function renderPair() {
+  const p = pair(current);
+  if (!p) { $("main").innerHTML = '<div class="loading">Pick a candidate.</div>'; return; }
+  const a = unit(p.unit_a), b = unit(p.unit_b);
+  const [dipCls, dipText] = dipVerdictText(p);
+
+  const wfCls = p.waveform_corr === null ? "is-flat"
+    : p.waveform_corr >= WF_SAME_SHAPE ? "is-good"
+    : p.waveform_corr >= 0.75 ? "is-warn" : "is-bad";
+  const distCls = p.distance_um === 0 ? "is-good" : p.distance_um <= 32 ? "is-warn" : "is-bad";
+  const costPct = p.merged_refractory.violation_pct;
+  const worstParent = Math.max(p.refractory_a.violation_pct || 0, p.refractory_b.violation_pct || 0);
+  const costCls = costPct === null ? "is-flat"
+    : costPct <= Math.max(0.5, worstParent * 1.5) ? "is-good"
+    : costPct <= 2 ? "is-warn" : "is-bad";
+
+  /* The shared channel to overlay on: where unit A is biggest among the channels
+     both units carry. Comparing them on different channels would compare nothing. */
+  const shared = a.waveform.channels.filter((c) => b.waveform.channels.indexOf(c) >= 0);
+  let ia = 0, ib = 0, chLabel = "no shared channel";
+  if (shared.length) {
+    let best = shared[0], bestAmp = -1;
+    shared.forEach((c) => {
+      const amp = Math.max(...a.waveform.uv[a.waveform.channels.indexOf(c)].map(Math.abs));
+      if (amp > bestAmp) { bestAmp = amp; best = c; }
+    });
+    ia = a.waveform.channels.indexOf(best);
+    ib = b.waveform.channels.indexOf(best);
+    chLabel = "channel " + best;
+  }
+
+  const chip = (k, v, n, cls) => '<div class="chip ' + cls + '"><div class="k">' + k +
+    '</div><div class="v">' + v + '</div><div class="n">' + n + "</div></div>";
+
+  let h = '<div class="pairhead"><h2>' +
+    '<span class="swatch sw-a"></span>unit ' + p.unit_a + '  +  ' +
+    '<span class="swatch sw-b"></span>unit ' + p.unit_b + "</h2>" +
+    '<div class="sub">' + esc(a.label || "?") + " / " + esc(b.label || "?") +
+    " · " + a.n_spikes.toLocaleString() + " + " + b.n_spikes.toLocaleString() + " spikes" +
+    " · ch " + a.peak_channel + " / " + b.peak_channel +
+    (driftLike(p) ? " · <b>drift-pair signature</b>" : "") + "</div></div>";
+
+  h += '<div class="evidence">' +
+    chip("Refractory dip", p.ccg.dip_ratio === null ? "—" : fmt(p.ccg.dip_ratio), dipText, dipCls) +
+    chip("Waveform match", fmt(p.waveform_corr), "r on " + esc(chLabel) +
+      ", amplitude ratio " + fmt(p.amplitude_ratio), wfCls) +
+    chip("Distance", fmt(p.distance_um, 0) + " µm",
+      p.distance_um === 0 ? "same channel position" : "between peak channels on the probe", distCls) +
+    chip("Cost of merging", costPct === null ? "—" : fmt(costPct, 3) + "%",
+      "refractory violations of the combined train, against " +
+      fmt(p.refractory_a.violation_pct, 3) + "% / " + fmt(p.refractory_b.violation_pct, 3) +
+      "% apart", costCls) +
+    "</div>";
+
+  h += '<div class="panel"><h3>The cross-correlogram decides it</h3>' +
+    '<div class="why">Counts of unit ' + p.unit_b + "'s spikes relative to each of unit " +
+    p.unit_a + "'s, over ±" + p.ccg_max_lag_ms + " ms. One neuron cannot fire twice " +
+    "inside its refractory period, so if these two clusters are the same neuron the " +
+    "shaded ±" + DATA.refractory_ms + " ms window is <em>empty</em>. If they are two " +
+    "neurons it is as full as the flanks. " + p.ccg.n_refractory + " observed against " +
+    fmt(p.ccg.expected_refractory, 1) + " expected" +
+    (dipStrength(p) === "weak" ? " — which is too few to conclude anything; decide this pair on the waveform and the timeline." : ".") +
+    "</div>" +
+    correlogramSVG(p.ccg_hist, p.ccg_bin_ms, p.ccg_max_lag_ms,
+      { flank: p.ccg.flank_per_bin, height: 170 }) +
+    '<div class="legend"><span>dip ratio ' + (p.ccg.dip_ratio === null ? "—" : fmt(p.ccg.dip_ratio)) +
+    "</span><span>peak at " + fmt(p.ccg.peak_lag_ms, 1) + " ms</span><span>" +
+    p.ccg.n_total.toLocaleString() + " coincident spikes total</span></div></div>";
+
+  h += '<div class="panel"><h3>Autocorrelograms — before, and after merging</h3>' +
+    '<div class="why">Each unit alone, then the combined train. The merged ACG is the ' +
+    "closest thing to looking at the unit this merge would create: if it has a clean " +
+    "refractory gap, the merge is physiologically possible. If merging fills the gap in, " +
+    "it is not one neuron however alike the waveforms look.</div>" +
+    '<div class="charts3">' +
+    '<div class="chartbox"><h4><span class="swatch sw-a"></span>unit ' + p.unit_a +
+    " · " + fmt(p.refractory_a.violation_pct, 3) + "% violations</h4>" +
+    correlogramSVG(a.acg_hist, a.acg_bin_ms, a.acg_max_lag_ms, { height: 132, width: 250 }) + "</div>" +
+    '<div class="chartbox"><h4><span class="swatch sw-b"></span>unit ' + p.unit_b +
+    " · " + fmt(p.refractory_b.violation_pct, 3) + "% violations</h4>" +
+    correlogramSVG(b.acg_hist, b.acg_bin_ms, b.acg_max_lag_ms, { height: 132, width: 250 }) + "</div>" +
+    '<div class="chartbox"><h4><span class="swatch sw-m"></span>merged · ' +
+    fmt(costPct, 3) + "% violations</h4>" +
+    correlogramSVG(p.merged_acg_hist, p.ccg_bin_ms, p.ccg_max_lag_ms, { height: 132, width: 250 }) + "</div>" +
+    "</div></div>";
+
+  h += '<div class="panel"><h3>Same shape, same size, same place</h3>' +
+    '<div class="why">Mean raw waveforms in microvolts on one shared scale — not ' +
+    "normalised, because a 40 µV unit and a 400 µV unit are not the same neuron no " +
+    "matter how similar their shapes are. The footprint on the right is how fast each " +
+    "one decays along the probe; one neuron has one footprint.</div>" +
+    '<div class="charts3">' +
+    '<div class="chartbox">' + waveformSVG(a, b, ia, ib, chLabel) + "</div>" +
+    '<div class="chartbox">' + footprintSVG(a, b) + "</div>" +
+    "</div>" +
+    '<div class="legend"><span><span class="swatch sw-a"></span>unit ' + p.unit_a +
+    " — " + a.waveform.n_spikes_averaged + " spikes averaged</span>" +
+    '<span><span class="swatch sw-b"></span>unit ' + p.unit_b + " — " +
+    b.waveform.n_spikes_averaged + " spikes averaged (dashed)</span>" +
+    "<span>Kilosort template similarity " + fmt(p.template_similarity, 3) + "</span></div></div>";
+
+  h += '<div class="panel"><h3>Across the session — the drift-pair check</h3>' +
+    '<div class="why">A true merge is often a unit drifting off the electrode as ' +
+    "another appears. Then the two are never present together, the correlogram has " +
+    "almost nothing in it, and <em>this</em> is the panel that decides: rates that trade " +
+    "places. Rate correlation " + fmt(p.rate_corr) + ", simultaneous-activity overlap " +
+    fmt(p.active_overlap) + (driftLike(p) ? " — a drift-pair signature." : ".") + "</div>" +
+    timelineSVG(a, b) +
+    '<div class="legend"><span><span class="swatch sw-a"></span>unit ' + p.unit_a +
+    '</span><span><span class="swatch sw-b"></span>unit ' + p.unit_b +
+    " (dashed)</span></div></div>";
+
+  h += '<div class="panel"><h3>Both units, side by side</h3>' +
+    '<table class="cmp"><thead><tr><th>metric</th><th>unit ' + p.unit_a +
+    "</th><th>unit " + p.unit_b + "</th></tr></thead><tbody>" +
+    [["label", a.label, b.label],
+     ["spikes", a.n_spikes.toLocaleString(), b.n_spikes.toLocaleString()],
+     ["mean rate (Hz)", fmt(a.mean_rate_hz), fmt(b.mean_rate_hz)],
+     ["peak channel", a.peak_channel, b.peak_channel],
+     ["Trodes channel", a.trodes_channel === null ? "—" : a.trodes_channel,
+      b.trodes_channel === null ? "—" : b.trodes_channel],
+     ["depth on probe (µm)", fmt(a.depth_um, 0), fmt(b.depth_um, 0)],
+     ["refractory violations (%)", fmt(p.refractory_a.violation_pct, 3),
+      fmt(p.refractory_b.violation_pct, 3)],
+     ["separation vs noise", fmt(a.sep_vs_noise), fmt(b.sep_vs_noise)],
+     ["separation vs others", fmt(a.sep_vs_other), fmt(b.sep_vs_other)]]
+      .map((r) => "<tr><td>" + esc(r[0]) + "</td><td>" + esc(String(r[1])) +
+        "</td><td>" + esc(String(r[2])) + "</td></tr>").join("") +
+    "</tbody></table></div>";
+
+  $("main").innerHTML = h;
+  attachTips();
+}
+
+function renderRail() {
+  const p = pair(current);
+  if (!p) { $("rail").innerHTML = ""; return; }
+  const v = verdicts[current] || {};
+  const groups = mergeGroups();
+  let h = "<h3>Your call on this pair</h3>" +
+    '<div class="btnrow">' +
+    '<button class="act" id="b-merge" aria-pressed="' + (v.verdict === "merge") +
+    '">Merge<span class="kbd">m</span></button>' +
+    '<button class="act" id="b-sep" aria-pressed="' + (v.verdict === "separate") +
+    '">Separate<span class="kbd">s</span></button>' +
+    '<button class="act wide" id="b-unsure" aria-pressed="' + (v.verdict === "unsure") +
+    '">Unsure — look again later<span class="kbd">u</span></button>' +
+    "</div>";
+
+  h += "<h3>Score the merged unit</h3>" +
+    '<div class="note">Only you can do this, and only from what is on the left: the ' +
+    "merged ACG and the combined waveform <em>are</em> the merged unit. Leave it unset " +
+    "and the pipeline inherits the parents' label — which falls back to <code>mua</code> " +
+    "when they disagree and will undersell a real merge.</div>" +
+    '<div class="btnrow" style="margin-top:8px">' +
+    '<button class="act" id="b-good" aria-pressed="' + (v.quality_label === "good") +
+    '">good</button>' +
+    '<button class="act" id="b-mua" aria-pressed="' + (v.quality_label === "mua") +
+    '">mua</button>' +
+    '<button class="act wide" id="b-nolabel" aria-pressed="' + (!v.quality_label) +
+    '">leave unset (inherit)</button></div>';
+
+  h += "<h3>Why — goes into the manifest</h3>" +
+    '<textarea id="t-note" placeholder="e.g. drift pair; CCG dip 0.31, waveform r 0.95">' +
+    esc(v.note || "") + "</textarea>" +
+    '<div class="status" id="st"></div>';
+
+  h += "<h3>Export · " + groups.length + " merge" + (groups.length === 1 ? "" : "s") + "</h3>";
+  if (!groups.length) {
+    h += '<div class="note">Nothing marked merge yet. Accepted pairs are chained ' +
+      "transitively here — if you accept 38+163 and 163+204, that becomes one " +
+      "three-parent merge, which is what the pipeline requires.</div>";
+  } else {
+    h += '<pre class="out">' + esc(JSON.stringify(exportDoc(), null, 2)) + "</pre>" +
+      '<div class="btnrow" style="margin-top:8px">' +
+      '<button class="act wide" id="b-dl">Download merges.json</button>' +
+      '<button class="act wide" id="b-copy">Copy to clipboard</button></div>' +
+      '<div class="note" style="margin-top:10px">Then, on the rig:</div>' +
+      '<pre class="out">python scripts/write_unit_merges.py \\\n  ' + esc(DATA.session_id) +
+      " \\\n  F:\\Gil\\Shamir\\" + esc(DATA.session_id) + ".rec \\\n  merges.json\n\n" +
+      "# then re-run sync_pipeline for the session</pre>" +
+      '<div class="note">That script allocates the merged ids from ' + MERGED_ID_BASE +
+      ", freezes the union of the parents' stability windows, and never touches " +
+      "<code>spike_clusters.npy</code>.</div>";
+  }
+
+  h += "<h3>This dataset</h3>" +
+    '<div class="note num">' + esc(DATA.session_id) + "<br>" +
+    DATA.n_units_non_noise + " non-noise units of " + DATA.n_units_total + "<br>" +
+    DATA.n_pairs_in_range + " pairs within " + DATA.max_dist_um + " µm<br>" +
+    "sha1 " + esc(String(DATA.clustering.spike_clusters_sha1).slice(0, 12)) + "…<br>" +
+    "built " + esc(DATA.built) + "</div>";
+
+  $("rail").innerHTML = h;
+
+  const setV = (verdict) => saveVerdict({ verdict: verdict });
+  $("b-merge").onclick = () => setV("merge");
+  $("b-sep").onclick = () => setV("separate");
+  $("b-unsure").onclick = () => setV("unsure");
+  $("b-good").onclick = () => saveVerdict({ quality_label: "good" });
+  $("b-mua").onclick = () => saveVerdict({ quality_label: "mua" });
+  $("b-nolabel").onclick = () => saveVerdict({ quality_label: "" });
+  let noteTimer = null;
+  $("t-note").oninput = (e) => {
+    const val = e.target.value;
+    clearTimeout(noteTimer);
+    /* One write per pause, never one per keystroke. */
+    noteTimer = setTimeout(() => saveVerdict({ note: val }, true), 600);
+  };
+  if ($("b-dl")) $("b-dl").onclick = doDownload;
+  if ($("b-copy")) $("b-copy").onclick = doCopy;
+}
+
+/* ============================================================== decisions */
+/* Accepted pairs are chained transitively: the pipeline refuses a unit that parents
+   two different merges, so 38+163 and 163+204 must become one merge of three. */
+function mergeGroups() {
+  const parent = Object.create(null);
+  const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const seen = [];
+  Object.keys(verdicts).forEach((id) => {
+    if (verdicts[id].verdict !== "merge") return;
+    const p = pair(id);
+    if (!p) return;
+    [p.unit_a, p.unit_b].forEach((u) => { if (!(u in parent)) { parent[u] = u; } });
+    const ra = find(p.unit_a), rb = find(p.unit_b);
+    if (ra !== rb) parent[ra] = rb;
+    seen.push(id);
+  });
+  const groups = Object.create(null);
+  Object.keys(parent).forEach((u) => {
+    const r = find(Number(u));
+    (groups[r] = groups[r] || []).push(Number(u));
+  });
+  return Object.keys(groups).map((r) => {
+    const members = groups[r].sort((x, y) => x - y);
+    const pairIds = seen.filter((id) => {
+      const p = pair(id);
+      return members.indexOf(p.unit_a) >= 0 && members.indexOf(p.unit_b) >= 0;
+    });
+    const labels = pairIds.map((id) => verdicts[id].quality_label).filter(Boolean);
+    const notes = pairIds.map((id) => verdicts[id].note).filter(Boolean);
+    return {
+      parents: members,
+      pairIds: pairIds,
+      label: labels.length ? labels[labels.length - 1] : "",
+      labelConflict: new Set(labels).size > 1,
+      note: notes.join("; "),
+    };
+  }).sort((x, y) => x.parents[0] - y.parents[0]);
+}
+
+function exportDoc() {
+  const groups = mergeGroups();
+  return {
+    /* Exactly the shape scripts/write_unit_merges.py accepts. The clustering
+       fingerprint travels along so a manifest can never be applied to the wrong
+       sorting by accident. */
+    session_id: DATA.session_id,
+    decided_in: "Merge Adjudicator artifact",
+    clustering: DATA.clustering,
+    merges: groups.map((g) => {
+      const m = { parents: g.parents };
+      if (g.label) m.quality_label = g.label;
+      m.note = g.note || ("pairwise merge review; " + g.pairIds.join(", "));
+      return m;
+    }),
+  };
+}
+
+async function saveVerdict(patch, quiet) {
+  const prev = verdicts[current] || { verdict: "unsure", quality_label: "", note: "" };
+  const next = {
+    pair_id: current,
+    unit_a: pair(current).unit_a,
+    unit_b: pair(current).unit_b,
+    verdict: patch.verdict !== undefined ? patch.verdict : prev.verdict,
+    quality_label: patch.quality_label !== undefined ? patch.quality_label : (prev.quality_label || ""),
+    note: patch.note !== undefined ? patch.note : (prev.note || ""),
+    decided_at: new Date().toISOString(),
+    /* Stored with the decision so a verdict can never be read against a different
+       sorting than the one it was made on. */
+    spike_clusters_sha1: DATA.clustering.spike_clusters_sha1,
+    dip_ratio: pair(current).ccg.dip_ratio,
+    waveform_corr: pair(current).waveform_corr,
+  };
+  verdicts[current] = next;
+  renderQueue();
+  if (!quiet) renderRail(); else if ($("st")) $("st").textContent = "saving…";
+  if (!db) {
+    if ($("st")) $("st").textContent = "kept in this view only — no database here";
+    return;
+  }
+  try {
+    await db.doc("merge_verdicts/" + current).set(next);
+    if ($("st")) $("st").textContent = "saved";
+  } catch (e) {
+    if ($("st")) $("st").textContent = "not saved: " + (e && e.code ? e.code : "error");
+  }
+}
+
+async function doDownload() {
+  const text = JSON.stringify(exportDoc(), null, 2);
+  if (downloads) {
+    try {
+      await downloads.save({ filename: "merges_" + DATA.session_id + ".json", data: text });
+      $("st").textContent = "downloaded";
+      return;
+    } catch (e) {
+      $("st").textContent = "download " + (e && e.code ? e.code : "failed") + " — use copy instead";
+      return;
+    }
+  }
+  doCopy();
+}
+
+async function doCopy() {
+  const text = JSON.stringify(exportDoc(), null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    $("st").textContent = "copied " + text.length + " characters";
+  } catch (e) {
+    $("st").textContent = "could not copy — select the JSON above";
+  }
+}
+
+/* ============================================================== interaction */
+function select(id) {
+  current = id;
+  renderQueue();
+  renderPair();
+  renderRail();
+  const el = document.querySelector('.cand[data-id="' + id + '"]');
+  if (el) el.scrollIntoView({ block: "nearest" });
+  window.scrollTo({ top: 0 });
+}
+
+function step(delta) {
+  const i = order.indexOf(current);
+  const j = Math.min(order.length - 1, Math.max(0, (i < 0 ? 0 : i) + delta));
+  if (order[j]) select(order[j]);
+}
+
+function attachTips() {
+  const tip = $("tip");
+  document.querySelectorAll("rect[data-lag], circle[data-tip]").forEach((el) => {
+    el.addEventListener("mouseenter", (e) => {
+      const t = el.dataset.tip || (el.dataset.n + " spikes at " + el.dataset.lag + " ms");
+      tip.textContent = t;
+      tip.classList.add("on");
+    });
+    el.addEventListener("mousemove", (e) => {
+      tip.style.left = (e.clientX + 12) + "px";
+      tip.style.top = (e.clientY - 28) + "px";
+    });
+    el.addEventListener("mouseleave", () => tip.classList.remove("on"));
+  });
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT" ||
+      e.target.tagName === "SELECT" || e.metaKey || e.ctrlKey) return;
+  const k = e.key.toLowerCase();
+  if (k === "j" || e.key === "ArrowDown") { step(1); e.preventDefault(); }
+  else if (k === "k" || e.key === "ArrowUp") { step(-1); e.preventDefault(); }
+  else if (k === "m") saveVerdict({ verdict: "merge" });
+  else if (k === "s") saveVerdict({ verdict: "separate" });
+  else if (k === "u") saveVerdict({ verdict: "unsure" });
+});
+
+["f-order", "f-undecided", "f-measurable"].forEach((id) => {
+  $(id).addEventListener("change", () => renderQueue());
+});
+$("list").addEventListener("click", (e) => {
+  const b = e.target.closest(".cand");
+  if (b) select(b.dataset.id);
+});
+
+/* ============================================================== boot */
+async function boot() {
+  const res = await fetch("data/merge_candidates.json");
+  DATA = await res.json();
+  $("sess").textContent = DATA.session_id + " · " + DATA.pairs.length +
+    " candidate pairs · " + Object.keys(DATA.units).length + " units involved";
+  renderQueue();
+  if (order.length) select(order[0]);
+
+  /* Capabilities resolve later than first paint, and may never resolve. The page is
+     fully usable without them: decisions stay in this view and export by clipboard. */
+  if (window.claude && window.claude.use) {
+    claude.use("db").then(async (d) => {
+      db = d;
+      if (!db) { dbStatus = "no database in this view"; renderQueue(); return; }
+      dbStatus = "database connected";
+      db.collection("merge_verdicts").onSnapshot((snap) => {
+        snap.docs.forEach((doc) => {
+          const v = doc.data();
+          if (v && v.pair_id) verdicts[v.pair_id] = v;
+        });
+        renderQueue();
+        if (current) renderRail();
+      }, (err) => { dbStatus = "database error: " + err.code; renderQueue(); });
+      renderQueue();
+    }).catch(() => { dbStatus = "no database"; renderQueue(); });
+    claude.use("downloads").then((d) => { downloads = d; }).catch(() => {});
+  } else {
+    dbStatus = "standalone view";
+  }
+}
+boot();
+</script>

@@ -411,6 +411,38 @@ undersells real merges. `unit_merges.quality_label_source` (`manual` / `inherite
 final truth. Phy, bombcell and SpikeInterface read `spike_clusters.npy`, so after
 merging they will show the **parents, unmerged**. The merged view lives in `synced/`.
 
+#### The merge tool: where the decisions are actually made
+
+`scripts/build_merge_candidates.py <session_id>` exports every candidate pair for a
+session; the **Merge Adjudicator** artifact is where you judge them:
+
+> https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW
+
+~30 s to build, 2.2 MB of JSON. For 20260916_110311: 2790 pairs within 60 µm, the top
+150 by template similarity carried through to full analysis, 156 units involved.
+
+Each candidate shows the four things a merge decision actually rests on, in the order
+they should be weighed:
+
+| panel | what it answers | why it is there |
+|---|---|---|
+| **cross-correlogram** | do they ever fire too close together? | the decider. One neuron cannot fire inside its own refractory period, so one neuron = a DIP at zero lag. Reported as `dip_ratio` against the correlogram's own flanks, with the expected count beside it so a ratio from too few spikes is visibly not a measurement |
+| **merged ACG** | what does the unit this merge creates look like? | the closest thing to seeing the merged unit before it exists. If merging fills in the refractory gap, it is not one neuron whatever else matches |
+| **raw waveforms + footprint** | same shape, same size, same place? | means read from `probe1.dat`, in **microvolts on one shared scale**, on the channels the two units share. A normalised overlay would hide a 40 µV / 400 µV mismatch |
+| **session timelines** | is this a drift pair? | one unit fading out as the other fades in. Then the CCG is empty and uninformative *by construction*, and only this panel can decide |
+
+Kilosort's `similar_templates.npy` is shown but never ranks a decision: it compares
+templates, so two different neurons with similar-shaped waveforms score high — the
+exact error this tool exists to avoid. It is used only to choose which pairs are worth
+computing a CCG for.
+
+Decisions live in the artifact's own database (`merge_verdicts`, one document per
+pair) and export as the input JSON for `write_unit_merges.py`, with accepted pairs
+**chained transitively** — accept 38+163 and 163+204 and you get one three-parent
+merge, which is what the pipeline requires. The merged unit's `quality_label` can be
+set right there, from the merged ACG and the combined waveform, which is the only
+honest moment to judge it.
+
 #### What this means for STAGE 2 and §2c
 
 Phy is still the route for **splits** and for **label changes**, and §2c's

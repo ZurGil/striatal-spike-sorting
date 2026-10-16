@@ -5141,6 +5141,49 @@ is identical to the un-merged run**; and the frozen union 700–12690.4 s keeps 
 trials against 639 and 580 separately — a union keeps *more* trials than either parent,
 as it must.
 
+### 5bd.7 The merge tool, and what it decides on (2026-10-16)
+
+The manifest format settled first and the UI followed:
+`scripts/build_merge_candidates.py` exports candidates, the **Merge Adjudicator**
+artifact adjudicates them (https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW). For 20260916_110311: 448 non-noise
+units of 472, **2790 pairs within 60 µm**, the top 150 by template similarity carried
+to full analysis, 156 units involved, 29 s to build, 2.2 MB.
+
+The ordering principle, which is the substance of the tool: **the cross-correlogram
+decides, everything else is circumstantial.** One neuron cannot fire inside its own
+refractory period, so if two clusters are one neuron the CCG has a dip at zero lag.
+Reported as `dip_ratio` = observed counts in ±1.5 ms over what the correlogram's own
+flanks predict for a window that size, **always printed with the expected count**, so
+that a ratio of 0.0 computed where 0.7 counts were expected is visibly not a
+measurement. Thresholds used for colouring only (they decide nothing): ≤0.45
+consistent with one neuron, ≥0.8 two neurons, ≥1.5 a zero-lag *peak*, i.e. synchrony
+or a double-detected spike rather than identity.
+
+Three supports, each for a case the CCG alone gets wrong:
+
+- the **merged ACG** — the combined train's own autocorrelogram, the nearest thing to
+  seeing the merged unit before it exists, with the combined refractory-violation
+  percentage against each parent's;
+- **raw mean waveforms** from `probe1.dat` in microvolts on one shared scale, on the
+  channels the two units share, plus the footprint down the probe (one depth, one
+  neuron). Deliberately not normalised: a normalised overlay hides a 40 µV / 400 µV
+  mismatch, which is a different neuron;
+- the **session timelines**, for the drift pair — one unit fading out as the other
+  fades in. Those two are almost never present together, so their CCG is empty *by
+  construction* and the timelines are the only evidence there is. Flagged
+  automatically as rate correlation ≤ −0.1 with simultaneous-activity overlap ≤ 0.35.
+
+Kilosort's `similar_templates.npy` is displayed but never used to rank a decision: it
+compares templates, so two different neurons with similar waveform shapes score high.
+It only chooses which pairs are worth computing a CCG for.
+
+First look at the real session: the top of the queue is 246+248 (dip 0.23, 124,869
+coincident spikes, merged violations 0.879% against 0.445/0.368 apart — a dip, but
+merging costs refractory cleanliness) and 233+236 (dip 0.31, waveform r 0.95,
+similarity 0.989, merged violations 0.096%), which is the textbook shape of a real
+merge. **Nothing has been adjudicated yet** — the verdicts are Gil's to make, in the
+artifact's own `merge_verdicts` database.
+
 ### 5bd.6 What this means for anyone reading `synced/`
 
 Three filters now exist and they are not interchangeable:
