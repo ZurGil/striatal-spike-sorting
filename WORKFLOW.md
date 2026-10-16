@@ -31,14 +31,20 @@ review-tool build script  --writes-->  pipeline_review_data.json  -->  published
       v
    >>> HUMAN reviews in the review tool, saves verdicts (current_verdicts.json / artifact DB) <<<
       |
-      v
-   >>> HUMAN opens Phy, labels units, and may MERGE or SPLIT clusters <<<
-      |
-      v
-[STAGE 2] rebuild cluster_info.tsv + final verdict mapping  -->  run sync_pipeline
+      |--- stability windows + merges (NO Phy needed, section 1h) ----------------+
+      |      scripts/write_unit_trial_selection.py --> unit_trial_selection.json  |
+      |      scripts/write_unit_merges.py          --> unit_merges.json           |
+      |      both land in <session>.kilosort/kilosort4/, read by convention       |
+      |                                                                           |
+      v                                                                           |
+   >>> HUMAN opens Phy, labels units, and may MERGE or SPLIT clusters <<<         |
+      |      (only needed for splits and label changes now -- see 1h)             |
+      v                                                                           |
+[STAGE 2] rebuild cluster_info.tsv + final verdict mapping  -->  run sync_pipeline <+
       |
       v
 synced/{spikes,trials,units,state_events,poke_events}.parquet   <-- THE analysis dataset
+       + unit_trial_selection.parquet + unit_merges.parquet     <-- manual curation
 ```
 
 **Stage 2 only ever happens after Stage 1 and after human Phy review.** Never run
@@ -338,6 +344,81 @@ current list; update it immediately after every publish/republish.
 
 ---
 
+### 1h. Manual curation that does NOT need Phy: stability windows and merges
+
+Two curation passes now go straight from the review tool into the dataset **without
+touching `spike_clusters.npy` and without a Phy session at all**. Both work the same
+way, and the rule is worth stating once:
+
+> The review tool **never writes to the dataset**. It writes only to its own artifact
+> database. A bridge script exports a plain JSON file into the Kilosort folder, and
+> `sync_pipeline` reads it **by convention** on the next run. The pipeline depends on a
+> **format**, never on a tool — you can hand-write either file.
+
+| pass | bridge script | file written (into `<session>.kilosort/kilosort4/`) | dataset output |
+|---|---|---|---|
+| stability windows | `scripts/write_unit_trial_selection.py` | `unit_trial_selection.json` | `unit_trial_selection.parquet`, `units.has_stability_selection` |
+| merges | `scripts/write_unit_merges.py` | `unit_merges.json` | `unit_merges.parquet`, `units.is_merged` / `n_parents` / `parent_unit_ids` |
+
+Full reference: `sync_pipeline/HOW_TO_RUN.md` §6b (stability) and §6c (merges).
+`scripts/read_synced_with_selection.py <synced_folder>` is a runnable worked example of
+consuming both.
+
+**The step people forget is the third one.** Marking windows or deciding merges changes
+nothing in the dataset by itself:
+
+```
+1. decide it (review tool)
+2. export it     (bridge script -> JSON in the kilosort folder)
+3. RE-RUN THE PIPELINE for that session   <-- without this, nothing reaches synced/
+```
+
+A `synced/` folder built before a curation file existed does **not** contain it and
+never gains it retroactively. `session_meta.json` always states what happened, per
+pass: `unit_trial_selection.status` and `unit_merges.status`, each one of
+`applied` / `not_found` / `disabled_by_flag`.
+
+#### Why merges go through a manifest instead of Phy
+
+Phy's merge **rewrites `spike_clusters.npy`**: the parents stop existing and ids get
+renumbered. From that moment, every unit id written down anywhere else — a review-tool
+verdict, a stability window, a figure, a note in a log — points at a *different neuron*
+than it did before. Not missing: **wrong**, and silent.
+
+The manifest route leaves the clustering immutable and applies merges in memory while
+building `synced/`. So:
+
+- parent ids stay valid forever (unit 38 is still unit 38 in the Kilosort folder);
+- the clustering fingerprint keeps matching, so **merging does not invalidate a
+  stability selection** — the two passes are independent, in either order;
+- un-merging is deleting a line, and two competing manifests can be compared by
+  processing the session twice (`--unit_merges PATH`);
+- merged unit ids start at **10000**, so a synthetic unit is recognisable on sight.
+
+Stability windows combine as the **union** of the parents', **frozen at merge time** —
+re-marking a parent later does not change a merged unit already signed off. The
+parents' own ranges are kept beside it as provenance.
+
+**The cost, so it is never a surprise:** the Kilosort folder on disk no longer shows the
+final truth. Phy, bombcell and SpikeInterface read `spike_clusters.npy`, so after
+merging they will show the **parents, unmerged**. The merged view lives in `synced/`.
+
+#### What this means for STAGE 2 and §2c
+
+Phy is still the route for **splits** and for **label changes**, and §2c's
+merge-verification procedure still applies to any merge that was done *in Phy*. But a
+merge decided in the review tool should go through `write_unit_merges.py`, not Phy —
+then there is no `phy.log` to chase, no renumbering to verify, and §2c has nothing to
+do for it.
+
+If a session has both (Phy merges *and* a manifest), note that the manifest's
+fingerprint is stamped against the clustering it was made for. Post-Phy, that
+fingerprint will not match, and the pipeline will refuse the manifest with a hard
+error — which is the correct behaviour, not a bug. Redo the merge pass against the
+post-Phy clustering.
+
+---
+
 ## STAGE 2 — after Phy: rebuild sync output from the final clustering
 
 ### 2a. Precondition: Phy runs on a clean copy, never on the irreplaceable original
@@ -382,6 +463,12 @@ below) only ever have a Phy label (there's no "previous" verdict for a brand-new
 ID) — that's expected and fine, not a gap.
 
 ### 2c. Merges (and splits, if any happen in the future) — verify empirically, don't trust the log alone
+
+> **Read §1h first.** Merges no longer have to go through Phy at all. A merge decided
+> in the review tool is written to `unit_merges.json` and applied in memory by
+> `sync_pipeline`, leaving `spike_clusters.npy` untouched — so none of the
+> renumber-chasing below applies to it. This section covers merges actually performed
+> **in Phy**, which do rewrite the clustering.
 
 Phy logs each merge as two identical lines (`Merge clusters A, B to C.`) in
 `phy.log`. **This is not sufficient by itself** — a merge can be immediately
