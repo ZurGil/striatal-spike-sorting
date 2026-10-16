@@ -5001,7 +5001,161 @@ should either stratify on donor contamination or restrict to donors at 0%.
 Artifacts: `outputs/donor_amplitude_by_rep.csv`; code
 `diag_why_rep0_is_easy.py`, `diag_explain_rep_gap.py`.
 
-## 6. WHERE THINGS STAND  (current as of 2026-10-12 — read this first)
+## 5bd. Manual curation made part of the dataset: stability windows, dropped-packet gaps, and merges without rewriting the clustering  (2026-10-15)
+
+Nothing physiological here. This section records a tooling chain built on 2026-10-15
+that changes what the analysis dataset *contains*, so it belongs in the log: three
+manual-curation facts that previously lived only in a human's head (or not at all) are
+now columns in `synced/`.
+
+### 5bd.1 Trial times are available before sync, which made the timeline panel possible
+
+The review tool needed a per-unit firing-rate curve across the whole session with trial
+markers on it, and the obvious route (read `trials.parquet`) would have made the review
+tool depend on the sync pipeline having already run. It turns out not to be necessary.
+
+**The DIO TTL code is the Bpod state number, so code 1 = each trial's first state =
+trial start.** Verified against `synced_20261002/trials.parquet`: 954 code-1 markers
+against 953 Bpod trials, and the ordered difference to `trial_start_trodes` is
+**0.0 ms at both the median and the maximum**. Code 0 is the inter-trial reset and is
+useless for this (median −2147 ms, max |13991| ms); codes 2 and 3 sit at +49.9 ms and
++549.9 ms.
+
+Also pinned down, because it is a recurring source of error: **three clocks**.
+`spike_times.npy` holds row indices into `probe1.dat`; `<session>.timestamps.dat` maps
+rows to absolute Trodes samples (an 87.5134 s offset for 20260916_110311, and *not*
+constant — about 15 s of drift over 3 h); DIO timestamps are already absolute. Every
+range this work saves is in **absolute Trodes seconds**.
+
+`scripts/build_session_timeline_data.py` memmaps `timestamps.dat` and emits base64
+uint16 bin counts, trial markers, a DIO code census and recording gaps — 4–5 s for 472
+units and 25.2 M spikes.
+
+### 5bd.2 A negative result worth keeping: the amplitude trace is not a stability signal
+
+The first version of the timeline panel carried a per-unit amplitude trace from
+`amplitudes.npy`, on the theory that a unit drifting off the electrode would show a
+falling amplitude. Gil doubted it; the data settled it. **Units 163 and 38 both collapse
+from ~50 Hz to ~1 Hz while amplitude stays flat at 14–15.**
+
+The reason is selection bias: `amplitudes.npy` is Kilosort's scaling factor for spikes
+it *already assigned* to the cluster. As a unit fades, the spikes that still clear
+threshold are the big ones, so the mean amplitude of what survives barely moves even as
+the count collapses. **Amplitude cannot see a unit leaving; the rate can.** The trace
+was removed.
+
+### 5bd.3 A real 711 s dropout in 20261014_101945, verified four independent ways
+
+Checking the gap machinery against yesterday's session turned up an actual dropout:
+**711.4097 s (11 min 51 s), from 7682.2975 to 8393.7072 s, 76.4 % of the way through**,
+sample 230468924 → 251811215. Gil doubted it, so it was verified four ways that do not
+share a failure mode:
+
+1. `probe1.dat` has 300,833,603 rows against a 322,175,918-sample span.
+2. The `.rec` file's mtime is **13:19:01**, matching the counter-derived last sample at
+   13:18:49 — and *not* the 13:06:58 a contiguous recording would have ended at.
+3. DIO trial markers have a median interval of 11.43 s with exactly one of **716.20 s**,
+   starting at t = 7677.7 s.
+4. Raw data is real on both sides (sd 1029 and 1281) and both streams resume at the same
+   instant.
+
+Two smaller glitches (24 samples and 1 sample) sit below the 0.05 s threshold.
+20260916_110311 and 20261013_091625 are perfectly contiguous.
+
+This is now detected automatically: `units_spikes.find_recording_gaps` reads
+`timestamps.dat`'s own counter, and `trials.parquet` gains `ephys_missing_s` and
+`overlaps_recording_gap`. **Flagged, never removed** — the behaviour for those trials is
+perfectly good, so dropping the rows would corrupt behaviour-only analyses, and
+`spikes.parquet` has no rows for such a trial either way, which makes a gap trial
+otherwise indistinguishable from a genuinely silent neuron. That indistinguishability is
+the entire reason the flag exists.
+
+### 5bd.4 Per-unit stability windows now reach the dataset
+
+The review tool gained a timeline panel for marking which stretches of the session each
+unit was actually present for. Those marks become
+`<kilosort4_folder>/unit_trial_selection.json` (via
+`scripts/write_unit_trial_selection.py`) and then `unit_trial_selection.parquet`, sparse
+in units and dense in trials: a unit that appears has an explicit answer per trial, a
+unit that does not keeps every trial. A trial counts as inside a kept window iff its
+**start** falls inside it, applied once by the pipeline.
+
+Applied to 20260916_110311: unit 163 keeps [4500, 12690.39] (9.04 vs 0.50 Hz, 580/953
+trials), unit 38 keeps [700, 8900] (48.73 vs 4.00 Hz, 639/953). Rasters confirm the holes
+are gone and responses sharpen — unit 163's cue peak 16 → 23 Hz; unit 38's cue 30 → 40
+against 42 → 55 Hz, reward 33 → 44 against 52 → 67.
+
+**The non-obvious part, and the thing that confused matters for a while: 314 excluded
+trials cost unit 38 only 4 % of its spikes.** Those trials were nearly empty — they
+contributed almost nothing to the numerator while sitting in the denominator of every
+PSTH. The effect on a *rate* is far larger than the effect on a spike count, which is
+exactly why the filter is worth having.
+
+Relevant to 5bc: **units 163 and 38 are both audit donors** (of 33), and
+`build_tiered_v2.py` draws its 120-snippet pool across the whole session, so a drifting
+donor injects a blend of present and absent stretches into the hybrid ground truth.
+That is a concrete mechanism for the donor-quality effect 5bc identified.
+
+### 5bd.5 Merges recorded in a manifest, not written into the clustering
+
+Replacing Phy's merge step raised the question of what a merge should *produce*. Phy
+rewrites `spike_clusters.npy`: the parents stop existing and ids get renumbered, so
+every unit id recorded anywhere else silently starts pointing at a different neuron.
+The decision was to leave the clustering immutable and record the decision instead
+(`sync_pipeline/unit_merges.py`, `scripts/write_unit_merges.py`, HOW_TO_RUN §6c).
+
+Consequences, in order of how much they matter here:
+
+- **Merging does not invalidate a stability selection.** The clustering fingerprint
+  still matches because the clustering did not change, so the two curation passes are
+  independent and can be done in either order.
+- Parent ids stay valid forever; un-merging is deleting a line; two competing manifests
+  can be compared by processing the session twice.
+- Merged ids start at 10000, so a synthetic unit is recognisable on sight.
+- **The cost:** Phy, bombcell and SpikeInterface read `spike_clusters.npy`, so after a
+  merge they show the parents, unmerged. The merged view exists only in `synced/`.
+
+Stability windows combine as the **union** of the parents', **frozen at merge time**,
+with each parent's own ranges kept as provenance — a merged unit already signed off
+cannot change because someone re-marked a parent afterwards.
+
+Verified end to end with a throwaway 38+163 manifest (since removed — a smoke test, not
+a real merge decision). Six invariants, all holding: the `.npy`'s sha1 is unchanged; 38
+and 163 are still in the clustering and 10000 is not; the merged unit has exactly
+795,573 spikes against the parents' 681,429 + 114,144; **every other unit's spike count
+is identical to the un-merged run**; and the frozen union 700–12690.4 s keeps 894 of 953
+trials against 639 and 580 separately — a union keeps *more* trials than either parent,
+as it must.
+
+### 5bd.6 What this means for anyone reading `synced/`
+
+Three filters now exist and they are not interchangeable:
+
+```python
+trials = trials[trials.sync_valid]                 # clock trustworthy        (per trial)
+trials = trials[~trials.overlaps_recording_gap]    # neural data exists       (per trial)
+# then, as a JOIN, never as a trial filter:
+drop   = sel.loc[~sel.selected, ["unit_id", "trial_id"]]   # unit was present (per pair)
+```
+
+Merges need no change to an analysis at all — a merged unit is just a unit.
+`session_meta.json` always states what a given dataset was built with
+(`unit_trial_selection.status`, `unit_merges.status`, `recording_gaps_checked`), so none
+of it has to be remembered. `scripts/read_synced_with_selection.py <synced_folder>` is a
+runnable worked example.
+
+**And the step that is easy to miss: none of this reaches a dataset until the pipeline is
+re-run for that session.** A `synced/` folder built before a curation file existed does
+not contain it and never gains it retroactively. `synced_20261002` has no curation in it;
+`synced_20261015` is the first output with both tables.
+
+`sync_pipeline` also went under version control for the first time (it had none — the
+pre-change state was recovered from `D:\Gil\files\sync_pipeline.zip`, which matched
+byte-for-byte except the edited files). Test suite went 31 → 79 passing over this work.
+
+---
+
+## 6. WHERE THINGS STAND  (current as of 2026-10-15 — read this first)
 
 Self-contained. Everything needed to resume with no memory of the conversation.
 
