@@ -182,7 +182,13 @@ NEW_CONSTS = (u"const DIP_ONE = 0.45, DIP_TWO = 0.8, DIP_SYNC = 1.5;\n"
               u"   beside it, NOT the far flanks. FLANK_LO is kept only to show the two side by\n"
               u"   side, so a disagreement between them is visible rather than silently decisive.\n"
               u"   DIP_P: a dip must also be unlikely under Poisson chance at the observed count. */\n"
-              u"const SHOULDER_LO = 2.0, SHOULDER_HI = 5.0, FLANK_LO = 10.0, DIP_P = 0.01;")
+              u"const SHOULDER_LO = 2.0, SHOULDER_HI = 5.0, FLANK_LO = 10.0, DIP_P = 0.01;
+"
+              u"/* Above this rate ratio the merged ACG is dominated by the faster unit, so its
+"
+              u"   shape and its violation PERCENTAGE stop being evidence about the pairing. */
+"
+              u"const RATE_LOPSIDED = 5.0;")
 
 OLD_CCG_CHART = u"""    '<div class="mc-chart"><h5>cross-correlogram #' + p.unit_a + ' vs #' + p.unit_b + '</h5>' +
     mCorrelogram(p.ccg_hist, p.ccg_bin_ms, p.ccg_max_lag_ms, p.ccg.flank_per_bin) +
