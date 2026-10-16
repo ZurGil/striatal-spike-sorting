@@ -520,11 +520,29 @@ as **twin templates** rather than burying them.
 hops, and only the first is automatic:
 
 ```
-click a verdict   ->  artifact db `merge_verdicts`      (instant, nothing else needed)
-export            ->  merge input JSON                  (the button, or built from the db)
-write_unit_merges.py  ->  <rec_root>/<session>.kilosort/kilosort4/unit_merges.json
-re-run the pipeline   ->  synced/ now reflects the merge
+click a verdict        ->  artifact db `merge_verdicts`     (instant, nothing else needed)
+write_unit_merges.py --from_verdicts  ->  <rec>/<session>.kilosort/kilosort4/unit_merges.json
+re-run the pipeline    ->  synced/ now reflects the merge
 ```
+
+`--from_verdicts` takes the raw database dump (one document per PAIR) and does the
+transitive chaining itself, so there is no intermediate file to build:
+
+```
+python scripts/write_unit_merges.py <sid> <rec>/<sid>.rec verdicts.json --from_verdicts
+```
+
+SEPARATE and UNSURE are counted and ignored — a rejection is a real decision, it just
+has no representation in a file that only lists merges.
+
+**Why this cannot be fully automatic, and why the unit verdicts are not either.** The
+review tool is a web page in a browser sandbox on claude.ai: it cannot write to
+`F:\` any more than any other web page can. So *something on this machine* has to
+pull from the artifact database. That is equally true of the GOOD/MUA/NOISE verdicts,
+which reach the dataset through `export_phy_curation.py` writing `cluster_group.tsv`
+into the Kilosort folder — the same shape of bridge, the same number of hops. Neither
+is automatic; the verdict bridge has simply been run more often. Ask Claude to sync
+the verdicts and the whole chain runs in one step.
 
 The pipeline reads **only** that last file, and picks it up automatically once it
 exists — it never talks to the artifact, and the artifact never writes to the dataset.

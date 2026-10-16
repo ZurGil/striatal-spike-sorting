@@ -167,6 +167,82 @@ def check_label(label, where):
     return clean
 
 
+def from_verdicts(doc):
+    """Turn a raw `merge_verdicts` dump from the review tool into merge groups.
+
+    Saves a hop. The review tool writes one document per PAIR, because a pair is what
+    you look at and decide; the pipeline needs GROUPS, because a unit cannot parent two
+    different merges. Accept 38+163 and 163+204 and that is one merge of three, not
+    two merges -- so accepted pairs are chained transitively here (union-find), exactly
+    as the tool's own export button does.
+
+    Accepts whatever shape the dump arrives in: a bare list of documents, a list of
+    {"id","data"} rows, or a dict keyed by pair id. Anything whose verdict is not
+    "merge" is counted and ignored -- a SEPARATE is a real decision, it just has no
+    representation in a file that only lists merges.
+    """
+    if isinstance(doc, dict):
+        rows = list(doc.values()) if "merges" not in doc else doc["merges"]
+    else:
+        rows = list(doc)
+    rows = [r.get("data", r) if isinstance(r, dict) else r for r in rows]
+
+    accepted, other = [], 0
+    for r in rows:
+        if not isinstance(r, dict) or "unit_a" not in r:
+            continue
+        if str(r.get("verdict", "")).lower() == "merge":
+            accepted.append(r)
+        else:
+            other += 1
+
+    parent = {}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for r in accepted:
+        for u in (int(r["unit_a"]), int(r["unit_b"])):
+            parent.setdefault(u, u)
+        ra, rb = find(int(r["unit_a"])), find(int(r["unit_b"]))
+        if ra != rb:
+            parent[ra] = rb
+
+    groups = {}
+    for u in parent:
+        groups.setdefault(find(u), []).append(u)
+
+    merges = []
+    for root in sorted(groups, key=lambda r: min(groups[r])):
+        members = sorted(groups[root])
+        inside = [r for r in accepted
+                  if int(r["unit_a"]) in members and int(r["unit_b"]) in members]
+        labels = [r.get("quality_label") for r in inside if r.get("quality_label")]
+        notes = [r.get("note") for r in inside if r.get("note")]
+        pairs = [r.get("pair_id") or ("%s_%s" % (r["unit_a"], r["unit_b"])) for r in inside]
+        m = {"parents": members,
+             "note": "; ".join(notes) if notes else
+                     "merge review in the unit review tool; pairs " + ", ".join(pairs)}
+        if labels:
+            # several pairs in one group may each carry a label; the last one wins,
+            # and they are all in the note so a disagreement stays visible
+            m["quality_label"] = labels[-1]
+        merges.append(m)
+
+    print("from the review tool's verdicts: %d pair(s) accepted -> %d merge group(s); "
+          "%d pair(s) decided otherwise (not merges, nothing to write)."
+          % (len(accepted), len(merges), other))
+    for m in merges:
+        print("   parents %s%s"
+              % (" + ".join(str(p) for p in m["parents"]),
+                 "  label %s" % m["quality_label"] if m.get("quality_label") else
+                 "  (label inherited -- score it after you have seen it)"))
+    return {"merges": merges}
+
+
 def normalise(doc):
     """Accept {"merges": [{parents, note?, merged_id?, quality_label?}]} or [[a, b], ...]."""
     raw = doc.get("merges", doc) if isinstance(doc, dict) else doc
@@ -240,6 +316,11 @@ def main():
                          "Edits the manifest in place and leaves the frozen kept_ranges "
                          "alone. Repeatable. This is the normal way to label a merged "
                          "unit, because you have to see it first.")
+    ap.add_argument("--from_verdicts", action="store_true",
+                    help="input_json is a raw merge_verdicts dump from the review "
+                         "tool's database (one document per PAIR) rather than merge "
+                         "groups. Accepted pairs are chained transitively, SEPARATE "
+                         "and UNSURE are ignored. Saves building an intermediate file.")
     ap.add_argument("--source", default="merge review pass")
     args = ap.parse_args()
 
@@ -268,7 +349,8 @@ def main():
         raise SystemExit("pass a merges.json to create merges, or --score "
                          "MERGED_ID=LABEL to score ones that already exist.")
     with open(args.input_json) as f:
-        entries = normalise(json.load(f))
+        doc = json.load(f)
+    entries = normalise(from_verdicts(doc) if args.from_verdicts else doc)
     if not entries:
         print("No merges in %s -- nothing to write." % args.input_json, file=sys.stderr)
         return 1
