@@ -5143,11 +5143,20 @@ as it must.
 
 ### 5bd.7 The merge tool, and what it decides on (2026-10-16)
 
-The manifest format settled first and the UI followed:
-`scripts/build_merge_candidates.py` exports candidates, the **Merge Adjudicator**
-artifact adjudicates them (https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW). For 20260916_110311: 448 non-noise
-units of 472, **2790 pairs within 60 µm**, the top 150 by template similarity carried
-to full analysis, 156 units involved, 29 s to build, 2.2 MB.
+The manifest format settled first and the UI followed.
+`scripts/build_merge_candidates.py` exports every pair within 60 µm — for
+20260916_110311, 448 non-noise units of 472 and **2790 pairs**, ~2 min, 9.6 MB — and
+the suggestions are shown **inside the review tool**, per unit, under the session
+timeline (https://claude.ai/code/artifact/74dec064-c86a-46a3-8c03-f112ee4ecb05). A standalone queue over the same
+data and the same `merge_verdicts` database also exists for bulk work
+(https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW); a decision in either appears in the other.
+
+Putting the list in the unit view is the point, not a detail: a merge is judged while
+you are looking at the unit, against the unit. But on a dense probe nearly every unit
+has *some* cluster within 60 µm, so an unfiltered list marks everything and says
+nothing. Only candidates with a readable refractory dip or a drift signature are shown
+and counted (the `N⇄` chip in the unit list, and a filter); the rest stay one click
+away. **For unit 233 that is 2 worth a look of 7 neighbours.**
 
 The ordering principle, which is the substance of the tool: **the cross-correlogram
 decides, everything else is circumstantial.** One neuron cannot fire inside its own

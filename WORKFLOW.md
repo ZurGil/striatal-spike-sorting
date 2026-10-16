@@ -411,15 +411,35 @@ undersells real merges. `unit_merges.quality_label_source` (`manual` / `inherite
 final truth. Phy, bombcell and SpikeInterface read `spike_clusters.npy`, so after
 merging they will show the **parents, unmerged**. The merged view lives in `synced/`.
 
-#### The merge tool: where the decisions are actually made
+#### The merge tool: suggestions while you review a unit
 
-`scripts/build_merge_candidates.py <session_id>` exports every candidate pair for a
-session; the **Merge Adjudicator** artifact is where you judge them:
+Merge candidates are **inside the review tool**, in the unit you are looking at. Open a
+unit and, under the session timeline, *Possible merges* lists the other clusters that
+might be the **same neuron** — with the evidence for each, and a verdict you can set
+without leaving the unit.
 
-> https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW
+> Review tool (merge panel included): https://claude.ai/code/artifact/74dec064-c86a-46a3-8c03-f112ee4ecb05
 
-~30 s to build, 2.2 MB of JSON. For 20260916_110311: 2790 pairs within 60 µm, the top
-150 by template similarity carried through to full analysis, 156 units involved.
+Two things keep the list honest on a dense probe, where almost every unit has *some*
+neighbour within 60 µm:
+
+- the panel headline is **"N worth a look of M neighbours"**, and only the N are shown.
+  A candidate is worth a look when it has a readable refractory dip or a drift-pair
+  signature. The rest sit behind *show the other M neighbours*, never gone, never in
+  the way;
+- the unit list marks only those N, as a `N⇄` chip, so scanning the list shows you
+  where the real candidates are. `with a merge candidate worth a look` is also a filter
+  in the review dropdown.
+
+Both come from `scripts/build_merge_candidates.py <session_id>`, which exports every
+pair within 60 µm (2790 of them for 20260916_110311, ~2 min, 9.6 MB) and is published
+alongside the page as `data/merge_candidates.json`, fetched lazily so the page still
+loads at its old speed. `scripts/patch_review_tool_merge_panel.py` is how the panel is
+spliced into a freshly-read copy of the published page.
+
+There is also a standalone queue over the same data and the same database —
+https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW — for working through candidates in bulk rather than
+unit by unit. A decision made in either shows up in the other.
 
 Each candidate shows the four things a merge decision actually rests on, in the order
 they should be weighed:
@@ -436,12 +456,15 @@ templates, so two different neurons with similar-shaped waveforms score high —
 exact error this tool exists to avoid. It is used only to choose which pairs are worth
 computing a CCG for.
 
-Decisions live in the artifact's own database (`merge_verdicts`, one document per
-pair) and export as the input JSON for `write_unit_merges.py`, with accepted pairs
-**chained transitively** — accept 38+163 and 163+204 and you get one three-parent
-merge, which is what the pipeline requires. The merged unit's `quality_label` can be
-set right there, from the merged ACG and the combined waveform, which is the only
-honest moment to judge it.
+Decisions live in the artifact database (`merge_verdicts`, one document per pair,
+stamped with the clustering sha1) and export as the input JSON for
+`write_unit_merges.py`, with accepted pairs **chained transitively** — accept 38+163
+and 163+204 and you get one three-parent merge, which is what the pipeline requires.
+The merged unit's `quality_label` is set in the same row, from the merged ACG and the
+combined waveform, which is the only honest moment to judge it.
+
+And the step that is easy to miss, exactly as for stability windows: deciding in the
+tool changes **nothing**. Export → `write_unit_merges.py` → **re-run the pipeline**.
 
 #### What this means for STAGE 2 and §2c
 
