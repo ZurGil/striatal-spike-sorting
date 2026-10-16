@@ -453,10 +453,23 @@ they should be weighed:
 | **raw waveforms + footprint** | same shape, same size, same place? | means read from `probe1.dat`, in **microvolts on one shared scale**, on the channels the two units share. A normalised overlay would hide a 40 µV / 400 µV mismatch |
 | **session timelines** | is this a drift pair? | one unit fading out as the other fades in. Then the CCG is empty and uninformative *by construction*, and only this panel can decide |
 
-Kilosort's `similar_templates.npy` is shown but never ranks a decision: it compares
-templates, so two different neurons with similar-shaped waveforms score high — the
-exact error this tool exists to avoid. It is used only to choose which pairs are worth
-computing a CCG for.
+Kilosort's `similar_templates.npy` never *decides* a merge — it compares templates,
+so two different neurons with similar-shaped waveforms score high. But it is not
+noise either, and the first version of this document oversold that point. Measured on
+20260916_110311 against a chance rate of **0.51%** (the fraction of the 2554 readable
+pairs showing a one-neuron dip):
+
+| similarity | pairs | one-neuron dip | vs chance |
+|---|---|---|---|
+| 0.50–0.80 | 418 | 1.4% | 2.8× |
+| 0.80–0.90 | 57 | 1.8% | 3.4× |
+| 0.90–0.95 | 15 | 6.7% | **13×** |
+| ≥0.95 | 17 | 0.0% — every one has a partial dip the CCG cannot settle | — |
+
+Read it as a prior, never a verdict. Above 0.95 it selects almost perfectly for pairs
+whose correlogram has too few coincident spikes to decide, which is exactly when the
+footprint and the session timelines carry the decision — so the tool surfaces those
+as **twin templates** rather than burying them.
 
 Decisions live in the artifact database (`merge_verdicts`, one document per pair,
 stamped with the clustering sha1) and export as the input JSON for

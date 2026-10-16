@@ -5220,7 +5220,66 @@ from the same conversation:
 Spliced in by `scripts/patch_review_tool_merge_v2.py` (12 exact anchors, applied on
 top of `patch_review_tool_merge_panel.py`); review tool now at Version 5.
 
-### 5bd.9 Three supports, each for a case the CCG alone gets wrong
+### 5bd.9 No verdict had ever been saveable, and what similarity is worth (2026-10-16)
+
+Gil made one rejection "just to verify it works and everything is documented." It
+was not in the database, and neither was anything else: `merge_verdicts` was empty.
+
+The cause had been there since the panel was first spliced in. The verdict buttons
+carried their payload as `data-mv=' + JSON.stringify(JSON.stringify(patch))`, which
+writes backslash-escaped quotes into an HTML attribute. HTML has no backslash
+escaping, so the attribute ended at the first inner quote:
+
+```html
+<button class="mbtn" data-pair="8_11" data-mv="{\" verdict\":\"merge\"}"="">MERGE</button>
+```
+
+`dataset.mv` came back as the two characters `{\`, `JSON.parse` threw, and the click
+died there — silently, with no visible change to the button. Replaced with two plain
+attributes (`data-mvf`, `data-mvv`) that need no quoting. Verified by clicking
+SEPARATE in a served copy and reading `mergeVerdicts` back. **Any verdict entered
+before Version 7 is lost and has to be redone.**
+
+`trial_selections` was unaffected — it writes through a different path — which is why
+`db` looked healthy and the fault stayed hidden.
+
+**On Kilosort's template similarity.** Gil remembered it being useful at high values
+and asked why it had been dismissed. Measured on this session, he is right and the
+blanket dismissal was too strong. Of 2554 pairs with a readable correlogram,
+**0.51%** show a one-neuron dip — that is the chance rate everything below is
+measured against:
+
+| template similarity | pairs | one-neuron dip | vs chance |
+|---|---|---|---|
+| 0.00–0.50 | 2051 | 0.2% | 0.5× |
+| 0.50–0.80 | 418 | 1.4% | 2.8× |
+| 0.80–0.90 | 57 | 1.8% | 3.4× |
+| 0.90–0.95 | 15 | **6.7%** | **13.1×** |
+| ≥0.95 | 17 | 0.0% | — |
+
+So similarity carries real information. What the top band shows is subtler than
+"useless": all 17 pairs at ≥0.95 have waveform r between 0.88 and 0.97 and a partial
+dip (0.25–0.80), and **not one has enough coincident spikes to settle the question**.
+Similarity finds the pairs; it cannot close them, and at the very top it selects
+precisely for pairs the correlogram cannot adjudicate — where the footprint and the
+session timelines are the only evidence.
+
+Those pairs were being hidden behind *show the other N neighbours*. They now surface
+as **twin templates**: similarity ≥ 0.95 and waveform r ≥ 0.85 with a thin or partial
+CCG. 11 such pairs across 22 units; "worth a look" goes 311 → 321. The best of them
+is **167+168** — similarity 0.968, waveform r 0.971, 0 µm apart, merged violations
+0.015%, rate correlation −0.59 with **zero** simultaneous activity. A textbook drift
+pair that the dip test alone would never have surfaced, and 233+236 returns here too,
+honestly labelled a partial dip rather than proven.
+
+Two usability changes at Gil's request: the merge panel now sits at the **bottom** of
+the unit view (examine the unit, then decide what to merge into it), and each
+candidate row has an **open ↗** button that jumps to that unit, with a back chip at
+the top of the detail that walks the trail back.
+
+Spliced by `scripts/patch_review_tool_merge_v3.py`; review tool at Version 7.
+
+### 5bd.10 Three supports, each for a case the CCG alone gets wrong
 
 - the **merged ACG** — the combined train's own autocorrelogram, the nearest thing to
   seeing the merged unit before it exists, with the combined refractory-violation
