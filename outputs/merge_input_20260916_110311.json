@@ -1,0 +1,30 @@
+{
+  "session_id": "20260916_110311",
+  "decided_in": "unit review tool, possible-merges panel",
+  "clustering": {
+    "spike_clusters_sha1": "1a28cc2e83c8161a3734164bfb47ae4747599aeb"
+  },
+  "merges": [
+    {
+      "parents": [
+        167,
+        168
+      ],
+      "quality_label": "good",
+      "note": "merge review in the unit review tool; pairs 167_168"
+    },
+    {
+      "parents": [
+        233,
+        236
+      ],
+      "note": "merge review in the unit review tool; pairs 233_236"
+    }
+  ],
+  "rejected": [
+    {
+      "pair": "231_236",
+      "verdict": "separate"
+    }
+  ]
+}

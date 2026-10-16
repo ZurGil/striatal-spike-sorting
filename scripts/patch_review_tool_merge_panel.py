@@ -18,11 +18,17 @@ style rule or function is changed except the four anchors patched below.
 """
 import io
 import os
+import sys
 
-SRC = (r"C:\Users\Adam\.claude\projects\D--Gil-spike-sorting-agent"
+# Normally driven by scripts/build_review_tool.py, which passes <src> <dst>. The
+# defaults are the one-off paths this was first written against and are kept only so
+# an argument-less run still does something predictable.
+SRC = (sys.argv[1] if len(sys.argv) > 1 else
+       r"C:\Users\Adam\.claude\projects\D--Gil-spike-sorting-agent"
        r"\8186c809-76fa-41ff-bbca-59d44125e5fc\tool-results"
        r"\artifact-74dec064-1792083808-c26b.html")
-OUT = (r"C:\Users\Adam\AppData\Local\Temp\claude\D--Gil-spike-sorting-agent"
+OUT = (sys.argv[2] if len(sys.argv) > 2 else
+       r"C:\Users\Adam\AppData\Local\Temp\claude\D--Gil-spike-sorting-agent"
        r"\8186c809-76fa-41ff-bbca-59d44125e5fc\scratchpad\review_tool_merged.html")
 
 CSS = """

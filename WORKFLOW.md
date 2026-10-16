@@ -411,6 +411,51 @@ undersells real merges. `unit_merges.quality_label_source` (`manual` / `inherite
 final truth. Phy, bombcell and SpikeInterface read `spike_clusters.npy`, so after
 merging they will show the **parents, unmerged**. The merged view lives in `synced/`.
 
+#### Building the review tool for a new session — one command
+
+```
+python scripts/build_review_tool.py <session_id>
+```
+
+That is the whole thing. It produces `outputs/unit_review_tool_<sid>.html`, complete:
+unit panels, session timeline and stability windows, AND the merge panel with every
+addition. It runs, in order and failing loudly if any anchor has drifted:
+
+| step | adds |
+|---|---|
+| `build_review_html.py` | the base page — waveforms, scatter, ACG, burst curve, timeline, verdicts |
+| `patch_review_tool_merge_panel.py` | the possible-merges panel |
+| `patch_review_tool_merge_v2.py` | dip measured on the shoulders + Poisson test, the across-channel footprint, firing rates above the merged ACG |
+| `patch_review_tool_merge_v3.py` | working verdict buttons, panel at the bottom, jump to the other unit, twin templates |
+
+The merge panel grew as patches spliced onto an already-published page, which is only
+reproducible if you remember the order — so `build_review_tool.py` is the order, kept
+in one place. Each patch asserts its anchors match **exactly once**, so editing
+`build_review_html.py` in a way that moves one stops the build instead of quietly
+publishing a half-patched page. Verified: the chain run against a clean
+`build_review_html.py` output reproduces the published page byte for byte apart from
+the publisher's own HTML skeleton.
+
+Build its three inputs first:
+
+```
+python scripts/build_pipeline_review_data.py <sid>     # outputs/pipeline_review_data_<sid>.json
+python scripts/build_session_timeline_data.py <sid>    # outputs/session_timeline_<sid>.json
+python scripts/build_merge_candidates.py <sid>         # outputs/merge_candidates_<sid>.json
+```
+
+and publish the page **with** its data file, which it fetches lazily at the relative
+path `data/merge_candidates.json`:
+
+```
+file_path    = outputs/unit_review_tool_<sid>.html
+files        = {"data/merge_candidates.json": "outputs/merge_candidates_<sid>.json"}
+capabilities = {"db": {}, "downloads": true}
+```
+
+Pass the **existing artifact URL** to keep its verdicts — publishing without one makes
+a new artifact with an empty database.
+
 #### The merge tool: suggestions while you review a unit
 
 Merge candidates are **inside the review tool**, in the unit you are looking at. Open a
@@ -470,6 +515,21 @@ Read it as a prior, never a verdict. Above 0.95 it selects almost perfectly for 
 whose correlogram has too few coincident spikes to decide, which is exactly when the
 footprint and the session timelines carry the decision — so the tool surfaces those
 as **twin templates** rather than burying them.
+
+**Nothing about a decision reaches the dataset on its own.** The chain is three
+hops, and only the first is automatic:
+
+```
+click a verdict   ->  artifact db `merge_verdicts`      (instant, nothing else needed)
+export            ->  merge input JSON                  (the button, or built from the db)
+write_unit_merges.py  ->  <rec_root>/<session>.kilosort/kilosort4/unit_merges.json
+re-run the pipeline   ->  synced/ now reflects the merge
+```
+
+The pipeline reads **only** that last file, and picks it up automatically once it
+exists — it never talks to the artifact, and the artifact never writes to the dataset.
+One plain documented file in one conventional place sits between them, exactly as for
+stability windows.
 
 Decisions live in the artifact database (`merge_verdicts`, one document per pair,
 stamped with the clustering sha1) and export as the input JSON for

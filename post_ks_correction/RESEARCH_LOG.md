@@ -5279,7 +5279,29 @@ the top of the detail that walks the trail back.
 
 Spliced by `scripts/patch_review_tool_merge_v3.py`; review tool at Version 7.
 
-### 5bd.10 Three supports, each for a case the CCG alone gets wrong
+### 5bd.10 The review tool is reproducible again (2026-10-16)
+
+Gil asked whether a future session could regenerate the review tool with all of this
+in it. The honest answer at the time was **no**: `build_review_html.py` produced the
+base page and knew nothing about merges, while the merge panel existed only as three
+patch scripts applied to a *published artifact read*, which bakes in this session's
+data and depends on remembering the order.
+
+Fixed with `scripts/build_review_tool.py <session_id>`, which runs
+`build_review_html.py` and then the three patches in sequence into
+`outputs/unit_review_tool_<sid>.html`. Verified by running the chain against a clean
+generator build: the result is identical to the published page apart from the
+publisher's own `<!doctype>` skeleton and two reworded comments. The published
+artifact is now republished **from that generated file** (Version 8), so the repo is
+the source of truth rather than the artifact.
+
+Two repairs on the way: `patch_review_tool_merge_panel.py` ignored its destination
+argument and always wrote to a hard-coded scratch path, and
+`patch_review_tool_merge_v2.py` had been corrupted by an in-place edit that turned
+`\n` escapes into real newlines inside string literals (the Bash-heredoc mangling
+trap again — write Python with the editor, not a heredoc).
+
+### 5bd.11 Three supports, each for a case the CCG alone gets wrong
 
 - the **merged ACG** — the combined train's own autocorrelogram, the nearest thing to
   seeing the merged unit before it exists, with the combined refractory-violation
