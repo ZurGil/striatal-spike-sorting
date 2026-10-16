@@ -5119,6 +5119,20 @@ Stability windows combine as the **union** of the parents', **frozen at merge ti
 with each parent's own ranges kept as provenance — a merged unit already signed off
 cannot change because someone re-marked a parent afterwards.
 
+**The merged unit's quality label is set by hand, and that is a second pass (added
+2026-10-16).** The first version inherited the parents' label and fell back to `mua`
+when they disagreed, which is the common case for a drift pair — so the rule that was
+meant to be conservative would in practice have labelled most real merges `mua` and
+quietly dropped them out of every `quality_label == "good"` analysis. The fix is not a
+better rule: a merge cannot be judged before it exists, since its waveform, ACG and
+rate are properties of the combination. So a manifest entry may carry
+`"quality_label"`, which overrides everything, and `write_unit_merges.py --score
+10000=good` sets it in place afterwards without disturbing the frozen `kept_ranges`.
+`unit_merges.quality_label_source` records `manual` / `inherited` /
+`conservative_mua`, which makes "nobody has looked at this merged unit yet" a query
+rather than something to remember. Verified on the real session: scoring 38+163 `good`
+puts unit 10000 in the good-unit set, where the inherited rule had it as `mua`.
+
 Verified end to end with a throwaway 38+163 manifest (since removed — a smoke test, not
 a real merge decision). Six invariants, all holding: the `.npy`'s sha1 is unchanged; 38
 and 163 are still in the clustering and 10000 is not; the merged unit has exactly

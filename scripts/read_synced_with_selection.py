@@ -20,7 +20,9 @@ is what makes the join safe to add to an analysis written before the table exist
 MERGES ARE NOT A FILTER
 
 unit_merges.parquet needs NO change to an analysis: a merged unit is just a unit, with
-an id from 10000 up. It already has its row in units.parquet, its spikes in
+an id from 10000 up -- it is in units.parquet and spikes.parquet by default, and a
+`quality_label == "good"` filter picks it up like any other unit (provided somebody
+scored it -- see quality_label_source below). It already has its row in units.parquet, its spikes in
 spikes.parquet, and (if its parents had stability windows) its rows in
 unit_trial_selection.parquet carrying the frozen union of them. You read
 unit_merges.parquet only when you want the provenance -- which clusters went in, and
@@ -83,6 +85,16 @@ if len(merges):
                     ["unit_id", "quality_label", "curated", "channel", "depth_mm",
                      "n_parents", "parent_unit_ids", "has_stability_selection"]]
           .to_string(index=False))
+    print("(quality_label above is only a verdict where quality_label_source is "
+          "'manual'.)")
+    # Has anyone actually scored these merged units? `manual` means yes; the other
+    # two mean the label was inherited from the parents, and `conservative_mua` in
+    # particular is a placeholder that undersells a real merge. Score them with
+    # scripts/write_unit_merges.py --score <merged_id>=good once you have looked.
+    unscored = merges.loc[merges.quality_label_source != "manual", "merged_unit_id"]
+    print("\nmerged units not scored by hand: %s"
+          % (sorted(unscored.unique()) or "none — every merge has a real verdict"))
+
     # Share of each merged unit's spikes coming from each parent. A merge that is
     # ~98% one parent is a different animal from a 50/50 one, and worth a second look.
     share = merges.parent_n_spikes / merges.groupby(

@@ -33,9 +33,37 @@ underneath you. Each parent's own ranges are written alongside, under `parent_ra
 so the union is always auditable and you can deliberately recompute it (re-run this
 script) if that is what you want.
 
+SCORING THE MERGED UNIT -- YOU DO IT, AND YOUR ANSWER WINS
+----------------------------------------------------------
+A merged unit cannot honestly be scored before it exists: you have to see its combined
+waveform, ACG and rate over the session first. So scoring is a SECOND pass, and it
+overrides everything the pipeline would have guessed.
+
+    merge it         ->  re-run the pipeline  ->  LOOK at the merged unit  ->  score it
+
+Set it up front if you already know:
+
+    {"merges": [{"parents": [38, 163], "quality_label": "good", "note": "..."}]}
+
+or, the normal case, score it afterwards without rebuilding the manifest -- this edits
+the existing file in place and leaves the frozen kept_ranges, ids, dates and notes
+exactly as they were:
+
+    python write_unit_merges.py <session_id> <rec_root> --score 10000=good
+
+If you do not score it, the pipeline inherits the parents' shared label, or falls back
+to `mua` when they disagree. That fallback is deliberately pessimistic and WILL mark
+good merges as mua -- it is a placeholder, not a verdict, and
+`unit_merges.quality_label_source` tells you which you are looking at
+(`manual` / `inherited` / `conservative_mua`).
+
+Only "good" and "mua" are accepted. "noise" is not a score for a merged unit -- deciding
+it is noise is deciding the merge should not exist, so delete the entry instead.
+
 INPUT: a small JSON file naming the groups to merge. Either
 
-    {"merges": [{"parents": [38, 163], "note": "drift pair, CCG dip at 0"}]}
+    {"merges": [{"parents": [38, 163], "note": "drift pair, CCG dip at 0",
+                 "quality_label": "good"}]}
 
 or the bare form
 
@@ -47,11 +75,13 @@ confused with a Kilosort cluster id. Pass "merged_id" explicitly in an entry to 
 
 Usage:
   python write_unit_merges.py <session_id> <rec_root> <merges.json> [--ks_subdir kilosort4]
+  python write_unit_merges.py <session_id> <rec_root> --score 10000=good [--score 10001=mua]
   e.g. python write_unit_merges.py 20260916_110311 F:\\Gil\\Shamir\\20260916_110311.rec \\
             D:\\Gil\\spike_sorting_agent\\outputs\\merges_20260916_110311.json
 
 Then re-run the pipeline for the session. Nothing extra to pass -- the file is found by
-convention, and session_meta.json reports unit_merges.status = applied.
+convention, and session_meta.json reports unit_merges.status = applied. That applies to
+a re-score too: the label reaches your dataset on the next run, not when you set it.
 """
 import argparse
 import datetime
@@ -65,6 +95,11 @@ import numpy as np
 FORMAT = "unit_merges/1"
 MERGED_ID_BASE = 10000
 SELECTION_FILENAME = "unit_trial_selection.json"
+MERGES_FILENAME = "unit_merges.json"
+# Same vocabulary as units.quality_label, so a merged unit answers
+# `quality_label == "good"` exactly like any other unit. See
+# sync_pipeline/unit_merges.py MERGE_LABELS -- the two must agree.
+MERGE_LABELS = ("good", "mua")
 
 
 def fingerprint(ks_dir):
@@ -117,8 +152,23 @@ def load_selection_ranges(ks_dir):
     return out, path
 
 
+def check_label(label, where):
+    """One place for the label vocabulary, so every entry point rejects the same typos."""
+    if label is None:
+        return None
+    clean = str(label).strip().lower()
+    if clean not in MERGE_LABELS:
+        extra = ("Labelling a merged unit 'noise' is not a score -- it is a decision "
+                 "that the merge should not exist. Delete the entry instead."
+                 if clean == "noise" else
+                 "Leave it unset to inherit the parents' label.")
+        raise SystemExit("%s: quality_label=%r is not one of %s. %s"
+                         % (where, label, list(MERGE_LABELS), extra))
+    return clean
+
+
 def normalise(doc):
-    """Accept either {"merges": [{parents, note?, merged_id?}]} or [[a, b], ...]."""
+    """Accept {"merges": [{parents, note?, merged_id?, quality_label?}]} or [[a, b], ...]."""
     raw = doc.get("merges", doc) if isinstance(doc, dict) else doc
     out = []
     for entry in raw:
@@ -127,11 +177,52 @@ def normalise(doc):
             out.append({"parents": parents,
                         "merged_id": entry.get("merged_id"),
                         "note": entry.get("note"),
-                        "decided": entry.get("decided")})
+                        "decided": entry.get("decided"),
+                        "quality_label": check_label(entry.get("quality_label"),
+                                                     "merge %s" % parents)})
         else:
             out.append({"parents": sorted(int(p) for p in entry),
-                        "merged_id": None, "note": None, "decided": None})
+                        "merged_id": None, "note": None, "decided": None,
+                        "quality_label": None})
     return out
+
+
+def score_existing(ks_dir, scores):
+    """Set `quality_label` on merges that already exist, editing the manifest in place.
+
+    This is the second pass -- the one you run after looking at the merged unit, which
+    is the only moment a score can honestly be given. Everything else in the file is
+    left byte-for-byte as it was: the frozen kept_ranges above all, but also the ids,
+    the dates and the notes. Re-running the whole script instead would recompute the
+    union against today's stability windows, which is exactly what freezing exists to
+    prevent.
+    """
+    path = os.path.join(ks_dir, MERGES_FILENAME)
+    if not os.path.exists(path):
+        raise SystemExit(
+            "%s does not exist -- there are no merges to score. Write the manifest "
+            "first (pass a merges.json)." % path)
+    with open(path) as f:
+        doc = json.load(f)
+    by_id = {int(m["merged_id"]): m for m in doc.get("merges") or []}
+    for mid, label in scores.items():
+        if mid not in by_id:
+            raise SystemExit(
+                "%s has no merged unit %d. It holds: %s. (Merged ids start at %d; a "
+                "parent id is not a merged id.)"
+                % (path, mid, sorted(by_id) or "nothing", MERGED_ID_BASE))
+        was = by_id[mid].get("quality_label")
+        by_id[mid]["quality_label"] = label
+        print("unit %d: quality_label %s -> %s  (parents %s)"
+              % (mid, was if was else "(unset, inherited from parents)", label,
+                 " + ".join(str(p) for p in by_id[mid]["parents"])))
+    doc["scored"] = datetime.datetime.now().isoformat(timespec="seconds")
+    with open(path, "w") as f:
+        json.dump(doc, f, indent=2)
+    print("\nupdated %s (kept_ranges, ids, dates and notes untouched)." % path)
+    print("Re-run sync_pipeline for this session to put the new label in "
+          "units.parquet.")
+    return 0
 
 
 def main():
@@ -139,14 +230,43 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("session_id")
     ap.add_argument("rec_root")
-    ap.add_argument("input_json")
+    ap.add_argument("input_json", nargs="?",
+                    help="the groups to merge; omit it when using --score")
     ap.add_argument("--ks_subdir", default="kilosort4",
                     help="folder under <session>.kilosort/ holding spike_clusters.npy "
                          "(default kilosort4)")
+    ap.add_argument("--score", action="append", default=[], metavar="MERGED_ID=LABEL",
+                    help="score a merge that already exists, e.g. --score 10000=good. "
+                         "Edits the manifest in place and leaves the frozen kept_ranges "
+                         "alone. Repeatable. This is the normal way to label a merged "
+                         "unit, because you have to see it first.")
     ap.add_argument("--source", default="merge review pass")
     args = ap.parse_args()
 
     ks_dir = os.path.join(args.rec_root, args.session_id + ".kilosort", args.ks_subdir)
+
+    # --- second pass: score merges that already exist ----------------------------
+    if args.score:
+        if args.input_json:
+            raise SystemExit(
+                "--score edits the existing manifest; do not also pass a merges.json "
+                "(rebuilding it would recompute the frozen kept_ranges).")
+        scores = {}
+        for item in args.score:
+            if "=" not in item:
+                raise SystemExit("--score takes MERGED_ID=LABEL, e.g. 10000=good "
+                                 "(got %r)." % item)
+            mid, label = item.split("=", 1)
+            try:
+                mid = int(mid)
+            except ValueError:
+                raise SystemExit("--score %r: %r is not a merged unit id." % (item, mid))
+            scores[mid] = check_label(label, "--score %s" % item)
+        return score_existing(ks_dir, scores)
+
+    if not args.input_json:
+        raise SystemExit("pass a merges.json to create merges, or --score "
+                         "MERGED_ID=LABEL to score ones that already exist.")
     with open(args.input_json) as f:
         entries = normalise(json.load(f))
     if not entries:
@@ -194,6 +314,10 @@ def main():
             # FROZEN at merge time. Re-marking a parent later will not change this.
             "kept_ranges": kept,
             "parent_ranges": parent_ranges,
+            # null = nobody has scored the merged unit yet, so the pipeline will
+            # inherit the parents' label (or fall back to mua). Set it here if you
+            # already know, or afterwards with --score once you have looked at it.
+            "quality_label": e["quality_label"],
             "decided": e["decided"] or datetime.date.today().isoformat(),
             "note": e["note"] or "",
         })
@@ -230,8 +354,16 @@ def main():
     for m in merges:
         kept = (", ".join("%.1f-%.1fs" % (r["t0"], r["t1"]) for r in m["kept_ranges"])
                 if m["kept_ranges"] else "every trial (no parent had a selection)")
-        print("     unit %-6d = %-20s keeps %s"
-              % (m["merged_id"], " + ".join(str(p) for p in m["parents"]), kept))
+        print("     unit %-6d = %-20s keeps %s  label %s"
+              % (m["merged_id"], " + ".join(str(p) for p in m["parents"]), kept,
+                 m["quality_label"] or "(unset -- inherited from the parents until you "
+                 "--score it)"))
+    unscored = [m["merged_id"] for m in merges if not m["quality_label"]]
+    if unscored:
+        print("\nNot yet scored: %s. Re-run the pipeline, look at the merged unit(s), "
+              "then:\n  python write_unit_merges.py %s %s --score %d=good"
+              % (", ".join(str(u) for u in unscored), args.session_id, args.rec_root,
+                 unscored[0]))
     print("\nspike_clusters.npy was NOT modified -- Phy and bombcell will still show "
           "the parents.\nRe-run sync_pipeline for this session to apply it; "
           "session_meta.json will report\nunit_merges.status='applied'.")

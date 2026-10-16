@@ -399,6 +399,14 @@ Stability windows combine as the **union** of the parents', **frozen at merge ti
 re-marking a parent later does not change a merged unit already signed off. The
 parents' own ranges are kept beside it as provenance.
 
+**You score the merged unit, and that is a separate step on purpose.** A merge's
+quality can only be judged after the merge exists, so the cycle is: merge → re-run →
+look at the merged unit → `write_unit_merges.py --score 10000=good` → re-run. An
+explicit label wins over everything; without one the pipeline inherits the parents'
+label, or falls back to `mua` when they disagree, which is a placeholder that
+undersells real merges. `unit_merges.quality_label_source` (`manual` / `inherited` /
+`conservative_mua`) is how you tell a judged merge from an unjudged one.
+
 **The cost, so it is never a surprise:** the Kilosort folder on disk no longer shows the
 final truth. Phy, bombcell and SpikeInterface read `spike_clusters.npy`, so after
 merging they will show the **parents, unmerged**. The merged view lives in `synced/`.
