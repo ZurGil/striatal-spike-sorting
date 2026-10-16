@@ -5161,14 +5161,66 @@ away. **For unit 233 that is 2 worth a look of 7 neighbours.**
 The ordering principle, which is the substance of the tool: **the cross-correlogram
 decides, everything else is circumstantial.** One neuron cannot fire inside its own
 refractory period, so if two clusters are one neuron the CCG has a dip at zero lag.
-Reported as `dip_ratio` = observed counts in ±1.5 ms over what the correlogram's own
-flanks predict for a window that size, **always printed with the expected count**, so
-that a ratio of 0.0 computed where 0.7 counts were expected is visibly not a
-measurement. Thresholds used for colouring only (they decide nothing): ≤0.45
-consistent with one neuron, ≥0.8 two neurons, ≥1.5 a zero-lag *peak*, i.e. synchrony
-or a double-detected spike rather than identity.
+Reported as a ratio of observed counts in ±1.5 ms over what the correlogram itself
+predicts for a window that size, **always printed with the expected count**, so that a
+ratio of 0.0 computed where 0.7 counts were expected is visibly not a measurement.
+Thresholds used for colouring only (they decide nothing): ≤0.45 consistent with one
+neuron, ≥0.8 two neurons, ≥1.5 a zero-lag *peak*, i.e. synchrony or a double-detected
+spike rather than identity.
 
-Three supports, each for a case the CCG alone gets wrong:
+**Which baseline predicts that window is not a detail, and the first version got it
+wrong — see 5bd.8.**
+
+### 5bd.8 The dip must be measured against its own shoulders (2026-10-16)
+
+Gil, on first reading the tool: *"the dip_ratio sounds very similar to kilosort's
+problematic metric — can't you use the violation ratio comparing the shoulders vs the
+dip?"* He was right, and it was not a stylistic point.
+
+The first version normalised the refractory window by the **far flanks** (|lag| ≥ 10
+ms). That is the same construction as the contamination metrics that misbehave: it
+assumes the correlogram is flat out there. Any CCG with broad structure — bursting,
+shared input, slow co-modulation — breaks that assumption, and the ratio then reports
+a dip that does not exist. Measured instead against the **2–5 ms shoulders either side
+of the refractory window**, and required to be unlikely under Poisson chance at the
+count actually observed (p ≤ 0.01), on this session:
+
+| | far-flank ratio | shoulders + Poisson |
+|---|---|---|
+| pairs classed "one neuron" | **30** | **13** (9 kept, 21 dropped, 4 newly found) |
+| pairs "worth a look" | 328 | 311 |
+
+59 of the 2790 pairs have a 2–5 ms shoulder disagreeing with the ≥10 ms flank by
+≥1.5× — precisely the cases where the old baseline was invalid. The casualty is the
+pair this log previously called the textbook merge:
+
+- **233+236** — far-flank ratio 0.310, which read as a clean dip. Against its own
+  shoulders it is **0.606**, with 10 observed against 16.5 expected, **p = 0.06**.
+  Shoulders and flanks disagree 1.95×. Not evidence of one neuron. The footprint
+  agrees: the two mean waveforms have visibly different shapes on all ten channels.
+- **246+248** survives — ratio 0.241 against shoulders, 1560 observed against 6478
+  expected, p < 0.0001, tilt 1.05×. Still carrying the caution that merging raises
+  refractory violations to 0.879% from 0.445/0.368.
+
+Both baselines are now shown side by side in the tool, with the disagreement called
+out, because when they differ neither number stands on its own. Two further changes
+from the same conversation:
+
+- **the firing rate of each unit sits above the merged ACG.** With a lopsided pair the
+  merged train is almost entirely the fast unit's spikes, so the merged violation
+  *percentage* barely moves however wrong the merge is. Above 5:1 the panel says so
+  outright, and the number it leads with instead is the **count** of refractory
+  violations the interleaving creates, which rate asymmetry cannot dilute.
+- **the waveform footprint across channels** — both units' mean waveform on every
+  channel either covers, each trace at its real position on the probe, one µV scale
+  throughout. The data always had this (10 channels per unit with their µm
+  positions); only the single shared channel was being drawn. One neuron has one
+  footprint, and 233+236 fails that test on sight.
+
+Spliced in by `scripts/patch_review_tool_merge_v2.py` (12 exact anchors, applied on
+top of `patch_review_tool_merge_panel.py`); review tool now at Version 5.
+
+### 5bd.9 Three supports, each for a case the CCG alone gets wrong
 
 - the **merged ACG** — the combined train's own autocorrelogram, the nearest thing to
   seeing the merged unit before it exists, with the combined refractory-violation

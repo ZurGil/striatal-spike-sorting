@@ -446,7 +446,9 @@ they should be weighed:
 
 | panel | what it answers | why it is there |
 |---|---|---|
-| **cross-correlogram** | do they ever fire too close together? | the decider. One neuron cannot fire inside its own refractory period, so one neuron = a DIP at zero lag. Reported as `dip_ratio` against the correlogram's own flanks, with the expected count beside it so a ratio from too few spikes is visibly not a measurement |
+| **cross-correlogram** | do they ever fire too close together? | the decider. One neuron cannot fire inside its own refractory period, so one neuron = a DIP at zero lag. The dip is measured against the **2–5 ms shoulders beside the refractory window**, never the far flanks — a flank baseline is invalid whenever the correlogram has broad structure, and on 20260916 it called 30 pairs one neuron where only 13 survive shoulders plus a Poisson test. Both baselines are displayed, with any disagreement flagged, and the expected count always sits beside the observed one |
+| **firing rates** | is the pair lopsided? | shown above the merged ACG. At a large rate ratio the merged train is mostly the fast unit, so its violation *percentage* is nearly unchanged however wrong the merge is; the panel leads with the **count** of violations the merge creates instead |
+| **footprint across channels** | one neuron, or two at one spot? | both mean waveforms on every nearby channel, each at its real position on the probe, one µV scale. One neuron has one footprint |
 | **merged ACG** | what does the unit this merge creates look like? | the closest thing to seeing the merged unit before it exists. If merging fills in the refractory gap, it is not one neuron whatever else matches |
 | **raw waveforms + footprint** | same shape, same size, same place? | means read from `probe1.dat`, in **microvolts on one shared scale**, on the channels the two units share. A normalised overlay would hide a 40 µV / 400 µV mismatch |
 | **session timelines** | is this a drift pair? | one unit fading out as the other fades in. Then the CCG is empty and uninformative *by construction*, and only this panel can decide |
