@@ -431,20 +431,36 @@ the archive on Z: while the ephys works from F:. Without it the pipeline looks f
 
 #### The one-button path (no Claude in the loop)
 
-In the review tool, the left panel has **↓ export all for sync**, with a live count of
-what it would write. Press it, accept the three download prompts, then on the
-recording PC:
+The left panel of the review tool has two numbered steps:
+
+1. **↓ 1 · export all for sync** — saves the three files, with a live count of what
+   it would write.
+2. **2 · then paste this into cmd** — the command, with this session's id already
+   filled in, and a **copy** button next to it.
 
 ```
-python scripts/sync_session.py 20260916_110311 ^
-    --rec      F:\Gil\Shamir60916_110311.rec ^
-    --rat_root Z:\Gil\Shamir_1 ^
-    --collect_from_downloads
+cd /d D:\Gil\spike_sorting_agent && "C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe" scripts\sync_session.py <sid> --rec "F:\Gil\Shamir\<sid>.rec" --rat_root "Z:\Gil\Shamir_1" --collect_from_downloads
 ```
 
-That is the whole hop. `--collect_from_downloads` runs
-`scripts/collect_verdict_dumps.py`, which finds the three files in your Downloads
-folder and copies them to `outputs/review_verdicts/<session>/`.
+That is the whole hop, and there is **no copying files by hand**:
+`--collect_from_downloads` runs `scripts/collect_verdict_dumps.py`, which finds the
+three files in your Downloads folder itself and copies them into
+`outputs/review_verdicts/<session>/`.
+
+Three things in that command are easy to get wrong by hand, which is why the page
+prints it instead of leaving it to be retyped:
+
+- `cd /d` first, because the script path is relative.
+- the **full** interpreter path. `python` on PATH is the base conda install, which
+  has no pyarrow — the pipeline would run for minutes and then die writing its
+  first parquet file.
+- `--rat_root`, because the Bpod behaviour lives with the archive on Z: while the
+  ephys works from F:.
+
+Those four paths are constants at the top of
+`scripts/patch_review_tool_sync_command.py`. If the repo moves, the conda
+environment is rebuilt, or another rat is recorded, change them there and rebuild
+the tool.
 
 **A button cannot run the Python itself.** The review tool is a web page: its sandbox
 has no filesystem and cannot start a process, so no button anywhere can launch
