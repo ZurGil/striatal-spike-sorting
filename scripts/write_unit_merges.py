@@ -137,10 +137,14 @@ def union_of_ranges(ranges):
 
 
 def load_selection_ranges(ks_dir):
-    """Per-unit stability windows as they stand right now, or {} if none were made."""
+    """Per-unit stability windows as they stand right now, or {} if none were made.
+
+    Also returns the session's full ephys window when the selection file carries it,
+    because `freeze_union` needs it to express "keeps every trial".
+    """
     path = os.path.join(ks_dir, SELECTION_FILENAME)
     if not os.path.exists(path):
-        return {}, None
+        return {}, None, None
     with open(path) as f:
         doc = json.load(f)
     out = {}
@@ -149,7 +153,51 @@ def load_selection_ranges(ks_dir):
                   for r in (entry.get("ranges") or [])]
         if ranges:
             out[int(uid)] = ranges
-    return out, path
+    return out, path, doc.get("session_ephys_window")
+
+
+def freeze_union(parents, selections, window):
+    """The merged unit's kept windows: present wherever ANY parent was present.
+
+    The subtlety that makes this worth its own function. A parent with no entry in
+    `unit_trial_selection.json` is not a parent with no data -- it is a parent that was
+    never restricted, i.e. present for the WHOLE session. So unioning a restricted
+    parent with an unrestricted one gives the whole session, not the restricted
+    parent's window.
+
+    Getting this wrong is silent and expensive. Merging 262 (unrestricted) + 263
+    (kept 2699-3041 s) + 264 (unrestricted) produced a merged unit restricted to 27 of
+    953 trials, discarding 97% of them, with nothing in the output to say so. The
+    pipeline's own rule is explicit -- "only stretches where BOTH parents were absent
+    are dropped" -- and an unrestricted parent is absent nowhere.
+
+    Returns (kept_ranges, parent_ranges, unrestricted_parents).
+    """
+    parent_ranges = {str(p): selections[p] for p in parents if p in selections}
+    unrestricted = [p for p in parents if p not in selections]
+
+    if not parent_ranges:
+        # nobody restricted anything: keep every trial, which this format writes as []
+        return [], parent_ranges, unrestricted
+
+    if unrestricted:
+        # At least one parent was present throughout, so the union is the whole
+        # session. It has to be written as a real range rather than [], because the
+        # pipeline refuses an empty kept_ranges whose parents DO have selections --
+        # that combination cannot be told apart from a manifest that forgot them.
+        if not window:
+            raise SystemExit(
+                "merge %s mixes restricted parent(s) %s with unrestricted parent(s) %s, "
+                "so the merged unit keeps EVERY trial -- but %s has no "
+                "'session_ephys_window' to write that as a range.\n"
+                "Re-run scripts/write_unit_trial_selection.py (it records the window "
+                "from the review tool's own export), then re-run this script."
+                % (parents, sorted(parent_ranges), unrestricted, SELECTION_FILENAME))
+        return ([{"t0": float(window["t0"]), "t1": float(window["t1"])}],
+                parent_ranges, unrestricted)
+
+    kept = union_of_ranges([r for rs in parent_ranges.values() for r in rs])
+    return kept, parent_ranges, unrestricted
 
 
 def check_label(label, where):
@@ -356,17 +404,67 @@ def main():
         return 1
 
     fp, existing_ids = fingerprint(ks_dir)
-    selections, selection_path = load_selection_ranges(ks_dir)
+    selections, selection_path, session_window = load_selection_ranges(ks_dir)
 
-    # --- allocate merged ids ------------------------------------------------------
-    taken = set(existing_ids) | {e["merged_id"] for e in entries if e["merged_id"]}
+    # --- allocate merged ids, KEEPING the ones already handed out ------------------
+    # A merged id has to mean the same neuron forever, for the same reason a cluster id
+    # does: scores are keyed to it (`--score 10002=good`), and so is every analysis and
+    # figure downstream. Allocating purely by position would silently renumber: adding
+    # one merge of two low-numbered units pushes every existing merge up by one, and
+    # a score or a saved result then names a different pair of cells.
+    #
+    # So an id is pinned to its PARENT SET. A group whose parents already have an id in
+    # the manifest on disk keeps it; only genuinely new groups draw from the top.
+    previous = {}
+    prev_path = os.path.join(ks_dir, "unit_merges.json")
+    if os.path.exists(prev_path):
+        try:
+            with open(prev_path) as f:
+                for m in json.load(f).get("merges", []):
+                    previous[frozenset(int(p) for p in m["parents"])] = int(m["merged_id"])
+        except (ValueError, KeyError, TypeError) as exc:
+            print("note: could not read merged ids from %s (%s); allocating fresh ones."
+                  % (prev_path, exc), file=sys.stderr)
+
+    reused = []
+    for e in entries:
+        if e["merged_id"] is None:
+            keep = previous.get(frozenset(e["parents"]))
+            if keep is not None:
+                e["merged_id"] = keep
+                reused.append((keep, e["parents"]))
+
+    # A merge that existed and is now gone keeps its id reserved. Handing 10002 to a
+    # different pair of cells later is the renumbering this whole scheme avoids, and it
+    # would be invisible: the id still resolves, just to the wrong neuron.
+    gone = {ps: i for ps, i in previous.items()
+            if ps not in {frozenset(e["parents"]) for e in entries}}
+
+    taken = (set(existing_ids) | set(gone.values())
+             | {e["merged_id"] for e in entries if e["merged_id"]})
     next_id = MERGED_ID_BASE
+    fresh = []
     for e in entries:
         if e["merged_id"] is None:
             while next_id in taken:
                 next_id += 1
             e["merged_id"] = next_id
             taken.add(next_id)
+            fresh.append((next_id, e["parents"]))
+
+    if reused:
+        print("kept %d merged id(s) from the existing manifest: %s"
+              % (len(reused), ", ".join("%d=%s" % (i, "+".join(map(str, p)))
+                                        for i, p in reused)))
+    if fresh and previous:
+        print("allocated %d new merged id(s): %s"
+              % (len(fresh), ", ".join("%d=%s" % (i, "+".join(map(str, p)))
+                                       for i, p in fresh)))
+    if gone:
+        print("note: %d merge(s) in the previous manifest are not in this input and "
+              "will be dropped: %s. Their ids stay reserved, never reused."
+              % (len(gone), ", ".join("%d=%s" % (i, "+".join(map(str, sorted(ps))))
+                                      for ps, i in gone.items())), file=sys.stderr)
 
     # --- validate before writing anything ----------------------------------------
     seen_parent = {}
@@ -388,14 +486,18 @@ def main():
     # --- freeze the union --------------------------------------------------------
     merges = []
     for e in entries:
-        parent_ranges = {str(p): selections[p] for p in e["parents"] if p in selections}
-        kept = union_of_ranges([r for rs in parent_ranges.values() for r in rs])
+        kept, parent_ranges, unrestricted = freeze_union(
+            e["parents"], selections, session_window)
         merges.append({
             "merged_id": e["merged_id"],
             "parents": e["parents"],
             # FROZEN at merge time. Re-marking a parent later will not change this.
             "kept_ranges": kept,
             "parent_ranges": parent_ranges,
+            # Parents that had no stability window, i.e. were present all session.
+            # Recorded because they are WHY kept_ranges can be wider than any single
+            # parent_ranges entry -- otherwise that looks like a bug on inspection.
+            "unrestricted_parents": unrestricted,
             # null = nobody has scored the merged unit yet, so the pipeline will
             # inherit the parents' label (or fall back to mua). Set it here if you
             # already know, or afterwards with --score once you have looked at it.
@@ -436,10 +538,15 @@ def main():
     for m in merges:
         kept = (", ".join("%.1f-%.1fs" % (r["t0"], r["t1"]) for r in m["kept_ranges"])
                 if m["kept_ranges"] else "every trial (no parent had a selection)")
-        print("     unit %-6d = %-20s keeps %s  label %s"
+        why = ""
+        if m["unrestricted_parents"] and m["parent_ranges"]:
+            why = ("  [the whole session: parent(s) %s were never restricted, so the "
+                   "union is everything]"
+                   % ", ".join(str(p) for p in m["unrestricted_parents"]))
+        print("     unit %-6d = %-20s keeps %s  label %s%s"
               % (m["merged_id"], " + ".join(str(p) for p in m["parents"]), kept,
                  m["quality_label"] or "(unset -- inherited from the parents until you "
-                 "--score it)"))
+                 "--score it)", why))
     unscored = [m["merged_id"] for m in merges if not m["quality_label"]]
     if unscored:
         print("\nNot yet scored: %s. Re-run the pipeline, look at the merged unit(s), "

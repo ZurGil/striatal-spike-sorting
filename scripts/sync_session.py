@@ -66,12 +66,34 @@ def rows_of(path):
     return [r.get("data", r) if isinstance(r, dict) else r for r in doc]
 
 
-def run(args, label):
+def run(args, label, cwd=None):
     print("\n--- %s" % label)
     print("    " + " ".join(str(a) for a in args))
-    r = subprocess.run(args, cwd=ROOT)
+    r = subprocess.run(args, cwd=cwd or ROOT)
     if r.returncode != 0:
         raise SystemExit("FAILED: %s (exit %d). Nothing further was run." % (label, r.returncode))
+
+
+def sync_pipeline_parent():
+    """The directory to run `-m sync_pipeline.process_session` from.
+
+    sync_pipeline is a sibling checkout, not an installed package, so it is importable
+    only from its parent directory. Resolving it here -- and failing with the reason --
+    beats a ModuleNotFoundError from a subprocess three steps into a long run.
+    """
+    env = os.environ.get("SYNC_PIPELINE_DIR")
+    cands = ([env] if env else []) + [
+        os.path.dirname(ROOT),                       # D:\Gil, next to this repo
+        os.path.join(os.path.dirname(ROOT), "sync_pipeline", ".."),
+    ]
+    for c in cands:
+        if c and os.path.isfile(os.path.join(c, "sync_pipeline", "__init__.py")):
+            return os.path.abspath(c)
+    raise SystemExit(
+        "cannot find the sync_pipeline package. It is a sibling checkout rather than an "
+        "installed module, so it must sit next to this repo (expected "
+        "%s\\sync_pipeline\\__init__.py). Set SYNC_PIPELINE_DIR to its parent directory "
+        "if it lives elsewhere." % os.path.dirname(ROOT))
 
 
 def main():
@@ -79,16 +101,35 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("session_id")
     ap.add_argument("--rec", required=True, help=r"the .rec folder, e.g. F:\Gil\Shamir\<sid>.rec")
-    ap.add_argument("--dumps", required=True, help="directory holding the database dumps")
+    ap.add_argument("--dumps", default=None,
+                    help="directory holding the database dumps. Defaults to the "
+                         "in-repo copy at outputs/review_verdicts/<session_id>/, which "
+                         "is where `dump the review tool verdicts` puts them.")
     ap.add_argument("--ks_subdir", default="kilosort4")
+    ap.add_argument("--rat_root", default=None,
+                    help=r"the rat's data_root, which is where the Bpod behaviour "
+                         r"lives (e.g. Z:\Gil\Shamir_1). Needed whenever the ephys "
+                         r"and the behaviour are on different drives, which is the "
+                         r"normal case here: recordings work from F: while bpod/ and "
+                         r"rat_metadata.json stay with the archive on Z:. Without it "
+                         r"the pipeline looks for bpod/ next to the .rec folder and "
+                         r"fails to auto-match.")
+    ap.add_argument("--bpod_file", default=None,
+                    help="skip auto-matching and use this Bpod .mat explicitly")
     ap.add_argument("--allow_missing", action="append", default=[], metavar="COLLECTION",
                     help="proceed without this collection, recorded as a deliberate "
                          "omission. Repeatable.")
     ap.add_argument("--no_pipeline", action="store_true",
                     help="apply the decisions but stop before running sync_pipeline")
+    ap.add_argument("--no_verify", action="store_true",
+                    help="skip the post-run verification. Recorded in the stamp. Only "
+                         "for debugging -- an unverified sync is the thing this script "
+                         "exists to prevent.")
     args = ap.parse_args()
 
     sid, py = args.session_id, sys.executable
+    if args.dumps is None:
+        args.dumps = os.path.join(OUT, "review_verdicts", sid)
     ks_dir = os.path.join(args.rec, sid + ".kilosort", args.ks_subdir)
     if not os.path.isdir(ks_dir):
         raise SystemExit("no Kilosort folder at %s" % ks_dir)
@@ -155,9 +196,43 @@ def main():
         print("--no_pipeline: decisions applied, pipeline NOT run.")
         return 0
 
-    run([py, "-m", "sync_pipeline.process_session", "--rec_folder", args.rec],
-        "sync_pipeline")
-    print("\nDone. synced/ now reflects every decision in the stamp above.")
+    pipeline_cmd = [py, "-m", "sync_pipeline.process_session", "--rec_folder", args.rec]
+    if args.rat_root:
+        pipeline_cmd += ["--rat_root", args.rat_root]
+    if args.bpod_file:
+        pipeline_cmd += ["--bpod_file", args.bpod_file]
+    stamp["pipeline_command"] = pipeline_cmd[1:]
+    with open(stamp_path, "w") as f:
+        json.dump(stamp, f, indent=2)
+    run(pipeline_cmd, "sync_pipeline", cwd=sync_pipeline_parent())
+
+    # --- prove it, don't assert it -------------------------------------------------
+    # Applying a verdict and the verdict arriving are different events. The whole
+    # reason 132 verdicts went missing is that nothing compared the decisions against
+    # the result, so the comparison is part of the run, not an optional extra step.
+    if args.no_verify:
+        stamp["verified"] = False
+        with open(stamp_path, "w") as f:
+            json.dump(stamp, f, indent=2)
+        print("\n--no_verify: synced/ was NOT checked against the verdicts.")
+        return 0
+
+    verify = [py, os.path.join(SCRIPTS, "verify_verdicts_in_dataset.py"), sid,
+              "--rec", args.rec, "--dumps", args.dumps, "--ks_subdir", args.ks_subdir]
+    print("\n--- verifying that every verdict reached synced/")
+    print("    " + " ".join(verify))
+    rc = subprocess.run(verify, cwd=ROOT).returncode
+    stamp["verified"] = (rc == 0)
+    stamp["verify_exit_code"] = rc
+    with open(stamp_path, "w") as f:
+        json.dump(stamp, f, indent=2)
+    if rc != 0:
+        raise SystemExit(
+            "\nVERIFICATION FAILED (exit %d). synced/ was written but does NOT match "
+            "your verdicts -- read the FAILED lines above before using it. The stamp at "
+            "%s records verified=false." % (rc, stamp_path))
+    print("\nDone. synced/ reflects every decision in the stamp above, and that was "
+          "checked, not assumed.")
     return 0
 
 

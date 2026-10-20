@@ -5806,3 +5806,109 @@ is ~113-118 MB/s, so a ~700 GiB session takes ~1.8 h.
 both `.rec` files now verified on Z, the ~678 GiB they occupy on F is the space to
 reclaim — it leaves everything sorting and syncing need in place locally, and the
 `.rec` is only required to re-extract. Not done; Gil's call.
+
+### 5bd.13 Gil's whole review is in the dataset, and it is checked rather than assumed (2026-10-20)
+
+Gil finished reviewing 20260916_110311 and asked for every decision to be integrated,
+with **tests proving each kind of verdict reached the dataset**. Done: `synced/` is
+rebuilt and all nine checks pass.
+
+What he had decided, read straight out of the artifact database:
+
+| collection | docs | content |
+|---|---|---|
+| `verdicts` | 240 | good 114 / mua 113 / noise 13; **132 differ** from the automatic label (good->mua 100, mua->good 25, mua->noise 7) |
+| `merge_verdicts` | 10 | 8 merge, 2 separate -> **6 groups** after transitive chaining |
+| `trial_selections` | 20 | 17 real windows (units 0, 104, 111 have empty ranges = keep everything) |
+
+240 verdicts against 472 units is not a half-finished review: **no unit the pipeline
+called GOOD lacks a verdict.** The 232 without one are 214 automatic MUA and 18
+automatic NOISE. He judged everything the pipeline proposed as good, which is the pass
+that matters, and the rest keep their automatic label.
+
+Result: `units.parquet` 433 rows = 472 - 31 noise - 14 merge parents + 6 merged units,
+labels good 111 / mua 322.
+
+#### The frozen union was wrong for mixed parents
+
+Worth recording because it is silent, costly, and the tests could not see it.
+
+Merged unit 10004 = 262 + 263 + 264 came out restricted to **27 of 953 trials**. Only
+263 had a stability window (2699.7-3041.3 s); 262 and 264 had none.
+`write_unit_merges.py` unioned only the parents that *had* windows, so the merged unit
+inherited 263's. But a parent with no window was never restricted -- it is present for
+the whole session -- and the pipeline's own rule says "only stretches where BOTH
+parents were absent are dropped". An unrestricted parent is absent nowhere, so the
+union is everything. 97% of that unit's trials were being discarded.
+
+Every one of the nine checks passed on that output, because T7 compares the merged unit
+against the frozen union in the manifest -- the same wrong value on both sides. The
+tests verify that verdicts ARRIVE; they do not verify that the merge semantics are
+right. Found by reading the output table, not by running the tests.
+
+Fixed with `freeze_union()`, its own documented function: mixed restricted and
+unrestricted parents now yield the full session window, and `unrestricted_parents` is
+written into the manifest so the reason is visible rather than looking like a bug. It
+cannot be expressed as an empty `kept_ranges`, because the pipeline (correctly) refuses
+that combination as indistinguishable from a manifest that forgot its parents -- so
+`write_unit_trial_selection.py` now carries `session_ephys_window` (87.5-12690.4 s,
+from the review tool's own export) and the merge writer raises if it is absent rather
+than quietly narrowing. 10004 now keeps 953/953.
+
+10001 = 167 + 168 was right by accident: both parents had windows and they union to the
+whole session anyway. That is itself the point of the merge -- 167 early, 168 late is
+the drift-pair signature, so the merged unit being present throughout is the correct
+consequence of judging them one cell.
+
+#### Merged ids were renumbering themselves
+
+Ids were allocated by position, so adding a merge of lower-numbered units pushed every
+existing one up. It had already happened: 233+236 was 10001 on 2026-10-16 and became
+10002 once four new merges sorted ahead of it. Nothing downstream had consumed the old
+ids, but `--score 10001=good` would have landed on a different pair of cells. Ids are
+now pinned to their **parent set** and carried across re-runs; a retired merge keeps its
+id reserved rather than letting it be handed to other neurons. Verified by re-running:
+all six reused, none reallocated.
+
+#### scripts/verify_verdicts_in_dataset.py
+
+Nine checks, deliberately sharing no code with the writers -- it recomputes the merge
+grouping itself, so a bug in the writer's union-find shows up as a disagreement instead
+of being reproduced on both sides. T1 fingerprints, T2 good/mua labels, T3 noise
+exclusions, T4 unjudged units untouched, T5 merges, T6 separates respected, T7
+stability windows (trial by trial), T8 every verdict accounted for, T9 referential
+integrity. Wired into `sync_session.py`, which now raises and stamps `verified: false`
+if it fails.
+
+**Proved the checks bite** -- a test that only ever passes is worthless. Six negative
+controls, each detected: a conflicting good/mua verdict (unit 11 mua->good), an
+unapplied noise verdict, a missing merge, an unapplied stability window, verdicts
+stamped with a wrong clustering sha1, and a separate-verdict pair merged anyway. (The
+first attempt was a dud: "flipping" unit 51 to good when its verdict is already good
+changed nothing and passed, correctly.)
+
+#### Three things that blocked the run, all real
+
+1. `sync_session.py` could never have run the pipeline: it invoked
+   `python -m sync_pipeline.process_session` with cwd set to *this* repo, where
+   `sync_pipeline` is not importable -- it is a sibling checkout, not an installed
+   package. Now resolved explicitly, with `SYNC_PIPELINE_DIR` as an override.
+2. No Bpod file found. The behaviour (`bpod/`, `rat_metadata.json`) lives with the
+   archive on `Z:\Gil\Shamir_1` while the ephys works from `F:`, so `--rat_root` is
+   required for this rat. Now a documented flag, recorded in the stamp.
+3. `ModuleNotFoundError: numpy._core.numeric` -- the Bpod `.pkl` cache on Z was written
+   on 2026-09-17 by a **numpy 2.x** interpreter, and no environment on this machine has
+   numpy 2.x any more. Moved it to `.pkl.numpy2-stale` and let the loader rebuild it
+   from the `.mat`, which is the source of truth.
+
+Point 3 has a consequence beyond this run: **the September `synced/` output was produced
+by an environment that no longer exists here**, so it was not reproducible. This rebuild
+ran under `phy2_ky` (numpy 1.26.4, pandas 2.2.2, pyarrow 16.1.0), the only environment
+with both pyarrow and a working scipy. Pinning the pipeline's environment is unfinished
+work, independent of verdicts.
+
+Gil's verdicts are also now committed at `outputs/review_verdicts/20260916_110311/`, so
+his review no longer exists only inside the artifact database.
+
+Still open: merged unit **10002** (233+236) is unscored and inherits `mua` -- a
+placeholder, not a verdict. `--score 10002=good` once he has looked at it.

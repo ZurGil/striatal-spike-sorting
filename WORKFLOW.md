@@ -411,6 +411,83 @@ undersells real merges. `unit_merges.quality_label_source` (`manual` / `inherite
 final truth. Phy, bombcell and SpikeInterface read `spike_clusters.npy`, so after
 merging they will show the **parents, unmerged**. The merged view lives in `synced/`.
 
+### Getting your review into the dataset — one command
+
+```
+python scripts/sync_session.py <session_id> --rec <rec_folder> --rat_root <data_root>
+```
+
+That applies **every** decision and then proves it arrived. For Shamir:
+
+```
+python scripts/sync_session.py 20260916_110311 ^
+    --rec     F:\Gil\Shamir\20260916_110311.rec ^
+    --rat_root Z:\Gil\Shamir_1
+```
+
+`--rat_root` is needed because the behaviour (`bpod/`, `rat_metadata.json`) lives with
+the archive on Z: while the ephys works from F:. Without it the pipeline looks for
+`bpod/` next to the `.rec` folder and cannot auto-match the session.
+
+**It refuses to run without your decisions.** It expects three dumps of the review
+tool's database in `outputs/review_verdicts/<session_id>/`, and names what is missing
+and what that would have become:
+
+| dump | becomes | effect |
+|---|---|---|
+| `verdicts.json` | `cluster_info.tsv` `group` column | per-unit GOOD / MUA / NOISE |
+| `trial_selections.json` | `unit_trial_selection.json` | per-unit stability windows |
+| `merge_verdicts.json` | `unit_merges.json` | merges, chained transitively |
+
+Those dumps live only in the artifact's database until someone writes them here, so ask
+Claude: *"dump the review tool verdicts for &lt;session&gt;"*. They are committed to the
+repo, which means your review also has a backup outside claude.ai.
+
+Applied in dependency order — stability windows, then merges (a merge freezes the
+**union** of its parents' windows at merge time), then unit verdicts. Then
+`sync_pipeline` runs, and then:
+
+```
+python scripts/verify_verdicts_in_dataset.py <session_id> --rec <rec> --dumps <dir>
+```
+
+runs automatically. Nine checks compare your decisions against the finished `synced/`:
+
+| | catches |
+|---|---|
+| T1 | a verdict made against a different sorting — the ids would name other cells |
+| T2 | a good/mua verdict that did not change `quality_label` |
+| T3 | a unit you called noise that still has rows in `units`/`spikes` |
+| T4 | a unit nobody judged whose label moved anyway |
+| T5 | a merge missing, mis-grouped, parents left behind, or mislabelled |
+| T6 | two units merged although you judged them separate |
+| T7 | a stability window that did not reach the dataset (compared trial by trial) |
+| T8 | **any verdict not accounted for** — the check that catches silent drops |
+| T9 | spikes referencing a unit absent from the units table |
+
+It shares no code with the scripts that apply the verdicts, and recomputes the merge
+grouping itself, so a bug in a writer shows up as a disagreement rather than being
+reproduced on both sides. On failure the run raises and `outputs/verdict_sync_<sid>.json`
+records `verified: false`. `--no_verify` exists for debugging and is recorded too.
+
+This is why it exists: **132 of 240 verdicts sat unapplied for weeks** because the
+script meant to carry them was hardcoded to another session and still exited 0. Nothing
+compared the decisions against the result. Now the ordinary way of running the pipeline
+is a thing that fails when they are missing or wrong.
+
+#### Two merge rules that are easy to get wrong
+
+**A parent with no stability window keeps every trial.** So merging a restricted parent
+with an unrestricted one gives the WHOLE session, not the restricted parent's window.
+Unioning only the parents that happen to have windows once cut merged unit 10004
+(262+263+264) down to 27 of 953 trials. `freeze_union()` handles this and records
+`unrestricted_parents` in the manifest so the wide window does not look like a bug.
+
+**Merged ids are pinned to their parent set.** `--score 10002=good` has to mean the same
+neuron next month, so re-running the merge writer reuses the id a parent set already
+has, and a retired merge keeps its id reserved. Allocating by position silently
+renumbered: 233+236 was 10001 before four new merges sorted ahead of it.
+
 #### Building the review tool for a new session — one command
 
 ```
