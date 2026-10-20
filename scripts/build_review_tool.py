@@ -13,6 +13,8 @@ chain, in order, failing loudly if any anchor has drifted:
       -> patch_review_tool_merge_panel.py   the possible-merges panel (v1)
       -> patch_review_tool_merge_v2.py      dip on shoulders + Poisson; footprint;
                                             firing rates above the merged ACG
+      -> patch_review_tool_export_all.py    one button that saves all three decision
+                                            files for scripts/sync_session.py
       -> patch_review_tool_merge_v3.py      working verdict buttons; panel at the
                                             bottom; jump to the other unit; twins
 
@@ -53,6 +55,7 @@ PATCHES = [
     ("patch_review_tool_merge_panel.py", "possible-merges panel"),
     ("patch_review_tool_merge_v2.py", "shoulder dip, Poisson test, footprint, rates"),
     ("patch_review_tool_merge_v3.py", "verdict buttons, panel at bottom, unit jump, twins"),
+    ("patch_review_tool_export_all.py", "export-all-for-sync button"),
 ]
 
 
@@ -112,7 +115,8 @@ def main():
     print("\n" + "=" * 70)
     print("wrote %s" % final)
     print("      %d bytes (%.2f MiB of the 16 MiB artifact limit)" % (size, size / 1024.0 / 1024))
-    for must in ("renderMergePanel", "mFootprint", "dipStats", "data-mvf", "mergeGoto"):
+    for must in ("renderMergePanel", "mFootprint", "dipStats", "data-mvf", "mergeGoto",
+                 "exportAllForSync", "exportAllBtn"):
         n = open(final, encoding="utf-8").read().count(must)
         print("      %-18s %d" % (must, n))
         if not n:

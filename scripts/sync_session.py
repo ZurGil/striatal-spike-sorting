@@ -121,6 +121,11 @@ def main():
                          "omission. Repeatable.")
     ap.add_argument("--no_pipeline", action="store_true",
                     help="apply the decisions but stop before running sync_pipeline")
+    ap.add_argument("--collect_from_downloads", action="store_true",
+                    help="first run scripts/collect_verdict_dumps.py, which picks the "
+                         "review tool's \"export all for sync\" files out of your "
+                         "Downloads folder. With this, the whole hop is: press the "
+                         "button in the tool, then run this one command.")
     ap.add_argument("--no_verify", action="store_true",
                     help="skip the post-run verification. Recorded in the stamp. Only "
                          "for debugging -- an unverified sync is the thing this script "
@@ -130,6 +135,13 @@ def main():
     sid, py = args.session_id, sys.executable
     if args.dumps is None:
         args.dumps = os.path.join(OUT, "review_verdicts", sid)
+
+    if args.collect_from_downloads:
+        # Deliberately before everything else: if the export is missing or stale this
+        # should stop here, with the dumps untouched, rather than half-apply.
+        run([py, os.path.join(SCRIPTS, "collect_verdict_dumps.py"), sid,
+             "--dest", args.dumps],
+            "collecting the review tool's export from Downloads")
     ks_dir = os.path.join(args.rec, sid + ".kilosort", args.ks_subdir)
     if not os.path.isdir(ks_dir):
         raise SystemExit("no Kilosort folder at %s" % ks_dir)

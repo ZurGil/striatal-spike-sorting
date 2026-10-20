@@ -429,6 +429,47 @@ python scripts/sync_session.py 20260916_110311 ^
 the archive on Z: while the ephys works from F:. Without it the pipeline looks for
 `bpod/` next to the `.rec` folder and cannot auto-match the session.
 
+#### The one-button path (no Claude in the loop)
+
+In the review tool, the left panel has **↓ export all for sync**, with a live count of
+what it would write. Press it, accept the three download prompts, then on the
+recording PC:
+
+```
+python scripts/sync_session.py 20260916_110311 ^
+    --rec      F:\Gil\Shamir60916_110311.rec ^
+    --rat_root Z:\Gil\Shamir_1 ^
+    --collect_from_downloads
+```
+
+That is the whole hop. `--collect_from_downloads` runs
+`scripts/collect_verdict_dumps.py`, which finds the three files in your Downloads
+folder and copies them to `outputs/review_verdicts/<session>/`.
+
+**A button cannot run the Python itself.** The review tool is a web page: its sandbox
+has no filesystem and cannot start a process, so no button anywhere can launch
+`sync_session.py`. What a page *can* do is hand you files, which is what this one
+does. The local command is irreducible without replacing the page with a local server.
+
+`collect_verdict_dumps.py` is deliberately suspicious of what it finds, because a
+stale export is worse than a missing one:
+
+- browsers never overwrite, so a second export lands as `verdicts_<sid> (1).json`.
+  It considers every spelling (` (1)`, `(1)`, `-1`, `_1`), takes the **newest**, and
+  prints which ones it ignored.
+- it prints each file's age and refuses anything older than `--max_age_hours`
+  (default 24).
+- it checks each file really is the collection its name claims before copying.
+- if any of the three fails, **nothing** is copied.
+
+#### If you would rather I do it
+
+Ask: *"dump the review tool verdicts for &lt;session&gt;"*. I read the three collections
+with the `ArtifactData` tool and write them to
+`outputs/review_verdicts/<session>/`, after which the same `sync_session.py` command
+runs without `--collect_from_downloads`. Same destination, same files — the button
+just removes the wait for me.
+
 **It refuses to run without your decisions.** It expects three dumps of the review
 tool's database in `outputs/review_verdicts/<session_id>/`, and names what is missing
 and what that would have become:
