@@ -5765,3 +5765,44 @@ Absolute precision is low for the reason in 6.6 item 5; only RELATIVE
 comparisons are meaningful. The cue-end result cannot be separated from
 movement onset — they are the same instant in this task. The reward-specificity
 result rests on a comparison that is not a matched omission.
+
+### 5bd.12 20261016 archived to Z, and the real reason the 1015 size looked right (2026-10-20)
+
+`F:` was at **57.8 GiB free of 1863** with two sessions on it, and
+`20261016_103511` — the only session not in the Z archive — was still local only.
+Copied it to `Z:\Gil\Shamir_1\20261016_103511.rec`: 11 files, 769,909,160,572 bytes
+(717.0 GiB), 1:48:19 at 118 MB/s, robocopy reporting 0 failed and 0 mismatched.
+(robocopy exit code **1** means "one or more files copied successfully" — success, not
+failure.)
+
+Verified three independent ways before declaring it safe:
+
+1. **Paths and sizes** — the sorted `(size, relpath)` lists from F and Z are identical,
+   11 files each, 769,909,160,572 bytes on both sides.
+2. **Content** — 32 x 1 MiB blocks spread evenly across each of the three big files
+   plus the final partial block, sha256 compared across F and Z; full sha256 on the
+   other eight files. All match.
+3. **Internal completeness of the archived `.rec`** — 255,101-byte XML header,
+   404,816,827,880 bytes of payload, which is **472,916,855 whole 856-byte packets
+   with zero trailing bytes**, and 472,916,855 x 384 x 2 = 363,200,144,640 =
+   `probe1.dat` exactly (timestamps.dat is 4 x packets + its own 607-byte header).
+   So the archived recording accounts for every sample the extraction contains.
+   4.38 h of recording.
+
+**Correction to 5bd.? / the 1015 post-mortem.** I had attributed the misleading
+destination size on 2026-10-15 to robocopy's `/J` (unbuffered I/O) preallocating the
+file. That is wrong, and it mattered because it implied the trap was avoidable by
+dropping a flag. This copy was started **without** `/J` and the destination still
+showed its full 404,817,082,981 bytes within seconds. robocopy preallocates
+regardless. **A size match in Explorer is never evidence that a copy has finished,
+under any flags.**
+
+What does work: run robocopy **without** `/NP` so its log carries real percentages,
+and read progress from the log (translating its carriage returns to newlines and
+taking the last percentage). That gives an honest number. Measured F -> Z throughput
+is ~113-118 MB/s, so a ~700 GiB session takes ~1.8 h.
+
+**Consequence for freeing space.** Kilosort reads `probe1.dat`, not the `.rec`. With
+both `.rec` files now verified on Z, the ~678 GiB they occupy on F is the space to
+reclaim — it leaves everything sorting and syncing need in place locally, and the
+`.rec` is only required to re-extract. Not done; Gil's call.
