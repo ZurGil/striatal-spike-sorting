@@ -14,8 +14,9 @@ THE FILTERS, IN THE ORDER THEY MUST BE APPLIED
 The first two are properties of the recording and drop whole trials. The third is
 per (unit, trial), so it is applied last, as a join -- never as a trial filter.
 
-A unit that does not appear in unit_trial_selection.parquet keeps every trial, which
-is what makes the join safe to add to an analysis written before the table existed.
+Every unit appears in unit_trial_selection.parquet with a true/false for every trial;
+a unit nobody restricted has selected=True throughout. There is no absent-means-
+everything rule to remember, and an inner join is as safe as a left join.
 
 MERGES ARE NOT A FILTER
 

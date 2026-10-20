@@ -357,6 +357,28 @@ def main():
     elif os.path.exists(sel_path):
         sel = pd.read_parquet(sel_path)
         start = trials.set_index("trial_id")["trial_start_trodes"]
+
+        # The table is dense in units: EVERY unit has a row per trial, and a unit
+        # nobody restricted keeps every trial. Check both halves of that, because a
+        # unit silently missing here is the failure the dense table exists to prevent.
+        in_table = set(int(u) for u in pd.unique(sel["unit_id"]))
+        missing = sorted(set(present) - in_table)
+        if missing:
+            bad.append("%d unit(s) in units.parquet have no rows in "
+                       "unit_trial_selection.parquet: %s" % (len(missing), missing[:8]))
+        extra = sorted(in_table - set(present))
+        if extra:
+            bad.append("unit_trial_selection.parquet names %d unit(s) absent from "
+                       "units.parquet: %s" % (len(extra), extra[:8]))
+        restricted = set(selections) | {u for u in in_table if u >= MERGED_ID_BASE}
+        for u in sorted(in_table - restricted):
+            rows = sel[sel["unit_id"] == u]
+            if not bool(rows["selected"].all()):
+                bad.append("unit %d was never restricted but has %d trial(s) marked "
+                           "not selected" % (u, int((~rows["selected"]).sum())))
+            if len(rows) != len(trials):
+                bad.append("unit %d has %d rows, expected one per trial (%d)"
+                           % (u, len(rows), len(trials)))
         for u, info in sorted(selections.items()):
             target = u
             if u in parents_of:
