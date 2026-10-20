@@ -255,8 +255,21 @@ h1{font-size:16px;font-weight:700;margin:0 0 8px;}
       <button id="exportAllBtn" title="Save all three decision files, then run sync_session.py on the recording PC"
               style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--accent);
                      background:var(--accent-soft);color:var(--accent);cursor:pointer;font-weight:600;">
-        ↓ export all for sync</button>
+        ↓ 1 · export all for sync</button>
       <span id="exportAllCount" style="font-size:10px;color:var(--text-3);"></span>
+    </div>
+    <div style="padding:0 16px 9px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px;">
+        <span style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;">
+          2 · then paste this into cmd</span>
+        <button id="copyCmdBtn" style="font-size:9px;padding:1px 8px;border-radius:5px;
+                border:1px solid var(--border);background:var(--surface);color:var(--text-2);
+                cursor:pointer;font-family:'IBM Plex Mono',monospace;">copy</button>
+      </div>
+      <code id="syncCmd" class="mono" style="display:block;font-size:9.5px;line-height:1.5;
+            color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);
+            border-radius:6px;padding:6px 8px;white-space:pre-wrap;word-break:break-all;
+            user-select:all;"></code>
     </div>
     <div class="list" id="list"></div>
   </div>
@@ -983,6 +996,8 @@ function renderTimeline(panel, uid){
    cache not existing at all. */
 function refreshExportAllCount(){
   try {
+    const cmdEl = document.getElementById('syncCmd');
+    if(cmdEl && !cmdEl.textContent) cmdEl.textContent = syncCommand();
     const el = document.getElementById('exportAllCount');
     if(!el) return;
     const size = o => (o && typeof o === 'object') ? Object.keys(o).length : 0;
@@ -1443,6 +1458,39 @@ function mergeExportDoc(){
   };
 }
 
+/* The command that finishes the job, with this session's id already in it.
+   Written to be pasted into cmd.exe as-is: `cd /d` because the script path is
+   relative, and the FULL interpreter path because `python` on PATH is the base conda
+   install with no pyarrow -- the pipeline would run and then die writing its first
+   parquet file. --rat_root is required because the Bpod behaviour sits with the
+   archive on Z: while the ephys works from F:. */
+function syncCommand(){
+  return 'cd /d D:\\Gil\\spike_sorting_agent && "C:\\Users\\Adam\\anaconda3\\envs\\phy2_ky\\python.exe" scripts\\sync_session.py ' +
+         SESSION_ID +
+         ' --rec "F:\\Gil\\Shamir\\' + SESSION_ID + '.rec"' +
+         ' --rat_root "Z:\\Gil\\Shamir_1"' +
+         ' --collect_from_downloads';
+}
+
+async function copySyncCommand(){
+  const cmd = syncCommand();
+  const btn = document.getElementById('copyCmdBtn');
+  let ok = false;
+  try { await navigator.clipboard.writeText(cmd); ok = true; }
+  catch(e){
+    /* clipboard refused (not focused, or no permission): select it so Ctrl+C works */
+    try {
+      const el = document.getElementById('syncCmd');
+      const r = document.createRange(); r.selectNodeContents(el);
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    } catch(e2){}
+  }
+  if(btn){
+    btn.textContent = ok ? 'copied' : 'selected \u2014 press Ctrl+C';
+    setTimeout(() => { btn.textContent = 'copy'; }, 2200);
+  }
+}
+
 /* Write all three decision collections to disk, named as collect_verdict_dumps.py
    expects. This is the browser half of the hop to the dataset; the other half is one
    local command. A button cannot run that command -- no filesystem, no processes in a
@@ -1483,11 +1531,8 @@ async function exportAllForSync(){
                            '\n\nAll three are needed -- the sync refuses to run ' +
                            'without them.\n\n';
   if(!failed.length){
-    msg += 'Now run, on the recording PC:\n\n' +
-           '  python scripts/sync_session.py ' + SESSION_ID + ' ^\n' +
-           '      --rec F:\\Gil\\Shamir\\' + SESSION_ID + '.rec ^\n' +
-           '      --rat_root Z:\\Gil\\Shamir_1 ^\n' +
-           '      --collect_from_downloads\n\n' +
+    msg += 'Now run this on the recording PC -- it is on the page under the ' +
+           'export button, with a copy button:\n\n' + syncCommand() + '\n\n' +
            'That applies every decision, re-runs the pipeline, and verifies that each ' +
            'one reached synced/.';
   }
@@ -1918,6 +1963,10 @@ renderDetail(selected);
 (function(){
   const eab = document.getElementById('exportAllBtn');
   if(eab) eab.addEventListener('click', exportAllForSync);
+  const ccb = document.getElementById('copyCmdBtn');
+  if(ccb) ccb.addEventListener('click', copySyncCommand);
+  const sc = document.getElementById('syncCmd');
+  if(sc) sc.textContent = syncCommand();
   refreshExportAllCount();
 })();
 initDb();

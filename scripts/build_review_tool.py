@@ -56,6 +56,7 @@ PATCHES = [
     ("patch_review_tool_merge_v2.py", "shoulder dip, Poisson test, footprint, rates"),
     ("patch_review_tool_merge_v3.py", "verdict buttons, panel at bottom, unit jump, twins"),
     ("patch_review_tool_export_all.py", "export-all-for-sync button"),
+    ("patch_review_tool_sync_command.py", "the sync command on the page, with a copy button"),
 ]
 
 
@@ -116,7 +117,7 @@ def main():
     print("wrote %s" % final)
     print("      %d bytes (%.2f MiB of the 16 MiB artifact limit)" % (size, size / 1024.0 / 1024))
     for must in ("renderMergePanel", "mFootprint", "dipStats", "data-mvf", "mergeGoto",
-                 "exportAllForSync", "exportAllBtn"):
+                 "exportAllForSync", "exportAllBtn", "syncCommand", "copyCmdBtn"):
         n = open(final, encoding="utf-8").read().count(must)
         print("      %-18s %d" % (must, n))
         if not n:
