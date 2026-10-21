@@ -5912,3 +5912,67 @@ his review no longer exists only inside the artifact database.
 
 Still open: merged unit **10002** (233+236) is unscored and inherits `mua` -- a
 placeholder, not a verdict. `--score 10002=good` once he has looked at it.
+
+### 5bd.14 Today's export came within ~16 minutes of dying of a full disk (2026-10-21)
+
+Gil asked whether Trodes had finished extracting the day's recording and for the session
+to be copied to Z when it did. It had not finished, and checking turned up something
+more urgent: **it was not going to finish.**
+
+Session `20261021_111842`, recorded 11:18 to 16:06. The `.rec` is 442,655,652,202 bytes
+(412 GiB), 517,120,791 packets, 4.79 h at 30 kHz. `trodesexport -dio -kilosort` started
+at 16:06:38 and wrote at 2.75-2.95 GB/min, measured twice.
+
+| 18:03 | bytes |
+|---|---|
+| `probe1.dat` so far | 340,221,935,616 |
+| `probe1.dat` final | 397,148,767,488 |
+| still to write, with `timestamps.dat` | ~57,400,000,000 |
+| F free | **47,296,000,000** |
+
+Short by about 10 GB -- a silent disk-full failure at roughly 97%, after two and a half
+hours of export, somewhere around 18:21.
+
+**The arithmetic worth remembering:** the export products are a fixed fraction of the
+`.rec`, because a packet is 856 bytes of which 768 are the 384 int16 channels.
+`probe1.dat` is 768/856 = 89.7% of the `.rec` and `timestamps.dat` is 4/856 = 0.5%, so
+**an export needs ~91% of the `.rec`'s size free, and `trodesexport` does not check
+before it starts.** Those ratios were confirmed against the finished September export
+rather than assumed: its `probe1.dat` / 768 gives a whole number of packets, and that
+same count reproduces its `.rec` length to within one packet and its `timestamps.dat`
+length exactly, given a 609-byte stamp header.
+
+#### What freed the space, and the thing that was nearly wrong
+
+Gil's answer was that the September session folder could go if it was fully on Z. It was
+not. A file-by-file comparison found **4 files on F that Z lacked and 9 whose sizes
+differed** -- every one of them the verdict integration from 2026-10-20/21: the rewritten
+`cluster_info.tsv` with its `.preverdicts` backup, `unit_merges.json` and
+`unit_merges.parquet`, `unit_trial_selection.*`, and the regenerated `synced/` parquets.
+Z still held the September versions. Those 13 files went up first and were verified by
+full sha256, so the archive's `synced/` is now the one that matches his review.
+
+What was then deleted was **only** `F:\Gil\Shamir\20260916_110311.rec\20260916_110311.rec`
+-- 301 GiB, verified as an identical size plus 33 x 1 MiB sampled blocks hashing equal on
+both sides before anything was removed. That freed 345 GiB, ten times what the export
+needed, and left September's `probe1.dat`, DIO and `kilosort4`/`synced` outputs on F, so
+the session is still sortable and analysable locally without pulling 290 GiB back off Z.
+Deleting the whole folder, which Gil had authorised, would have cost that for no gain.
+
+A size match was deliberately not treated as sufficient for the `.rec`: that is the exact
+mistake of 2026-10-15 (section 5bd.12), and this file is irreplaceable.
+
+#### `scripts/archive_session_when_exported.py`
+
+New, and the standing answer to "copy it when it's done". It waits for the export, then
+**checks that the export is complete from the data itself** before trusting it:
+`probe1.dat` must be a whole number of 384-channel samples, `timestamps.dat` must agree
+on that packet count, and both must agree with the count implied by the `.rec`'s own
+length. A disk-full export fails the first test and a truncated one fails the third, so
+a partial export can never be copied into the archive and recorded as a session. Only
+then does it copy and verify -- identical path and size lists, then sampled blocks hashed
+on both sides for the three big files. It deletes nothing; freeing F stays a human
+decision.
+
+It also waits on the process being gone **and** the files having stopped growing for two
+polls, because a dead `trodesexport` is not the same as a finished one.
