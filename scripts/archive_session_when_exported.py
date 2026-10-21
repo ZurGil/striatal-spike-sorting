@@ -50,8 +50,8 @@ TS = os.path.join(KS, SID + ".timestamps.dat")
 
 NCH = 384
 PACKET = 856          # bytes per .rec packet on this rig
-REC_HEADER = 255102   # XML header length, measured on a finished export
-TS_HEADER = 609       # likewise
+REC_MARKER = b"</Configuration>"   # end of the .rec XML header
+TS_MARKER = b"<End settings>"      # end of a Trodes text header
 POLL = 60
 BLK = 1024 * 1024
 NBLOCKS = 32
@@ -75,6 +75,22 @@ def running(pid):
     out = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid, "/NH"],
                          capture_output=True, text=True).stdout
     return str(pid) in out
+
+
+def header_len(path, marker, probe=2 * 1024 * 1024):
+    """Length of a Trodes text header: up to and including the byte after `marker`.
+
+    MEASURED per file, never assumed. These headers are not a fixed width -- the
+    `timestamps.dat` header was 609 bytes in September and 612 in October, because a
+    field inside it grew. A hard-coded length makes a perfectly good export read as
+    corrupt, which is exactly what happened on the first run of this script.
+    """
+    with open(path, "rb") as f:
+        head = f.read(probe)
+    i = head.find(marker)
+    if i < 0:
+        return None
+    return i + len(marker) + 1
 
 
 def sampled_hashes(path, nbytes):
@@ -114,26 +130,49 @@ log("  .rec            %d" % rec_n)
 log("  probe1.dat      %d" % probe_n)
 log("  timestamps.dat  %d" % ts_n)
 
+rec_hdr = header_len(REC, REC_MARKER)
+ts_hdr = header_len(TS, TS_MARKER)
+log("  headers: rec=%s timestamps=%s (measured, not assumed)" % (rec_hdr, ts_hdr))
+
 problems = []
-if probe_n % (NCH * 2) != 0:
-    problems.append("probe1.dat is not a whole number of %d-channel samples "
-                    "(%d bytes, %d left over)" % (NCH, probe_n, probe_n % (NCH * 2)))
-packets_probe = probe_n // (NCH * 2)
-if (ts_n - TS_HEADER) % 4 != 0:
-    problems.append("timestamps.dat is not a whole number of 4-byte stamps past its "
-                    "%d-byte header" % TS_HEADER)
-packets_ts = (ts_n - TS_HEADER) // 4
-if packets_probe != packets_ts:
-    problems.append("probe1.dat holds %d packets but timestamps.dat holds %d"
-                    % (packets_probe, packets_ts))
-packets_rec = (rec_n - REC_HEADER) // PACKET
-if abs(packets_probe - packets_rec) > 1:
-    problems.append("the .rec implies %d packets but the export holds %d -- short by "
-                    "%.1f GiB" % (packets_rec, packets_probe,
-                                  (packets_rec - packets_probe) * NCH * 2 / 1024.0 ** 3))
-log("  packets: probe1=%d timestamps=%d rec=%d"
-    % (packets_probe, packets_ts, packets_rec))
-log("  duration: %.2f h at 30 kHz" % (packets_probe / 30000.0 / 3600.0))
+if rec_hdr is None:
+    problems.append("no %r in the first 2 MiB of the .rec -- not a Trodes recording?"
+                    % REC_MARKER)
+if ts_hdr is None:
+    problems.append("no %r at the head of timestamps.dat" % TS_MARKER)
+
+packets_probe = packets_ts = packets_rec = -1
+if not problems:
+    if probe_n % (NCH * 2) != 0:
+        problems.append("probe1.dat is not a whole number of %d-channel samples "
+                        "(%d bytes, %d left over)"
+                        % (NCH, probe_n, probe_n % (NCH * 2)))
+    packets_probe = probe_n // (NCH * 2)
+
+    if (ts_n - ts_hdr) % 4 != 0:
+        problems.append("timestamps.dat is not a whole number of 4-byte stamps past "
+                        "its %d-byte header (%d bytes, %d left over)"
+                        % (ts_hdr, ts_n, (ts_n - ts_hdr) % 4))
+    packets_ts = (ts_n - ts_hdr) // 4
+    if packets_probe != packets_ts:
+        problems.append("probe1.dat holds %d packets but timestamps.dat holds %d"
+                        % (packets_probe, packets_ts))
+
+    body = rec_n - rec_hdr
+    packets_rec = body // PACKET
+    trailing = body % PACKET
+    if trailing:
+        # normal: recording stopped mid-packet. Worth printing, not a failure.
+        log("  the .rec ends %d bytes into a packet (recording stopped mid-packet)"
+            % trailing)
+    if abs(packets_probe - packets_rec) > 1:
+        problems.append("the .rec implies %d packets but the export holds %d -- short "
+                        "by %.1f GiB"
+                        % (packets_rec, packets_probe,
+                           (packets_rec - packets_probe) * NCH * 2 / 1024.0 ** 3))
+    log("  packets: probe1=%d timestamps=%d rec=%d"
+        % (packets_probe, packets_ts, packets_rec))
+    log("  duration: %.2f h at 30 kHz" % (packets_probe / 30000.0 / 3600.0))
 
 if problems:
     log("")
