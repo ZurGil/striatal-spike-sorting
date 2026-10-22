@@ -5976,3 +5976,45 @@ decision.
 
 It also waits on the process being gone **and** the files having stopped growing for two
 polls, because a dead `trodesexport` is not the same as a finished one.
+
+#### The check cried wolf once, on a perfectly good export
+
+Its first real run refused to copy, reporting `timestamps.dat is not a whole number of
+4-byte stamps past its 609-byte header`. The export was flawless; the check was wrong.
+Both Trodes headers are **variable-length text**, and both had been hard-coded here
+from the September files: the `timestamps.dat` header is 609 bytes in September and
+**612** in October, and the `.rec` header 255,102 and **255,106**. `header_len()` now
+finds the end marker (`<End settings>`, `</Configuration>`) and measures from it, which
+reproduces both sessions' real values.
+
+The cost was two minutes, because the script refuses rather than copying something
+doubtful — the failure mode worth having. And with the headers measured, the three
+packet counts agree *exactly* instead of to within a packet, which is a stronger
+statement than the version with the bug could ever make.
+
+#### The export, and the archive
+
+The export finished at 18:23, 2 h 16 m after it started, landing on exactly the
+`probe1.dat` size predicted at 17:56 — 397,148,767,488 bytes — with all three counts at
+**517,120,791 packets**, 4.79 h at 30 kHz. Without the space freed it would have died
+around 18:21.
+
+The copy ran 18:28 to 20:27, 1 h 58 m for 784.1 GiB at 118 MB/s, robocopy exit 1 with
+11 of 11 files copied and none failed. Verified four ways:
+
+1. identical path and size lists, 11 files, 841,873,149,455 bytes;
+2. 33 x 1 MiB sampled blocks per big file hashing equal;
+3. **51 more 1 MiB blocks at different offsets, re-read with `FILE_FLAG_NO_BUFFERING`**
+   — because step 2 ran seconds after the write and could have been served from the
+   local SMB cache rather than from the share, which would have made it a check of
+   nothing;
+4. full sha256 on the eight small files, and the archived `.rec` read back from Z as
+   internally complete: 255,106-byte header, 517,120,791 whole packets, **zero**
+   trailing bytes, and 517,120,791 x 384 x 2 = the archived `probe1.dat` exactly.
+
+Mid-copy, Z showed `20261021_111842.rec` at its full 442.66 GB *and* carrying its
+original 16:06 timestamp while a third of the session had not crossed the wire. Explorer
+would have called it done. That is the October 15 trap in miniature, and the reason real
+progress was read off robocopy's own `ReadTransferCount` instead.
+
+The session is still on F. Nothing was deleted.
