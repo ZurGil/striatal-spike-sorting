@@ -6018,3 +6018,68 @@ would have called it done. That is the October 15 trap in miniature, and the rea
 progress was read off robocopy's own `ReadTransferCount` instead.
 
 The session is still on F. Nothing was deleted.
+
+### 5bd.15 The 2026-10-23 session, archived unattended -- and a watcher that lied (2026-10-23)
+
+Gil asked for a standing task: copy today's session from F to Z once Trodes finished
+extracting, without him having to come back and ask. `20261023_083635` is a **4.56 h**
+recording, the longest so far.
+
+**How it was set up.** `scripts/archive_session_when_exported.py 20261023_083635
+--pid 21568`, started at 13:31 with `Start-Process` so it was **not** a child of the
+agent session and would survive the terminal closing. Log in
+`outputs/archive_20261023_083635.log`.
+
+Space was checked first, because of what happened on the 21st: the `.rec` was
+421,166,963,754 bytes (392.3 GiB), so the export needed ~354 GiB and F had 629.65 GiB
+free. No risk this time. Stating it beats assuming it.
+
+**Result**, entirely unattended:
+
+| | |
+|---|---|
+| export finished | 15:19:34, `probe1.dat` = 377,869,196,544 bytes |
+| packets | probe1 = timestamps = rec = **492,017,183**, all three exactly equal |
+| headers | rec 255,106 / timestamps 612 -- measured, not assumed |
+| copy | 745.99 GiB in 112.8 min, 118.4 MB/s, robocopy exit 1 (success) |
+| archived at | `Z:\Gil\Shamir_1\20261023_083635.rec` |
+
+**A watcher that reported success without ever waiting.** The job meant to notify on
+completion was written as
+
+```bash
+while tasklist /FI "PID eq 8556" /NH | grep -q 8556; do sleep 300; done
+```
+
+Git Bash rewrites slash-prefixed arguments as paths, so `/FI` arrived as
+`C:/Program Files/Git/FI`, `tasklist` errored, `grep` matched nothing, the loop body ran
+**zero times**, and the job exited 0 within seconds announcing that the archiver had
+finished -- about a copy that had not started. A liveness check that can only return
+false turns a waiter into an instant success report. The replacement asserts it can see
+the pid *before* entering the loop and aborts loudly otherwise. `MSYS_NO_PATHCONV=1`,
+PowerShell, or `//FI` all avoid the conversion. The archiver itself was never affected:
+it calls `tasklist` from Python under Windows, not through Bash.
+
+**The script's own "verified" was overstating its evidence.** Step 4 reads Z *seconds*
+after robocopy stops writing, and the local SMB client can answer those reads from its
+own cache -- so on its own it confirms what was **sent**, not what **landed**. On the
+21st that gap was closed by hand. Doing it by hand twice is a sign it belongs in the
+code, so it is now `scripts/verify_archive.py <session_id>`, called as step 5 and also
+runnable standalone later without redoing a two-hour copy:
+
+1. full sha256 on every file that is not one of the three big ones -- 8 files today,
+   all identical;
+2. sampled 1 MiB blocks on the three big files opened with `FILE_FLAG_NO_BUFFERING`
+   (via `CreateFileW` through ctypes, then `msvcrt.open_osfhandle`), at **different**
+   offsets from step 4, so it covers blocks nothing has looked at yet -- 54 blocks
+   today, every one identical;
+3. the archived `.rec` judged on its own terms, read from Z: header measured at 255,106,
+   **492,017,183 whole packets, zero trailing bytes**, and 492,017,183 x 384 x 2 =
+   377,869,196,544 = the archived `probe1.dat` exactly. This is the only check that does
+   not take F's copy as the reference.
+
+If the cache cannot be bypassed it exits **6** and says the big files are not
+independently confirmed, rather than quietly downgrading to a cached read and still
+printing "verified".
+
+The session is still on F. Nothing was deleted -- that stays a human decision.

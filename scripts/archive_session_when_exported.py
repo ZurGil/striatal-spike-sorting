@@ -236,6 +236,35 @@ for name, path in (("rec", REC), ("probe1.dat", PROBE), ("timestamps.dat", TS)):
         raise SystemExit(5)
     log("    %d x 1 MiB blocks identical on both sides" % len(a))
 
+# --- 5. verify again, with the cache bypassed ---------------------------------------
+# Everything above read Z seconds after robocopy stopped writing, which the local SMB
+# client can answer from its own cache -- so on its own it confirms what was SENT, not
+# what landed. verify_archive.py re-reads the big files with FILE_FLAG_NO_BUFFERING at
+# fresh offsets, hashes the small files in full, and checks the archived .rec against
+# itself. It is a separate script so it can be re-run later without redoing the copy.
 log("")
-log("DONE. %s is archived at %s and verified." % (SID, DST))
+log("re-verifying with the Windows cache bypassed")
+v = os.path.join(os.path.dirname(os.path.abspath(__file__)), "verify_archive.py")
+r = subprocess.run([sys.executable, v, SID], capture_output=True, text=True)
+for line in (r.stdout or "").strip().split("\n"):
+    log("  | %s" % line)
+if (r.stderr or "").strip():
+    for line in r.stderr.strip().split("\n")[-6:]:
+        log("  ! %s" % line)
+if r.returncode == 1:
+    log("")
+    log("the independent check FAILED -- treat the archive as untrustworthy, and note "
+        "that F still holds the original")
+    raise SystemExit(6)
+if r.returncode != 0:
+    log("")
+    log("the independent check could not finish (exit %d). The copy itself passed "
+        "every check above, but the big files are not independently confirmed -- run "
+        "scripts/verify_archive.py %s by hand before deleting anything from F."
+        % (r.returncode, SID))
+    raise SystemExit(7)
+
+log("")
+log("DONE. %s is archived at %s and verified twice: once against F, and once more "
+    "with the cache bypassed." % (SID, DST))
 log("Nothing was deleted from F -- that stays a human decision.")
