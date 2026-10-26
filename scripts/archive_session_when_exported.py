@@ -28,12 +28,14 @@ import time
 
 B = chr(92)
 SID = None
-PID = None
+PIDS = []          # --pid may be given more than once: Trodes can be told to export
+                   # the same session twice, and then BOTH writers must be gone before
+                   # the output can be judged complete.
 args = sys.argv[1:]
 i = 0
 while i < len(args):
     if args[i] == "--pid":
-        PID = int(args[i + 1])
+        PIDS.append(int(args[i + 1]))
         i += 2
     else:
         SID = args[i]
@@ -69,12 +71,14 @@ def size(p):
         return -1
 
 
-def running(pid):
-    if pid is None:
-        return False
-    out = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid, "/NH"],
-                         capture_output=True, text=True).stdout
-    return str(pid) in out
+def running(pids):
+    """True while ANY of the watched pids is still alive."""
+    for pid in pids or []:
+        out = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid, "/NH"],
+                             capture_output=True, text=True).stdout
+        if str(pid) in out:
+            return True
+    return False
 
 
 def header_len(path, marker, probe=2 * 1024 * 1024):
@@ -108,16 +112,23 @@ def sampled_hashes(path, nbytes):
 # --- 1. wait ------------------------------------------------------------------------
 log("waiting for the export of %s" % SID)
 log("  watching  %s" % PROBE)
-log("  process   %s" % ("pid %d" % PID if PID else "none given, size-only"))
+log("  process   %s" % (", ".join("pid %d" % p for p in PIDS) if PIDS
+                        else "none given, size-only"))
+if PIDS and not running(PIDS):
+    # Refuse to "watch" something that is already gone. A wait whose condition can only
+    # be false is not a wait -- it is an instant, false report of completion.
+    log("none of the given pids is alive -- either the export already finished or the "
+        "pids are wrong. Check before trusting this, and re-run with the right ones.")
+    raise SystemExit(1)
 last = (-1, -1)
 stable = 0
 while True:
     cur = (size(PROBE), size(TS))
-    alive = running(PID)
+    alive = running(PIDS)
     stable = stable + 1 if cur == last else 0
     log("probe1=%d ts=%d  alive=%s  unchanged_polls=%d" % (cur[0], cur[1], alive, stable))
     if not alive and stable >= 2:
-        log("the export process is gone and nothing has grown for %d polls" % stable)
+        log("every export process is gone and nothing has grown for %d polls" % stable)
         break
     last = cur
     time.sleep(POLL)

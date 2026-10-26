@@ -6083,3 +6083,64 @@ independently confirmed, rather than quietly downgrading to a cached read and st
 printing "verified".
 
 The session is still on F. Nothing was deleted -- that stays a human decision.
+
+### 5bd.16 The channel map changed today, and the date it changed was measurable (2026-10-26)
+
+Gil changed the Trodes channel map for `20261026_113546` and wanted it recorded, but had
+forgotten when the previous map was last used. That does not have to be remembered:
+every `.rec` carries its whole configuration in its text header, including the 384
+`<SpikeChannel>` entries that **are** the channel map -- each one's `hwChan` and its
+`coord_ml` / `coord_ap` / `coord_dv` position in micrometres. So the map every session
+ever recorded used is recoverable from the session itself.
+
+`scripts/channel_map_history.py` fingerprints that map per session and groups sessions by
+fingerprint. The fingerprint deliberately covers only the ntrode ids, `hwChan` and the
+three coordinates -- not thresholds, filters, colours or display state, so changing a
+threshold does not read as changing the map.
+
+**The answer: there is only one previous map, and it is all of them.**
+
+| map | sessions | `coord_dv` |
+|---|---|---|
+| A | **28**, `20260901_085606` .. `20261023_083635` | 920..4740 um, 192 steps |
+| B | 1, `20261026_113546` | 100..3920 um, 192 steps |
+
+Fingerprint `8e66a88e1f06` for every session from September 1 through October 23, and
+`cdfe5ac929cf` for today. Nothing to hunt for: the "previous channel map" is the one used
+for the entire dataset to date.
+
+**What actually differs.** Two things, and only one of them matters:
+
+- **A uniform 820 um depth re-reference.** Row for row, every `coord_dv` is 820 um
+  smaller in B. Same 192 pads at the same 20 um pitch, same `coord_ap` exactly, same
+  `coord_ml` values -- the origin of the depth axis moved. A spans 920..4740, B spans
+  100..3920 (3840 um = 192 x 20 um, the probe's full span, in both).
+- **The staggered ML columns are swapped.** Row 0 was `ml=2426`, now `ml=2442`; the set
+  `{2426, 2442, 2458, 2474}` is unchanged, the assignment to rows is offset. 16 um.
+
+Checked two ways that agree. Indexed by **hardware channel**, `coord_ml` and `coord_ap`
+are identical for all 384 and `coord_dv` offsets are only `{0, 3840}` -- 82 channels wrap
+by the probe's full span, 302 do not, because the ntrode list is **rotated by 82
+positions** (ids A 1083..1466, B 1001..1384). Indexed by **exported row**, which is what
+`probe1.dat` follows, the `coord_dv` offset is a single value: 820 um.
+
+Confirmed independently in the file Kilosort actually reads. The exported
+`channelmap_probe1.dat` is a 636-byte text header plus 384 x `<ml int32><dv int32><ap
+int32>`; parsed, it gives row-by-row `dv` differences of exactly `{820}`, `ap` identical,
+`ml` differing by the stagger swap. Its sha256 differs between the two sessions, as it
+must.
+
+**Why this matters.** `depth_mm = implant_depth_mm - phy_depth/1000`, and `phy_depth`
+comes from those pad coordinates. An 820 um shift in the coordinates is a **0.82 mm shift
+in every unit's reported depth**, silently -- exactly the class of error already flagged
+for the four arithmetic `rat_metadata` fields. Units from map B are not depth-comparable
+with the 28 sessions on map A without correcting for it. Which origin is the *correct*
+one is Gil's call; the record states the offset rather than guessing.
+
+Written to `Z:\Gil\Shamir_1\channel_map_history.json` and `.md`, beside
+`rat_metadata.json`, and regenerable at any time with `--write`. The record is derived,
+not hand-maintained, so it cannot drift out of date.
+
+**Bonus, noticed in that header:** `Headstage_serialnum: 01803 00185`.
+`rat_metadata.json` carries `headstage_serial_number: null` for all three rats with the
+note "pending". It is recoverable from any exported session and worth filling in.
