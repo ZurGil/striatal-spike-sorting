@@ -16,10 +16,18 @@ bit each Din line sits on. Two self-checks must pass before any DIO byte is beli
 every packet's 0x55 sentinel, and a timestamp that increments by exactly 1 -- because a
 wrong offset would otherwise produce a confident, wrong answer about the wiring.
 
+The strongest check is `--bpod <SessionData.mat>`: a Bpod file carries
+`OriginalStateNamesByNumber` and `OriginalStateTimestamps`, so it says what each state
+NUMBER is called and how long that state actually lasts. Comparing that against the word
+in the .rec names every value on the wire and checks its duration, which is what catches
+a swapped pair of pins -- the values would still be legal 0..63 numbers, but a 50 ms
+PreITI_start would show up as some other number.
+
 Usage:
     python check_bpod_dio_in_rec.py <session-id or .rec path> [--seconds 60]
                                     [--start-s S | --from-end]
                                     [--compare <session-id of a known-good session>]
+                                    [--bpod <path to a Bpod SessionData .mat>]
 """
 import collections
 import os
@@ -139,6 +147,29 @@ def alternation(b):
     return len(chg), ok, dwell
 
 
+def bpod_state_table(mat_path):
+    """State number -> (name, durations in ms) straight out of a Bpod session file.
+
+    Bpod's own record of what it ran: `OriginalStateData` is the per-trial sequence of
+    state NUMBERS -- the very numbers that go out on the six lines -- and
+    `OriginalStateTimestamps` are their boundaries, so a state's duration is the gap to
+    the next one. `OriginalStateNamesByNumber` names them.
+    """
+    import scipy.io as sio
+    m = sio.loadmat(mat_path, squeeze_me=True, struct_as_record=False)
+    rd = m["SessionData"].RawData
+    nt = int(m["SessionData"].nTrials)
+    names = np.atleast_1d(rd.OriginalStateNamesByNumber[0])
+    dur = collections.defaultdict(list)
+    for t in range(nt):
+        s = np.atleast_1d(rd.OriginalStateData[t]).astype(int)
+        ts = np.atleast_1d(rd.OriginalStateTimestamps[t]).astype(float)
+        for k in range(min(len(s), len(ts) - 1)):
+            dur[int(s[k])].append((ts[k + 1] - ts[k]) * 1000.0)
+    return {k: (names[k - 1] if k <= len(names) else "?", np.array(v))
+            for k, v in dur.items()}, nt
+
+
 def main():
     args = sys.argv[1:]
     if not args:
@@ -220,17 +251,18 @@ def main():
     stable = dwell_ms >= MIN_DWELL_MS
     vals = code[idx]
     print("\nthe decoded 6-bit word")
-    print("  %d changes in %.1f s; %d held >= %g ms (real states), %d shorter "
-          "(transients while several lines move)"
+    print("  %d changes in %.1f s; %d held >= %g ms, %d shorter"
           % (len(idx), len(dio) / fs, int(stable.sum()), MIN_DWELL_MS,
              int((~stable).sum())))
+    print("  (a short one is not automatically a glitch -- this protocol has real "
+          "pass-through states that last 0.10 ms, which is 3 samples at 30 kHz)")
     print("  value range %d..%d (a 6-bit word can only be 0..63)"
           % (int(vals.min()), int(vals.max())))
     cs = collections.Counter(vals[stable].tolist())
     ct = collections.Counter(vals[~stable].tolist())
-    print("  states held >= %g ms : %s" % (MIN_DWELL_MS, dict(sorted(cs.items()))))
+    print("  held >= %g ms  : %s" % (MIN_DWELL_MS, dict(sorted(cs.items()))))
     if ct:
-        print("  transient values     : %s" % dict(sorted(ct.items())))
+        print("  held <  %g ms  : %s" % (MIN_DWELL_MS, dict(sorted(ct.items()))))
     if dead:
         print("\n  LINE(S) WITH NO ACTIVITY AT ALL: %s. If the Bpod is running trials, "
               "that is a dead or disconnected input, and every state number carrying that "
@@ -242,6 +274,60 @@ def main():
         print("    %10.3f s   code %2d   %9.2f ms" % (st_[k], sv[k], sd[k]))
     if len(sv) > 50:
         print("    ... %d more" % (len(sv) - 50))
+
+    if "--bpod" in args:
+        mat = args[args.index("--bpod") + 1]
+        tbl, nt = bpod_state_table(mat)
+        allobs = collections.Counter(vals.tolist())
+        print("\nevery value on the wire, named by the Bpod protocol in %s (%d trials)"
+              % (os.path.basename(mat), nt))
+        print("  %-5s %-26s %-7s %-22s %-22s %s"
+              % ("code", "Bpod state name", "seen", "held, this recording",
+                 "Bpod's own duration", "agrees?"))
+        # The first and last state in the window are cut off by the window itself, so
+        # their lengths are an artefact of where I started reading, not of the signal.
+        interior = np.ones(len(vals), dtype=bool)
+        interior[0] = interior[-1] = False
+        unknown, mismatch = [], []
+        for c in sorted(allobs):
+            obs = dwell_ms[(vals == c) & interior]
+            if len(obs) == 0:
+                continue
+            if c == 0:
+                print("  %-5d %-26s %-7d %-22s %-22s %s"
+                      % (0, "(no state -- between trials)", len(obs),
+                         "%.1f-%.1f ms" % (obs.min(), obs.max()), "-", "n/a"))
+                continue
+            if c not in tbl:
+                unknown.append(c)
+                print("  %-5d %-26s %-7d %-22s %-22s %s"
+                      % (c, "NOT A STATE OF THIS PROTOCOL", len(obs),
+                         "%.1f-%.1f ms" % (obs.min(), obs.max()), "-", "NO"))
+                continue
+            nm, bd = tbl[c]
+            # Bpod's own timestamps have 0.1 ms resolution and Trodes samples every
+            # 0.033 ms, so a 3-sample pass-through state cannot be compared tightly:
+            # allow a few samples' slack as well as a proportional margin.
+            tol = max(3.0 * 1000.0 / fs, 0.1 * float(bd.max()))
+            ok = (obs.min() >= bd.min() - tol) and (obs.max() <= bd.max() + tol)
+            if not ok:
+                mismatch.append((c, nm))
+            print("  %-5d %-26s %-7d %-22s %-22s %s"
+                  % (c, nm, len(obs),
+                     "%.2f-%.2f ms" % (obs.min(), obs.max()),
+                     "%.2f-%.2f ms" % (bd.min(), bd.max()),
+                     "yes" if ok else "OUT OF RANGE"))
+        missing = sorted(set(tbl) - set(allobs))
+        print("\n  states of the protocol this window never visited: %s" % (missing or "none"))
+        print("  values on the wire that are not states at all      : %s"
+              % (unknown or "none"))
+        print("  states whose duration on the wire is impossible    : %s"
+              % ([("%d %s" % (c, n)) for c, n in mismatch] or "none"))
+        if not unknown and not mismatch:
+            print("\n  Every number on the six lines is a state this protocol really has, "
+                  "and every one lasted a length that state is allowed to last. A pin "
+                  "swapped with another pin could not produce that -- the durations would "
+                  "land on the wrong numbers.")
 
     if "--compare" in args:
         ref = args[args.index("--compare") + 1]
