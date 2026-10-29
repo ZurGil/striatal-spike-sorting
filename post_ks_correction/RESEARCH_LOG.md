@@ -6248,3 +6248,25 @@ within a trial the clocks agree to a few tenths of a millisecond.
 
 Nothing in `sync_pipeline` was modified. Both scripts are read-only and import
 `dio_decoder` unchanged, only to decode the comparison session.
+
+**Correction to 5bd.18, measured later the same day.** That entry says an unconnected
+input on this controller reads HIGH, citing `Din8`. `Din7` sits constantly **LOW** with
+nothing wired to it either, measured over 300 s of `20261029_123356` -- so there is no
+single idle level to infer from and the claim is withdrawn. It does not change the `Din1`
+diagnosis, which rests on 0 transitions while the other five lines worked, every value
+odd, and 41 appearing. The part of that reasoning that does hold is the **chatter before
+the latch**: a logic output that fails tends to fail at once, a contact losing grip
+flickers first.
+
+Two further measurements from the post-repair recording, both now in
+`docs/bpod_mcu_sync_wiring.md` for whoever works on the connector next. There is **no
+measurable skew between the six lines**: over 238 word changes, transitions of 1, 2, 3,
+4, 5 and 6 bits all land inside a single 33.3 us sample, and no intermediate value ever
+persisted for 1-2 samples, so the word needs no strobe and can be read at any sample.
+And `trodesexport` writes **only** `Din1..Din6` -- a signal moved onto `Din7` or `Din8`
+would never be exported and the sync pipeline would never see it, which matters if the
+wiring is about to be rearranged.
+
+The repair was verified against Bpod: trials 519-524 of `Session2` matched
+state-for-state, including a 30-state and a 20-state trial, every onset within
+0.13-0.30 ms. Gil discarded both of the day's recordings afterwards.
