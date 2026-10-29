@@ -6144,3 +6144,41 @@ not hand-maintained, so it cannot drift out of date.
 **Bonus, noticed in that header:** `Headstage_serialnum: 01803 00185`.
 `rat_metadata.json` carries `headstage_serial_number: null` for all three rats with the
 note "pending". It is recoverable from any exported session and worth filling in.
+
+### 5bd.17 Two more sessions archived, and the drive that is now the constraint
+
+`20261027_090722` and `20261028_093206` are on Z and verified. Both were asked for after
+the export had already finished, which is the invocation worth remembering: run
+`archive_session_when_exported.py <sid>` with **no `--pid`** and it waits on size
+stability alone (2 polls, ~2 min) instead of watching a process that no longer exists.
+Passing a dead pid is now a refusal rather than an instant false "complete" -- see
+5bd.15.
+
+| session | files | size | copy | packets | trailing | duration | map |
+|---|---|---|---|---|---|---|---|
+| `20261027_090722` | 11 | 685.63 GiB | 103.6 min | 452,205,765 | 0 | 4.19 h | B |
+| `20261028_093206` | 11 | 777.91 GiB | 117.5 min | 513,070,777 | 0 | 4.75 h | B |
+
+Both at 118 MB/s, both with `probe1 = timestamps = rec` packet counts agreeing exactly,
+both verified twice with step 5 (the cache-bypassed pass) running automatically: 8 small
+files by full sha256, 54 x 1 MiB blocks read from the device, and the archived `.rec`
+judged complete on its own terms from Z. For 1028: header 255,039, and
+513,070,777 x 384 x 2 = 394,038,356,736 = the archived `probe1.dat` exactly. 4.75 h is the
+longest session recorded so far. Nothing was deleted from F by the archiver -- it never
+deletes.
+
+`20261028` is also on **channel map B**, so the new map now covers three consecutive
+sessions (1026, 1027, 1028) and the switch described in 5bd.16 looks deliberate rather
+than a one-off. `channel_map_history.json/.md` were regenerated to say so: 2 maps across
+31 sessions, A = 28, B = 3. None of the three has been sorted, so the 820 um depth-origin
+question is still a clean decision.
+
+**The real finding is the space.** F is down to **298.3 GiB free** with both of those
+sessions still on it. Today's `.rec` alone is 409 GiB, and an export needs ~91% of the
+`.rec` size, which `trodesexport` does not check before starting -- the failure mode is a
+silent disk-full 97% of the way through a 2 h export, which nearly happened on 10-21.
+So the next recording cannot be exported until something is cleared. Both 1027 and 1028
+are verified on Z and either one is enough; the advice stands that deleting just the
+`.rec` beats deleting the session folder, because `probe1.dat`, the DIO files and the
+timestamp offsets are regenerable from the archived `.rec` and the `.rec` is not
+regenerable from anything. Deletion stays a human decision.
