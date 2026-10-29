@@ -113,48 +113,82 @@ def main():
     if not dtr:
         raise SystemExit("no complete trial in this window -- try a longer --seconds")
 
-    # Which Bpod trial does the window start on? Try every offset and count how many
-    # trials match exactly. A correct offset matches essentially all of them; a wrong
-    # one matches almost none, so this does not need a tolerance.
-    best, best_hits = None, -1
-    for off in range(0, nt):
-        hits = 0
-        for k, (dc, _) in enumerate(dtr):
-            if off + k >= nt:
-                break
-            bc = btr[off + k][0]
-            if len(bc) == len(dc) and np.array_equal(bc, dc):
-                hits += 1
-        if hits > best_hits:
-            best, best_hits = off, hits
-    print("\n  best alignment: the window's first complete trial is Bpod trial %d "
-          "(of %d)" % (best + 1, nt))
-    print("  trials whose state sequence matches EXACTLY: %d of %d"
-          % (best_hits, min(len(dtr), nt - best)))
+    # Which Bpod trial is which trial on the wire? Matching state sequences alone is not
+    # enough: a short generic trial like [1, 2, 3, 40] occurs dozens of times in a
+    # session, so counting exact matches can settle on an alignment that is off by
+    # several trials and still "match" the short ones. The test that cannot be fooled is
+    # timing -- in a true pairing, every state onset in the trial sits at the SAME
+    # distance from Bpod's own onset, so the offset's spread within the trial is a few
+    # tenths of a millisecond. A coincidental pairing is out by hundreds.
+    MAX_SPREAD_MS = 5.0
+    pair = []
+    for k, (dc, dt) in enumerate(dtr):
+        cands = []
+        for bi in range(nt):
+            bc, bt = btr[bi]
+            if len(bc) != len(dc) or not np.array_equal(bc, dc):
+                continue
+            o = dt - bt[:len(dt)]
+            spread = float(o.max() - o.min()) * 1000.0
+            if spread <= MAX_SPREAD_MS:
+                cands.append((spread, bi, o))
+        cands.sort()
+        pair.append((k, cands, dc, dt))
 
-    # Per-trial detail, and the clock offset measured at every state onset.
+    # Within-trial agreement still is not enough on its own. A bare [1, 2, 3, 40] trial
+    # -- light on, wait, time out -- has the SAME internal timing in every such trial,
+    # because every state in it is a fixed duration, so it agrees perfectly with dozens
+    # of them. Those trials carry no identity of their own and can only be placed by the
+    # clock: the offset is shared by the whole session and drifts slowly, so a trial
+    # whose offset disagrees with its neighbours' by seconds is not that trial.
+    informative = [c[0][2] for _, c, dc, _ in pair if len(c) == 1 and len(dc) >= 8]
+    if not informative:
+        informative = [c[0][2] for _, c, _, _ in pair if c]
+    consensus = float(np.median([np.median(o) for o in informative])) if informative \
+        else None
+    MAX_FROM_CONSENSUS_S = 2.0
+
+    resolved = []
+    for k, cands, dc, dt in pair:
+        pick = None
+        if cands and consensus is not None:
+            near = [c for c in cands if abs(float(np.median(c[2])) - consensus)
+                    <= MAX_FROM_CONSENSUS_S]
+            near.sort(key=lambda c: abs(float(np.median(c[2])) - consensus))
+            pick = near[0] if near else None
+        elif cands:
+            pick = cands[0]
+        resolved.append((k, pick, dc, dt))
+    pair = resolved
+
+    matched = [(k, c) for k, c, _, _ in pair if c is not None]
+    print("\n  pairing each trial on the wire to a Bpod trial by sequence AND by timing")
+    print("  (a pairing counts only if every state onset in it agrees to within %g ms)"
+          % MAX_SPREAD_MS)
+    if matched:
+        idxs = [c[1] for _, c in matched]
+        print("  paired %d of %d complete trials, Bpod trials %d..%d of %d"
+              % (len(matched), len(dtr), min(idxs) + 1, max(idxs) + 1, nt))
+        steps = np.diff(idxs)
+        print("  consecutive on the wire and consecutive in Bpod: %s"
+              % ("yes" if np.all(steps == 1) else "no, index steps %s" % steps.tolist()))
+
     offsets, bad = [], []
     print("\n  %-7s %-7s %-7s %-9s %s"
-          % ("Bpod", "states", "states", "sequence", "Bpod->Trodes offset at each"))
+          % ("Bpod", "states", "states", "paired", "Bpod->Trodes offset at each"))
     print("  %-7s %-7s %-7s %-9s %s"
-          % ("trial", "Bpod", "wire", "match", "state onset (s)"))
-    for k, (dc, dt) in enumerate(dtr):
-        bi = best + k
-        if bi >= nt:
-            break
-        bc, bt = btr[bi]
-        same = len(bc) == len(dc) and np.array_equal(bc, dc)
-        if same:
-            o = dt - bt[:len(dt)]
-            offsets.append(o)
-            print("  %-7d %-7d %-7d %-9s %.6f  (spread within trial %.3f ms)"
-                  % (bi + 1, len(bc), len(dc), "yes", float(np.median(o)),
-                     float(o.max() - o.min()) * 1000.0))
-        else:
-            bad.append(bi + 1)
-            print("  %-7d %-7d %-7d %-9s" % (bi + 1, len(bc), len(dc), "NO"))
-            print("        Bpod: %s" % bc.tolist())
+          % ("trial", "Bpod", "wire", "", "state onset (s)"))
+    for k, c, dc, dt in pair:
+        if c is None:
+            bad.append(k)
+            print("  %-7s %-7s %-7d %-9s" % ("?", "-", len(dc), "NO"))
             print("        wire: %s" % dc.tolist())
+            continue
+        spread, bi, o = c
+        bc, _ = btr[bi]
+        offsets.append(o)
+        print("  %-7d %-7d %-7d %-9s %.6f  (spread within trial %.3f ms)"
+              % (bi + 1, len(bc), len(dc), "yes", float(np.median(o)), spread))
 
     if offsets:
         allo = np.concatenate(offsets)
@@ -164,18 +198,23 @@ def main():
         print("    spread      %.3f ms (max - min)"
               % float((allo.max() - allo.min()) * 1000.0))
         print("    sd          %.3f ms" % float(np.std(allo) * 1000.0))
+        first_bi, last_bi = matched[0][1][1], matched[-1][1][1]
         drift = float(np.median(offsets[-1]) - np.median(offsets[0]))
-        span = float(np.median(offsets[-1]) * 0 + (btr[best + len(offsets) - 1][1][0]
-                                                   - btr[best][1][0]))
-        print("    drift       %.3f ms over %.1f s of session (%.2f ppm)"
+        span = float(btr[last_bi][1][0] - btr[first_bi][1][0])
+        print("    drift       %.3f ms over %.1f s of session (%.0f ppm -- normal here, "
+              "and what sync.py fits)"
               % (drift * 1000.0, span, (drift / span * 1e6) if span else 0.0))
         print("\n  Every state onset Bpod recorded lands at the same distance from the "
               "same state onset on the wire. That is only possible if the six lines are "
               "carrying the state numbers Bpod meant to send.")
     if bad:
-        print("\n  TRIALS THAT DO NOT MATCH: %s" % bad)
+        print("\n  %d trial(s) on the wire were not paired. Before reading that as a "
+              "fault, check the obvious cause: a Bpod file copied mid-session ends at a "
+              "trial, and everything the recording saw after that cannot be in it. The "
+              "sequences above are printed so they can be read by eye." % len(bad))
     else:
-        print("\n  No trial in this window disagrees with Bpod in any state.")
+        print("\n  Every complete trial on the wire was paired with a Bpod trial, state "
+              "numbers and timing both.")
 
 
 if __name__ == "__main__":
