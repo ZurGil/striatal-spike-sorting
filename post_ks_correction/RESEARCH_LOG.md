@@ -6182,3 +6182,69 @@ are verified on Z and either one is enough; the advice stands that deleting just
 `.rec` beats deleting the session folder, because `probe1.dat`, the DIO files and the
 timestamp offsets are regenerable from the archived `.rec` and the `.rec` is not
 regenerable from anything. Deletion stays a human decision.
+
+### 5bd.18 Reading the Bpod sync word out of a live recording, and catching Din1 die
+
+Gil was debugging the Bpod-to-MCU connection and wanted to know whether the sync signal
+being recorded was intact -- "the numbers run as they should, and not some weird numbers."
+The obstacle is that `sync_pipeline/dio_decoder.py` reads `trodesexport`-ed
+`Din{1..6}.dat` files, which do not exist until the recording is closed and exported,
+which is no use while you are standing at the rig.
+
+The word is already in the `.rec`. A Trodes packet is a `0x55` sentinel, then each
+available `<Device>`'s bytes in `packetOrderPreference` order, then a uint32 timestamp,
+then 384 int16 -- so for this configuration (`Controller_DIO` 1 B, `Multiplexed` 8 B,
+`neuropixels_LFP` 66 B, `SysClock` 8 B) the DIO byte is **byte 1 of 856** and the
+timestamp is at byte 84. All of it measured from the header, with two self-checks before
+the byte is believed: the sentinel on every packet, and a timestamp that increments by
+exactly 1. `scripts/check_bpod_dio_in_rec.py` does this, read-only, while Trodes writes.
+
+**Weak evidence, and it did not convince.** The first pass reported that all six lines
+toggled, that `Din7` was silent so nothing had shifted by a pin, that the values were a
+subset of a known-good session's, and that landmark durations matched. Gil's answer was
+"i'm not sure you convinced me" -- correctly, because none of that names anything.
+
+**The Bpod file settles it.** `SessionData.RawData.OriginalStateNamesByNumber` says what
+each state *number* is called and `OriginalStateTimestamps` how long it really lasted, so
+every value on the wire can be named and bounded. 32 distinct values, every one a real
+state of `Dual2AFC_nat`, every duration inside the protocol's own range: code 1
+`PreITI_start` at 49.90 ms against 50.00, code 2 `preITI` at 500.00, code 3 `wait_Cin`
+out to 20000.30 ms against a 20000.00 ms timeout, code 40 `ITI` at 1000.00. A swapped
+pair of pins cannot survive that test, because the durations would land on the wrong
+numbers.
+
+Then `scripts/compare_dio_word_to_bpod.py` compares *sequences*: Bpod's
+`OriginalStateData` is the list of state numbers it ran per trial, so the codes between
+one `PreITI_start` and the following `ITI` must equal that list exactly. The recording
+started long after the Bpod session, so the trial offset is found by matching rather than
+assumed -- it located the window's first trial as Bpod trial **354 of 377** unaided.
+Trials 354..363 match **state-for-state**, up to 38 states in a trial, and every state
+onset sits **0.1-0.3 ms** from Bpod's own. That is the evidence the first pass could not
+give.
+
+**Two things I had wrong, both corrected.** The sub-millisecond codes are not line skew:
+this protocol has eleven genuine pass-through states lasting **0.10 ms**, which is 3
+samples at 30 kHz, and that is exactly what they measure on the wire in both sessions.
+And the first and last state in a read window are truncated by the window, so their
+lengths were being compared as if real and flagged as impossible.
+
+**What it found.** `Din1` is stuck high. It flickered from about Bpod trial 364 and
+latched HIGH for good at **3453.9193 s** into the recording (11:57:58.919), after which
+it shows zero transitions over 120 s while `Din2..Din6` keep working. Every value is then
+OR'd with bit 0 -- 2 reads as 3, 6 as 7, 16 as 17, 20 as 21, 28 as 29, 40 as **41**,
+which is not a state at all. The four non-matching trials in the window differ from Bpod
+*only* in bit 0, which is the whole diagnosis in one line.
+
+The consequence is not recoverable in software: with bit 0 jammed high, `PreITI_start`
+(1) cannot be told from no-state (0), so the trial-start markers `sync.py` aligns on are
+simply absent. Bpod trials 1..~363 of 377 are usable.
+
+**Worth keeping:** an unconnected input on this controller reads **HIGH** -- `Din8`
+demonstrates it all session, nothing wired to it, high with zero transitions. So a line
+that has come loose is indistinguishable from one stuck high, and a stuck-high reading
+points at the connection before the Bpod. Also, the Bpod clock drifts ~2300-2900 ppm
+against Trodes (2300 ppm on 20260916, 2911 ppm today) -- normal, and what `sync.py` fits;
+within a trial the clocks agree to a few tenths of a millisecond.
+
+Nothing in `sync_pipeline` was modified. Both scripts are read-only and import
+`dio_decoder` unchanged, only to decode the comparison session.
