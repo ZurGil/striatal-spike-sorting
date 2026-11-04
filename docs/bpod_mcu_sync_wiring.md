@@ -87,10 +87,17 @@ distinguish a left from a right choice.
   `packetOrderPreference` order (`Controller_DIO` 1 B at byte 1, `Multiplexed`
   8 B, `neuropixels_LFP` 66 B, `SysClock` 8 B), then a uint32 timestamp at byte
   84, then 384 int16 samples from byte 88.
-- **`trodesexport` writes only `Din1..Din6`** — the `.DIO` folder of an exported
-  session contains six `dio_Controller_Din{1..6}.dat` files and nothing for
-  `Din7`/`Din8`. **A signal moved onto `Din7` or `Din8` will not be exported and
-  the sync pipeline will never see it.** Plan rewiring around that.
+- **`trodesexport` was observed writing only `Din1..Din6`** — the `.DIO` folder
+  of an exported session contains six `dio_Controller_Din{1..6}.dat` files and
+  nothing for `Din7`/`Din8`. **Revised 2026-11-04:** the original reading of
+  that ("a signal on Din7/Din8 would never be exported") is probably wrong. The
+  `.trodesconf` declares all eight channels as inputs, and Trodes DIO export
+  writes *state-change events* — Din7 and Din8 had **zero transitions**, so there
+  was nothing to write. A channel carrying real pulses should export normally.
+  That is a hypothesis; verify it on a recording where Din7 actually moves.
+  Either way it gates nothing: `scripts/check_bpod_dio_in_rec.py` decodes all
+  **eight** bits straight from the `.rec`, so an extra line is readable without
+  touching `sync_pipeline/`. See `docs/flir_camera_sync_design.md`.
 - `sync_pipeline/dio_decoder.py` reads those six files and rebuilds the word by
   zero-order hold, treating "before a channel's first sample" as low.
 
