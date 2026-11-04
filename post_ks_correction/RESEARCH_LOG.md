@@ -6270,3 +6270,104 @@ wiring is about to be rearranged.
 The repair was verified against Bpod: trials 519-524 of `Session2` matched
 state-for-state, including a 30-state and a 20-state trial, every onset within
 0.13-0.30 ms. Gil discarded both of the day's recordings afterwards.
+
+### 5bd.19 Laying the base for sorting on compute1/compute2 (2026-11-04)
+
+Gil wants Kilosort moved onto the lab compute nodes. The nodes have not been
+requested yet -- he is about to ask Sarah -- so this entry is the local half: what was
+set up here, and what the measurements say the plan should be.
+
+#### Why it is worth doing, in the order the reasons actually matter
+
+The obvious argument is the GPU, and it is the weakest of the three. This box has an
+**RTX 2060 with 6.4 GB** (compute capability 7.5), which is the low end for
+384-channel KS4 but has in fact been sorting sessions all along.
+
+The real argument is the interlock. **This PC cannot record and sort at the same
+time** -- Trodes and Kilosort both want the GPU and the failure mode is a silent hang,
+not an error. So every sort currently costs a recording slot. Sorting on a node
+removes that entirely, which is worth more than the speedup.
+
+#### What was set up, and what was deliberately left alone
+
+A dedicated ed25519 key, **no passphrase**, at `C:\Users\Adam\.ssh\id_ed25519_compute`
+(fingerprint `SHA256:x6hiYyUqDtfn14nQy8cJdqiO6X9ukPRKIDti0BdrFno`), with its ACL cut
+down to `Adam` alone via `icacls /inheritance:r`. There was no `.ssh` directory on this
+machine at all before today.
+
+`~/.ssh/config` now carries `compute1` and `compute2` blocks with `HostName` and `User`
+as obvious placeholders, verified to parse with `ssh -G`. They are left resolvable-to-
+nothing on purpose: a plausible-but-wrong hostname would be worse than an error that
+names itself. The blocks set `ServerAliveInterval 30` / `ServerAliveCountMax 10`,
+because a sort is hours of silence and an idle timeout would take the job with it, and
+`Compression no`, because the payload is already-dense binary. Worth recording that
+**Windows OpenSSH does not support `ControlMaster` multiplexing**, so every command
+opens its own session and the keepalives carry more weight here than on Linux.
+
+The `ssh-agent` service was left **Disabled**. With no passphrase it is not needed, and
+not altering a system service is the better default. The passphrase decision is flagged
+for Gil rather than made for him -- the key file alone is currently enough to log in.
+
+#### The measurement that decides the whole plan
+
+Kilosort does not need the `.rec`. It needs the `trodesexport` products, and **those
+are already on the archive share**. Confirmed by listing
+`Z:\Gil\Shamir_1\20261021_111842.rec\20261021_111842.kilosort\`:
+
+| file | size |
+|---|---|
+| `20261021_111842.probe1.dat` | 369.87 GiB |
+| `20261021_111842.timestamps.dat` | 1.93 GiB |
+| `20261021_111842.channelmap_probe1.dat` | <1 MiB |
+
+The share is `\172.20.22.203\NeuroPixels`, 42.3 TB free, 32 archived sessions, and the
+share host sits on the **same /24 as this PC** (`172.20.22.115/24`). So the question
+"can the nodes mount that share?" is not a detail -- it is the difference between never
+copying anything and pushing 270-370 GiB per session at the measured 113-118 MiB/s,
+which is **7-9 hours per session** with this PC occupied throughout. At that cost,
+remote sorting would be worse than local for all but the biggest jobs. It is now
+question 5 of the list for Sarah, and the one to press on.
+
+F currently holds exactly one `probe1.dat` (`20260916_110311`, 270.4 GiB), which is the
+other half of the same point: the local copies get deleted, so the share is where the
+sortable data lives.
+
+#### The environment to reproduce, read out of the env that works
+
+From the `kilosort4` conda env on this machine: Python 3.9.19, **kilosort 4.0.24**,
+torch 2.4.0 (CUDA build 11.8), numpy 1.26.4, scipy 1.13.1. The base conda python is
+3.8.5 and has no kilosort or torch at all, so `kilosort4` is the only env that matters
+here.
+
+`kilosort` is pinned at 4.0.24 and should stay pinned: every sorted session in this
+project came from it, and moving it would make new output incomparable to the existing
+results without a deliberate re-run. The torch CUDA build is **not** in that category
+and may have to move up for a current-gen card.
+
+Two project-specific traps written into the doc so the remote setup does not walk into
+them: the KS4 thresholds are **per session** (`Th_universal` 9.0 / `Th_learned` 8.0 on
+20260916, but 9.2 / 7.0 on 20260910 and 20260901), and there are **two channel maps**
+in play differing by a silent 820 um depth shift (map A through 2026-10-23, map B from
+2026-10-26). Either one carried across wrongly produces output that looks fine and is
+wrong.
+
+#### Deliverables
+
+- **`docs/remote_kilosort_setup.md`** -- the plan plus a forwardable request list,
+  split into "needed to connect at all" (4 items) and "needed before the first real
+  run" (8 items), so Gil can send the short list now. Carries the public key to
+  install, the `ssh-copy-id` equivalent for Windows, the no-root conda recipe, and a
+  "what is NOT known" section stating plainly that nothing about the nodes has been
+  verified.
+- **`scripts/survey_compute_node.sh`** -- read-only, piped in over ssh so it leaves
+  nothing behind (`ssh compute1 'bash -s' < scripts/survey_compute_node.sh`). It
+  measures GPU, driver, scheduler, containers, scratch, quota, and whether the node can
+  reach `172.20.22.203:445`, which answers questions 5-12 without a second round trip
+  to Sarah. Syntax-checked with `bash -n`; not yet run against anything, since there is
+  nothing to run it against.
+
+The ordered plan ends on the step that is easy to skip and shouldn't be: sort a session
+that has **already** been sorted here and compare the output, before moving the queue
+across. The point of the exercise is results that belong in the same analysis as the
+existing ones, and a remote setup that quietly produces different output is not a faster
+pipeline, it is a second pipeline.
