@@ -261,9 +261,31 @@ Points that decide whether a 4-hour recording survives:
 
 ## 8. Still unknown
 
-- **Which FLIR model this is.** It determines interface, achievable fps, and the
-  GPIO line types. The resolution and frame-rate recommendations above are
-  defaults to be corrected against the real camera.
+- ~~Which FLIR model this is.~~ **Identified 2026-11-04: `BFS-U3-13Y3M-C`** —
+  Blackfly S USB3.1, ON Semi PYTHON 1300 1/2" CMOS, global shutter, **1280×1024**,
+  **170 fps** max in Mono8, 4.8 µm pixels, 6 µs–30 s exposure, bus-powered (3 W),
+  6-pin GPIO with 1 opto-isolated input, 1 opto-isolated output, 1 non-isolated
+  bidirectional line, 1 non-isolated input, and a **3.3 V/120 mA auxiliary
+  output**. The recommended 1280×1024 @ 60 fps is the sensor's native resolution
+  at ~35% of its maximum frame rate, and 78.6 MB/s is comfortable on USB 3.1 — so
+  the recommendation stands unchanged.
+
+  **Mono, and FLIR mono models normally ship without an IR-cut filter**, so it
+  should be NIR-sensitive (~20–30% QE near 850 nm) and **850 nm illumination is
+  the right approach** — invisible to the rat, bright to the camera. Verify with
+  the one-second test: point a TV remote at the lens in SpinView and look for the
+  LED flashing.
+
+  **GPIO mating connector is JST NSHR-06V-S** (camera side is BM06B-NSHSS-TBT) —
+  check whether FLIR shipped a pre-wired GPIO cable, because without one there is
+  no way to get the pulse out.
+
+  **Correction to §2's electrical warning:** the opto-isolated *output* is the
+  line that needs an external pull-up; the **non-isolated bidirectional** line is
+  the easier one to drive a logic input with. Pin 6's 3.3 V/120 mA is what a
+  pull-up would use. Line numbering differs between cased and board-level
+  variants, so confirm against this model's own installation guide rather than a
+  generic Blackfly S pinout.
 - **Which physical pin is Din7**, as above.
 - **The Trodes digital input's logic threshold and whether it has a pull-up** —
   needed to know whether the camera's GPIO can drive it directly.
