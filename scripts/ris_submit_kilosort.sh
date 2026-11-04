@@ -27,7 +27,7 @@ PI="PENDING"                            # PI key id, used in the storage paths
 IMAGE="PENDING/kilosort4:4.0.24-cpu"    # registry path of the pushed image
 QUEUE="general"                         # check `bqueues` for what exists
 CORES=8                                 # see the scaling note below
-MEM="64GB"                              # from the benchmark's peak RSS + headroom
+MEM="64GB"                             # a real session needs this; the 120 s benchmark peaked at only 7.89 GB and is NOT a guide -- KS4 memory grows with spike count
 WALLTIME=10080                          # MINUTES. 10080 = 7 days. Check the queue max.
 # ---------------------------------------------------------------------------
 

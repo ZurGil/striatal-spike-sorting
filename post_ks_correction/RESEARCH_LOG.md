@@ -6541,3 +6541,36 @@ Trodes was open throughout (PID 11344, since 10-30). Verified no `.rec` was bein
 and that it had consumed **7.6 s of CPU in five days** before loading 8 cores, and took
 the GPU half of the comparison from the September log rather than re-running it, since a
 GPU run with Trodes open hangs silently.
+
+#### 5bd.21a The CPU benchmark finished: 34.54x, and two cautions (2026-11-04)
+
+The 8-thread run on the 120 s x 384 ch fixture completed at **4144.5 s = 34.54x
+realtime**, against the GPU's 131.69 s (1.10x) on the same fixture and thresholds. So
+**31.5x slower overall** -- my 28x estimate from the spike-detection stage alone was
+close but slightly optimistic. Summary kept at
+`outputs/kilosort_cpu_benchmark_8threads.json`.
+
+Per mean 4.13 h session that is **5.95 days** on 8 cores (4.3 days for the shortest
+session here, 6.9 for the longest). Re-running the throughput arithmetic with the
+measured number moves one conclusion: at 5 concurrent the capacity is **0.84
+sessions/day**, so 5 concurrent now **falls behind** a 1/day arrival rate where my
+earlier estimate had it break even. Keeping up needs **5.9 jobs running continuously**,
+so 8 concurrent (1.35/day) is the first configuration with real margin. The backlog of
+30 takes 35.7 days at 5 concurrent, 22.3 at 8, 17.8 at 10.
+
+**Caution 1: CPU and GPU do not agree exactly.** CPU found **206 units / 218,586
+spikes**; the GPU found **210 units / 228,725 spikes** -- about 4.4% fewer spikes on
+CPU. Expected, given different floating-point paths and KS4's stochastic steps, but it
+matters for the planned validation: "re-sort a session already sorted here and compare"
+must **allow a few percent of difference**. A small discrepancy is not evidence of a
+broken remote setup; only a large divergence would be. Worth having measured this before
+the comparison rather than during it.
+
+**Caution 2: do not size the LSF memory request from this benchmark.** Peak RSS was
+**7.89 GB**, but for *120 seconds* of recording. KS4 holds per-spike and per-template
+arrays that grow with the **number of detected spikes**, and this fixture produced 218k
+spikes where a 4 h session produces tens of millions. What we know empirically is that
+full sessions sort on this box, which has 64 GB. So the submit script asks for **64 GB**
+and now carries a comment saying the benchmark figure is a floor rather than an
+estimate -- otherwise someone reads 7.89 GB, requests 16 GB, and loses a five-day job to
+an out-of-memory kill at hour 100.

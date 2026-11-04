@@ -46,31 +46,61 @@ Four consequences worth stating plainly:
 Measured today, same 120 s × 384 ch fixture (`hybrid_small/`), same thresholds
 (`Th_universal` 9.0, `Th_learned` 8.0), on this box's Ryzen 7 3700X:
 
-| | wall clock for 120 s of recording | × realtime |
-|---|---|---|
-| **GPU** (RTX 2060, from the 2026-09-30 run log) | **131.7 s** | 1.10 |
-| **CPU**, 8 threads | ~1 h (run in progress at time of writing) | ~30 |
+Both now measured on the same 120 s × 384 ch fixture, same thresholds:
 
-Be precise about what is measured here, because the conclusion rests on it. Two
-things are **directly measured**: the GPU total of 131.7 s, and the CPU
-spike-detection stage running at a steady **~31 s per batch over 60 batches**
-≈ 30 min, against **65.1 s** for that same stage on the GPU — a **28×** ratio on
-the stage that dominated the GPU run. The CPU *total* is **extrapolated** from
-that ratio and will be replaced with the measured figure when the run finishes;
-`scripts/benchmark_kilosort_cpu.py` writes it to `benchmark_summary.json`
-alongside peak memory.
+| | wall clock for 120 s | × realtime | units found | spikes |
+|---|---|---|---|---|
+| **GPU** (RTX 2060, 2026-09-30 log) | **131.7 s** | **1.10** | 210 | 228,725 |
+| **CPU**, 8 threads (Ryzen 7 3700X) | **4144.5 s** | **34.54** | 206 | 218,586 |
 
-**What that means for a real session.** At ~30× realtime, a 4.5 h recording is
-roughly **5–6 days** of CPU wall clock on 8 cores. The same sort takes about
-**5 hours** on this PC's GPU. Treat the days figure as an order of magnitude,
-not a schedule, until the node's own benchmark is in.
+So the CPU is **31.5× slower** overall — my earlier estimate of 28× from the
+spike-detection stage alone was close but slightly optimistic.
+
+**What that means for a real session**, at 34.54× realtime on 8 cores:
+
+| session | CPU wall clock |
+|---|---|
+| 3.0 h (shortest here) | 103.6 h = **4.3 days** |
+| 4.13 h (mean) | 142.6 h = **5.9 days** |
+| 4.8 h (longest) | 165.8 h = **6.9 days** |
+
+The same sort takes ~5 hours on this PC's GPU.
+
+### CPU and GPU results are close but NOT identical
+
+Worth knowing before the validation step: the CPU run found **206 units /
+218,586 spikes** against the GPU's **210 units / 228,725 spikes** — about 4.4%
+fewer spikes. That is expected (different floating-point paths, and KS4 has
+stochastic elements), but it means **"re-sort and compare" must allow a few
+percent of difference**, and a small discrepancy is not evidence of a broken
+setup. Only a large divergence would be.
+
+### Do NOT size the LSF memory request from this benchmark
+
+Peak memory here was **7.89 GB**, but that is for **120 seconds** of recording.
+KS4 holds per-spike and per-template arrays that grow with the **number of
+detected spikes**, and this fixture produced 218k spikes where a 4 h session
+produces tens of millions. Memory will be far higher on a real session.
+
+What we know empirically: full sessions sort successfully on this box, which has
+**64 GB**. So request **64 GB** (`-M 64GB`) for a real session until a real run
+is measured, and treat 7.89 GB as a floor, not an estimate.
 
 So the honest framing is **throughput, not speed**:
 
 | approach | per session | concurrent | sessions/day | blocks Trodes? |
 |---|---|---|---|---|
 | local GPU | ~5 h | 1 | ~4–5 | **yes, completely** |
-| RIS CPU, 8 cores | ~5–6 days | ~5 (storage-bound) | ~1 | no |
+| RIS CPU, 8 cores | **5.95 days** (measured) | 5 | **0.84 — falls behind** | no |
+| RIS CPU, 8 cores | 5.95 days | 8 | 1.35 — keeps up | no |
+| RIS CPU, 8 cores | 5.95 days | 10 | 1.68 | no |
+| RIS **GPU** | ~1.5–5 h | ≥1 | many | no |
+
+With the measured 34.54×, the backlog of 30 takes **35.7 days at 5 concurrent**,
+22.3 at 8, 17.8 at 10. Steady state needs **5.9 jobs running continuously** just
+to match 1 session/day, so **5 concurrent now falls behind** (0.84/day) where my
+earlier estimate had it break even. That strengthens the case for both asking
+about GPU and getting concurrency above 5.
 
 For **clearing the 32-session backlog** that is a good trade: about a month of
 entirely unattended background sorting that costs nothing and never touches the
