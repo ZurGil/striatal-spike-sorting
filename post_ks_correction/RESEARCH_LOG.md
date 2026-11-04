@@ -6467,3 +6467,77 @@ The thresholds being per session and the two channel maps differing by a silent 
 depth shift are both now enforced in code rather than documented and hoped for -- the
 thresholds as required arguments with no default, the map by printing the y-range that
 is the only thing distinguishing map A from map B by eye.
+
+### 5bd.21 RIS: free until July 2027, GPUs confirmed, and the resume point (2026-11-04)
+
+Closing this out pending access, which Sarah has already requested for Gil. Everything
+below is the state to resume from.
+
+#### The cost question, answered from RIS's own page
+
+Gil asked what GPU time would cost, and fairly challenged whether my "not big usage"
+claim was measured against a neuroscience lab or a CS one -- it was implicitly against
+machine-learning workloads, which was the wrong frame to leave unstated. It is moot:
+RIS's compute page says Compute1 "will remain operational at no cost until that date",
+the date being its end-of-life **1 July 2027**. There is no per-hour charge for CPU or
+GPU, so availability is the only currency. That also confirms what Gil was told about it
+being free "until july".
+
+Two deadlines came with it that nobody had flagged. **1 January 2027**: Compute1 stops
+accepting new General Access users -- about eight weeks out, so Sarah's request needs to
+land before it. **1 July 2027**: all workloads off. The long-term home is **Compute2**,
+which is billed in Standard Billing Units against a ~$2,800/yr faculty subsidy with 5 TB
+of free storage, so the steady one-session-a-day load will eventually cost something and
+the 30-session backlog should run on Compute1 while it does not.
+
+#### GPUs are there, and the walltime worry was unfounded
+
+RIS publishes an inventory of **242 V100/A100/H100/A40 GPUs, 100+ in the general pool**.
+Against that, our ask is tiny: **3.3 GB of peak VRAM** (read out of the September run
+log) and ~4.5 GPU-h per session. Since the platform is free, asking for GPU is a
+question about queue time, not budget -- so the recommendation flipped to "ask for it",
+having been "don't bother" one turn earlier when the only known workload was a
+no-rush backlog.
+
+And the **`general` queue allows 28-day jobs**. I had been treating a 5-6 day CPU sort
+as something the queue might refuse; it fits with room to spare. The 24 h cap I had seen
+belongs to `general-interactive`, which only ever applies to interactive sessions.
+
+#### The storage split, now that the 2 TB is understood
+
+It is Gil's practical slice of the lab's shared **5 TB free faculty allocation**, not a
+separate grant, and results go back to Z. Since KS4 output is only **19.18 GiB** per
+session -- measured today from a real output folder, 733 files with `pc_features.npy` at
+5.64 GiB -- all 30 sessions of results are **570 GB** and fit the 2 TB easily. It is
+purely the ~325 GiB inputs that need somewhere else, which is why "can the inputs live
+on `scratch1`?" is the one question that decides concurrency. Never the `.rec`: 412 GiB
+that Kilosort does not read.
+
+#### What can be answered without asking anyone
+
+`scripts/survey_ris.sh` replaced the generic node survey, because the right questions are
+LSF's (`bqueues`, `lshosts -gpu`, `bhosts -gpu`, `busers`, `df`, `klist`) rather than the
+client host's hardware, which is irrelevant -- RIS login nodes exist to submit, not to
+compute. It covers **eight of the ten** questions in
+`docs/ris_questions_for_unmukt.md`. The detail worth remembering: RIS writes its own
+`RIS_cleanup_policy` and `RIS_Usage_Report.txt` *into* the scratch directory, so the
+purge window can be read rather than asked about.
+
+Human-only: whether the allocation lands before the 1 Jan 2027 cutoff, and Unmukt's
+experience of what breaks in practice. Written up in plain language with a glossary
+(node, core, queue, walltime, container, storage1 vs scratch1, Kerberos, Globus) because
+Gil said he was not familiar enough with the terms to know what to ask.
+
+#### Where the CPU benchmark got to
+
+Left running at the point of handover: the 8-thread run on the 120 s fixture was on its
+**second** detection pass (KS4 does two), 43/60 at a steady 31 s/batch. The conclusion
+does not depend on its completion -- the 28x stage ratio that gives ~30x realtime and
+~5.2 days/session is already measured -- and with GPUs confirmed on Compute1 the CPU
+figure is now the fallback case rather than the plan. `benchmark_kilosort_cpu.py` should
+be re-run **on the node** regardless; the number that matters is the node's.
+
+Trodes was open throughout (PID 11344, since 10-30). Verified no `.rec` was being written
+and that it had consumed **7.6 s of CPU in five days** before loading 8 cores, and took
+the GPU half of the comparison from the September log rather than re-running it, since a
+GPU run with Trodes open hangs silently.
