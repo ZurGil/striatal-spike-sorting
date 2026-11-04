@@ -1,0 +1,81 @@
+# Kilosort4 for the WashU RIS Compute1 platform (LSF + Docker).
+#
+# Pinned to the exact versions that produced every sorted session in this
+# project. kilosort 4.0.24 is NOT to be bumped casually: a version change makes
+# new output incomparable to the existing results without a deliberate re-run of
+# everything.
+#
+# CPU build by default, because the RIS GPU allocation is uncertain and the plan
+# is to win on throughput (many sessions at once) rather than latency. See the
+# GPU variant note at the bottom.
+#
+# RIS requirements this image satisfies:
+#   - /bin/sh is present (LSF's Docker integration requires it)
+#   - no ENTRYPOINT is set (LSF requires the entrypoint be /bin/sh or omitted;
+#     the job command comes from bsub)
+#
+# Build on a machine with Docker, then push to a registry RIS can pull from:
+#   docker build -t <registry>/<user>/kilosort4:4.0.24-cpu -f docker/Dockerfile.kilosort4 .
+#   docker push      <registry>/<user>/kilosort4:4.0.24-cpu
+#
+# RIS can also build it for you if you have no local Docker -- see
+# docs/remote_kilosort_setup.md.
+
+FROM python:3.9-slim
+
+# Build tools are not expected to be needed -- numpy, scipy, torch and faiss-cpu
+# all ship manylinux wheels for py39 -- but procps/tini-free slim images lack
+# even ps, which makes a stuck job impossible to diagnose from inside.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        procps \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# torch FIRST, and explicitly from the CPU index. If kilosort is allowed to pull
+# torch as a dependency, pip picks a default build that may carry a CUDA runtime
+# this image has no driver for -- several GB of image for nothing.
+RUN pip install --no-cache-dir \
+        torch==2.4.0 --index-url https://download.pytorch.org/whl/cpu
+
+# Then the pinned scientific stack and kilosort itself. numpy and scipy are
+# pinned ahead of kilosort so its resolver cannot drift them.
+RUN pip install --no-cache-dir \
+        numpy==1.26.4 \
+        scipy==1.13.1 \
+        psutil \
+    && pip install --no-cache-dir \
+        kilosort==4.0.24
+
+# Fail the BUILD, not the job, if the pins did not take. A job that discovers a
+# wrong version six hours in has wasted six hours of a shared allocation.
+RUN python - <<'PY'
+import kilosort, torch, numpy, scipy
+assert kilosort.__version__ == "4.0.24", kilosort.__version__
+assert torch.__version__.startswith("2.4.0"), torch.__version__
+assert numpy.__version__ == "1.26.4", numpy.__version__
+assert scipy.__version__ == "1.13.1", scipy.__version__
+print("pins OK:", kilosort.__version__, torch.__version__, numpy.__version__, scipy.__version__)
+PY
+
+# The project's own scripts. Kept last so edits to them do not rebuild the
+# dependency layers above.
+WORKDIR /opt/spike_sorting_agent
+COPY scripts/run_kilosort4_session.py scripts/benchmark_kilosort_cpu.py ./scripts/
+
+# No ENTRYPOINT on purpose -- see the header. bsub supplies the command.
+CMD ["/bin/sh"]
+
+# ---------------------------------------------------------------------------
+# GPU variant, if a GPU queue turns out to be available
+#
+# Change the base image and the torch index, and nothing else:
+#
+#   FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+#   ... install python3.9 ...
+#   RUN pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+#
+# Then submit with  -R 'gpuhost'  and  -gpu "num=1"  on a GPU queue. The CUDA
+# version must match what the node's driver supports -- check with nvidia-smi on
+# the node before building, rather than assuming 12.1.
+# ---------------------------------------------------------------------------

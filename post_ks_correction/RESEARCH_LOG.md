@@ -6371,3 +6371,99 @@ that has **already** been sorted here and compare the output, before moving the 
 across. The point of the exercise is results that belong in the same analysis as the
 existing ones, and a remote setup that quietly produces different output is not a faster
 pipeline, it is a second pipeline.
+
+### 5bd.20 The remote plan, corrected: WashU RIS, Docker, and Kilosort on CPU (2026-11-04)
+
+Gil corrected three assumptions in 5bd.19, and each one changed the design. The
+compute is **WashU RIS Compute1**, an LSF + Docker cluster -- not generic SSH nodes.
+It **cannot reach the lab share**, so the "nothing is ever copied" plan is dead and
+this PC becomes the thing that copies. And GPU availability is **uncertain**: the plan
+is CPU, with throughput from running several sessions at once. Free to use while
+compute1 lasts, which he was told is until July. The stated goal is to leave the
+Neuropixels PC free for Trodes.
+
+Also worth recording: RIS's own docs show the compute1 pages migrating to a **Compute2**
+documentation space, so "compute1/compute2" are platform generations, not two machines.
+That retrospectively explains Unmukt's "like doker or something" -- RIS runs every job
+in a container, so an image is mandatory, not a convenience.
+
+#### Kilosort4 on CPU, measured instead of guessed
+
+The whole plan turns on one unknown, so it got measured rather than estimated. The
+project already had a GPU result for the 120 s x 384 ch fixture in `hybrid_small/`, from
+2026-09-30 with the same thresholds: **131.69 s total** on the RTX 2060, 1.10x realtime.
+Re-running the identical fixture on CPU with 8 threads via a new
+`scripts/benchmark_kilosort_cpu.py`:
+
+The spike-detection stage ran at a steady **~31 s per batch over 60 batches, ~30 min**,
+against **65.11 s** for that same stage on the GPU. That is a **28x** ratio on the stage
+that dominated the GPU run, which puts the CPU total near **30x realtime**.
+
+Scaled up: a 4.5 h session is **5-6 days** of CPU wall clock on 8 cores, against ~5 h
+on this PC's GPU. The honest framing is therefore throughput, not speed -- about
+**1 session/day** from ~5 concurrent CPU jobs, against 4-5/day on the local GPU that
+blocks recording completely. For clearing the 32-session backlog that is a good trade:
+a month of unattended free sorting that never touches the rig. For keeping up with daily
+recording it is roughly break-even.
+
+Which makes **"is any GPU queue available?"** the highest-leverage question in the whole
+exercise -- 30x dominates every other optimisation -- and it has replaced the
+share-mount question from 5bd.19 at the top of the list for Sarah.
+
+Trodes was open (PID 11344, since 10-30) when this was run. Checked first that no `.rec`
+was being written and that Trodes had used only **7.6 s of CPU in five days**, i.e. open
+and idle, before loading 8 cores. A `device='cpu'` run never initialises CUDA, so the
+documented Trodes/Kilosort GPU interlock does not apply -- but the GPU half of the
+comparison came from the September **log** rather than a re-run, precisely because of it.
+
+#### The storage arithmetic, and a question hiding inside it
+
+Measured a real KS4 output folder for the first time: **19.18 GiB, 733 files**, of which
+`pc_features.npy` is 5.64 GiB. Against a 252-370 GiB input (mean ~325), so ~345 GiB in
+flight per session and **2 TB holds about 5 sessions**.
+
+But that may be the wrong number to plan against. RIS splits `storage1` (persistent,
+quota'd) from `scratch1` (large, purged). The *outputs* are only 19 GiB, so 2 TB of
+storage1 would hold **100 sessions of results**; it is the inputs that are enormous and
+they belong on scratch. If the 2 TB is storage1 and scratch is separate, concurrency is
+set by scratch and could be far above 5. Added as an explicit question rather than
+assuming the pessimistic reading.
+
+#### Two things that would have bitten us
+
+**The probe map cannot be generated on the node.** `make_probe_map.py` -- which lives at
+`D:\Gil\make_probe_map.py`, outside the repo and untracked anywhere -- imports the Trodes
+python reader from a local Trodes install. No Trodes on a compute node, so the map must
+be built on Windows and travel with the data. Gil flagged this himself ("dont forget the
+code that generate the map"). Rather than vendor SpikeGadgets' reader into a pushed
+Docker image, `scripts/stage_session_to_ris.ps1` generates the map here, sanity-checks
+it, and refuses to copy if that step failed. The `channelmap_probe1.dat` travels too so
+the map can be audited later without coming back to this PC.
+
+**Sequencing.** If the review pipeline is to run on RIS, it has to run *while the input
+is still staged* -- waveform extraction needs `probe1.dat`, not just the KS4 output.
+Purge the input and decide later you want waveforms, and it is another 325 GiB copy. So
+the unit of work is stage -> sort -> build review data -> copy back -> purge, not
+"sort everything then review everything."
+
+#### Built
+
+`docker/Dockerfile.kilosort4` (CPU, pins **asserted at build time** so a job cannot
+discover a wrong kilosort six hours in; no ENTRYPOINT and `/bin/sh` present as LSF
+requires; GPU variant documented), `scripts/run_kilosort4_session.py` (the existing
+runner with paths and thresholds as arguments -- it **refuses** to fall back to CPU when
+`--device cuda` was asked for, since a silent fallback turns a 5 h job into a 6 day one
+unnoticed, refuses a probe whose channel count disagrees, and writes
+`run_provenance.json`), `scripts/ris_submit_kilosort.sh` (bsub template with
+`LSF_DOCKER_VOLUMES`, `span[hosts=1]`, a `kinit` check), `scripts/stage_session_to_ris.ps1`,
+and the benchmark. All four syntax-checked; none run against RIS, because there is no RIS
+access yet.
+
+The **Kerberos** detail is in the submit script because it is the kind of thing that
+only shows up at hour 30: an expiring ticket breaks a running job's access to RIS
+storage, and a multi-day sort is well past the default lifetime.
+
+The thresholds being per session and the two channel maps differing by a silent 820 um
+depth shift are both now enforced in code rather than documented and hoped for -- the
+thresholds as required arguments with no default, the map by printing the y-range that
+is the only thing distinguishing map A from map B by eye.

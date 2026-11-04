@@ -1,238 +1,225 @@
-# Running Kilosort4 on compute1 / compute2
+# Running Kilosort4 on WashU RIS Compute1
 
-Goal: sort sessions on the lab compute nodes instead of on the Neuropixels PC.
-This file is both the plan and the request list — the "Ask Sarah" section below
-is written to be forwarded as-is.
+Goal, in Gil's words: **leave the Neuropixels PC free for Trodes**, use a free
+compute allocation to sort **several sessions at once**, and possibly run the
+review-tool pipeline there too.
 
-Status as of 2026-11-04: **local side ready, waiting on access.** Nothing has
-been connected to yet, because no hostname exists yet.
+Status 2026-11-04: local side built, allocation not yet requested. Nothing has
+been connected to.
 
-## Why move the sorting off this PC
+> **This replaces an earlier draft of this file that assumed the wrong
+> architecture.** That draft assumed generic SSH nodes that could mount the
+> archive share directly. They cannot. The real target is WashU RIS Compute1, an
+> **LSF + Docker** cluster with **no route to the lab share**, so data has to be
+> copied in and results copied back. The earlier "just mount Z" plan is dead.
 
-Three reasons, in order of how much they actually matter:
-
-1. **This PC cannot record and sort at the same time.** Kilosort and Trodes both
-   want the GPU, and the failure mode is not an error — Kilosort **hangs
-   silently** with Trodes open. So today, sorting blocks data collection for the
-   whole run. Sorting elsewhere removes that interlock entirely, and that is the
-   biggest single win.
-2. **VRAM headroom.** The GPU here is an **RTX 2060, 6.4 GB** (compute
-   capability 7.5). That is the low end for 384-channel Kilosort4; the drift and
-   clustering stages are where it gets tight.
-3. **Wall-clock.** A newer datacentre or current-gen card is several times
-   faster on the same file. Worth having, but it is the least important of the
-   three.
-
-## What is already set up on this machine — DONE
-
-| item | value |
-|---|---|
-| hostname | `KEPXNEUROPIXELS` |
-| local user | `Adam` |
-| lab-network IP | `172.20.22.115/24` (interface "Internet") |
-| acquisition IP | `192.168.0.2/24` (interface "SpikeGadgets" — isolated, not for this) |
-| SSH client | OpenSSH_for_Windows_9.5p1, LibreSSL 3.8.2 |
-| key type | ed25519, **no passphrase** (see note) |
-| private key | `C:\Users\Adam\.ssh\id_ed25519_compute`, ACL restricted to `Adam` only |
-| public key | `C:\Users\Adam\.ssh\id_ed25519_compute.pub` |
-| fingerprint | `SHA256:x6hiYyUqDtfn14nQy8cJdqiO6X9ukPRKIDti0BdrFno` |
-| config | `C:\Users\Adam\.ssh\config` — `compute1` / `compute2` blocks, hostnames pending |
-
-Deliberately **not** changed: the `ssh-agent` service is still Disabled. It is
-not needed, because the key has no passphrase — one less system service altered.
-
-**The passphrase choice is Gil's to revisit.** The key is unencrypted so that
-long unattended jobs can be launched without anyone typing anything. The cost is
-that the key file alone is enough to log in, so it must not be copied off this
-machine or into a backup that leaves it. If you would rather it were encrypted,
-say so and I will regenerate it with a passphrase held in the Windows ssh-agent
-(which does persist across reboots, so unattended use still works).
-
-### The public key to install
-
-This is the line that goes into `~/.ssh/authorized_keys` on each node:
+## The architecture, as it actually is
 
 ```
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEYnS47aZP4O8C3b7qVAgAH6bAV0GAWuh6wPhsRs9WHM gilzur302@gmail.com neuropixels-pc kilosort-remote
+Z:\Gil\Shamir_1          this PC             RIS storage1 / scratch1       RIS compute
+(archive share)       (stage + map)            (2 TB allocation)          (LSF + Docker)
+      |                     |                         |                         |
+  probe1.dat  --------> robocopy ------------>  scratch1/<sid>/  ---------->  bsub -a docker()
+  channelmap  --> make_probe_map.py --> map.json        |                    kilosort4 on CPU
+      |                                                 |                         |
+  results  <--------- robocopy <------------- storage1/kilosort4/<sid> <----------+
 ```
 
-`ssh-copy-id` does not ship with Windows OpenSSH. Once there is a hostname and a
-password, this is the equivalent one-liner from PowerShell on this PC:
+Four consequences worth stating plainly:
 
-```powershell
-type $env:USERPROFILE\.ssh\id_ed25519_compute.pub | ssh USER@HOST "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
-```
+- **This PC is in the data path after all**, as the thing that copies. That is
+  unavoidable without a RIS↔share route, but it is a copy, not a compute load,
+  so it does not block Trodes the way sorting does.
+- **The probe map must be generated here.** `make_probe_map.py` imports the
+  Trodes python reader from `C:\Users\Adam\Documents\Trodes_2-4-2_Windows64\...`,
+  which does not exist on a compute node. So the map is built on Windows and
+  travels with the data. `scripts/stage_session_to_ris.ps1` does this in the
+  right order and refuses to copy if the map step failed — this is the piece most
+  likely to be forgotten, which is why it is code and not a checklist item.
+- **Every job runs in a container.** RIS requires it. Hence
+  `docker/Dockerfile.kilosort4`.
+- **Results must come back to Z**, because the RIS inputs get purged to make
+  room for other people.
 
-## Ask Sarah — to connect at all
+## The number that decides everything: Kilosort4 on CPU
 
-1. **Hostname or IP of compute1 and compute2.**
-2. **Is either reachable directly from `172.20.22.115`**, or is there a jump
-   host / VPN in the way? (The config here has a commented `ProxyJump` block
-   ready if so.)
-3. **Account name** on the nodes, and whether we install our own public key or
-   they install it. The key is in the section above.
-4. **Does anything need allowlisting** for this PC to reach them on port 22?
+Measured today, same 120 s × 384 ch fixture (`hybrid_small/`), same thresholds
+(`Th_universal` 9.0, `Th_learned` 8.0), on this box's Ryzen 7 3700X:
 
-## Ask Sarah — needed before the first real run
-
-5. **Can the nodes mount `\\172.20.22.203\NeuroPixels`?** This is the most
-   consequential question of the lot — see "the data problem" below. Read access
-   is enough to start; write access would let results land beside the data.
-6. **GPU model, VRAM, and how many per node.**
-7. **Is there a scheduler** (Slurm / PBS), or do jobs just run on the node? If
-   Slurm: partition name, max walltime, and how to request a GPU. A sort is a
-   multi-hour single-GPU job.
-8. **Container or environment story**: Docker, Apptainer/Singularity, or plain
-   conda? And can we install into our own home directory without root? Plain
-   conda in `$HOME` is the easiest path and needs no privileges — see the
-   environment spec below.
-9. **Local scratch**: path and free space per node. Budget **~400 GB per
-   session** for the input alone, plus Kilosort4's own output.
-10. **Home directory quota.**
-11. **OS and NVIDIA driver version.** This picks the torch build; the driver has
-    to be new enough for the CUDA runtime we install.
-12. **Usage policy**: shared node or exclusive? Is a 6+ hour job acceptable, and
-    should it be scheduled off-hours?
-
-Items 1–4 are enough for me to connect and survey the rest myself.
-
-## The data problem — and why question 5 decides it
-
-What Kilosort4 actually needs is not the `.rec`. It needs the `trodesexport`
-products, and **those are already on the archive share**. Measured on
-`Z:\Gil\Shamir_1\20261021_111842.rec\20261021_111842.kilosort\`:
-
-| file | size |
-|---|---|
-| `20261021_111842.probe1.dat` | **369.87 GiB** |
-| `20261021_111842.timestamps.dat` | 1.93 GiB |
-| `20261021_111842.channelmap_probe1.dat` | <1 MiB |
-
-The share is `\\172.20.22.203\NeuroPixels`, mounted here as `Z:`, with **42.3 TB
-free** and **32 archived sessions**. The share host is on the same /24 as this
-PC, so the nodes plausibly reach it too.
-
-That gives two very different plans:
-
-- **If the nodes can mount the share** — nothing is copied from this PC, ever.
-  The node reads `probe1.dat` straight from the archive (or, better, stages it
-  to local scratch at server-to-server speed), sorts, and writes results back.
-  This PC is not in the data path at all and can keep recording.
-- **If they cannot** — every session has to be pushed from here. Measured
-  throughput on this link is **~113–118 MiB/s**, so 270–370 GiB is **roughly
-  7–9 hours per session**, during which this PC is busy. That is worse than
-  sorting locally for all but the largest jobs, and it would need a different
-  approach: export on the node from the `.rec`, or get the nodes onto the share.
-
-So question 5 is not a detail — it decides whether this is worth doing. Worth
-asking Sarah directly rather than discovering it later.
-
-One caveat even in the good case: reading 370 GiB over SMB *during* sorting will
-be slower than local disk, because Kilosort4 passes over the file more than
-once. The right pattern is copy-to-scratch, sort, copy-results-back — hence
-question 9.
-
-## Environment to reproduce on the node
-
-Exactly what works here today, read out of the `kilosort4` conda env on this PC:
-
-| package | version |
-|---|---|
-| Python | 3.9.19 |
-| `kilosort` | **4.0.24** |
-| `torch` | 2.4.0 (CUDA build **11.8**) |
-| `numpy` | 1.26.4 |
-| `scipy` | 1.13.1 |
-
-Pin `kilosort` to 4.0.24 rather than taking latest — every sorted session in
-this project was produced by it, and a version change would make new results
-incomparable to the existing ones without a deliberate re-run.
-
-The torch CUDA build may need to move up from 11.8 depending on the node's
-driver and GPU generation (a current-gen card may require a newer CUDA). That
-is a legitimate change; the `kilosort` pin is not.
-
-A no-root install in the home directory:
-
-```bash
-# on the node
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-bash Miniconda3-latest-Linux-x86_64.sh -b -p $HOME/miniconda3
-$HOME/miniconda3/bin/conda create -y -n kilosort4 python=3.9.19
-$HOME/miniconda3/bin/conda run -n kilosort4 pip install \
-    "kilosort==4.0.24" "numpy==1.26.4" "scipy==1.13.1"
-# torch LAST, from the index matching the node's CUDA -- confirm the version first
-$HOME/miniconda3/bin/conda run -n kilosort4 pip install \
-    torch==2.4.0 --index-url https://download.pytorch.org/whl/cu118
-```
-
-Install torch last and from the explicit CUDA index; letting pip resolve it as a
-`kilosort` dependency pulls a build that may not match the node's driver.
-
-### Verifying the GPU before trusting a run
-
-```bash
-python -c "import torch,kilosort; p=torch.cuda.get_device_properties(0); \
-print(kilosort.__version__, torch.__version__, torch.version.cuda, p.name, \
-round(p.total_memory/1e9,1), 'GB')"
-```
-
-If `torch.cuda.is_available()` is False, stop — Kilosort4 will fall back in ways
-that waste hours rather than failing cleanly.
-
-## The sort itself
-
-The runner used here is `scripts/run_kilosort4_20260916.py`. Settings that are
-not Kilosort4 defaults, and must be carried across deliberately rather than
-re-guessed:
-
-| setting | value | note |
+| | wall clock for 120 s of recording | × realtime |
 |---|---|---|
-| `n_chan_bin` | 384 | |
-| `fs` | 30000.0 | |
-| `Th_universal` | 9.0 | **session-specific** — 20260910/20260901 used 9.2 |
-| `Th_learned` | 8.0 | **session-specific** — those sessions used 7.0 |
-| `do_CAR` | True | KS4 default |
-| `invert_sign` | False | KS4 default |
-| `data_dtype` | int16 | |
+| **GPU** (RTX 2060, from the 2026-09-30 run log) | **131.7 s** | 1.10 |
+| **CPU**, 8 threads | ~1 h (run in progress at time of writing) | ~30 |
 
-The thresholds differ per session on purpose. Do not standardise them on the
-node without checking which session is being sorted and what it was run with
-before.
+Be precise about what is measured here, because the conclusion rests on it. Two
+things are **directly measured**: the GPU total of 131.7 s, and the CPU
+spike-detection stage running at a steady **~31 s per batch over 60 batches**
+≈ 30 min, against **65.1 s** for that same stage on the GPU — a **28×** ratio on
+the stage that dominated the GPU run. The CPU *total* is **extrapolated** from
+that ratio and will be replaced with the measured figure when the run finishes;
+`scripts/benchmark_kilosort_cpu.py` writes it to `benchmark_summary.json`
+alongside peak memory.
 
-Each session also needs its **probe map JSON**, generated per session. Note
-there are two channel maps in play in this project, differing by a silent 820 µm
-depth shift (map A through 2026-10-23, map B from 2026-10-26). The remote setup
-must carry the *same* map the session was recorded with; getting this wrong
-produces plausible-looking output with wrong unit depths.
+**What that means for a real session.** At ~30× realtime, a 4.5 h recording is
+roughly **5–6 days** of CPU wall clock on 8 cores. The same sort takes about
+**5 hours** on this PC's GPU. Treat the days figure as an order of magnitude,
+not a schedule, until the node's own benchmark is in.
 
-## Order of work once access exists
+So the honest framing is **throughput, not speed**:
 
-1. `ssh compute1` with the key — confirm login and no password prompt.
-2. Survey the node: GPU, driver, scratch, quota, scheduler, whether the share is
-   mountable. This answers questions 5–12 without needing Sarah again.
-3. Install the environment above in `$HOME`; verify with the GPU one-liner.
-4. **Smoke test on a small file before any real session.** A full sort is hours;
-   a short recording proves the environment end to end in minutes. There are
-   small test fixtures in `hybrid_small/` that can serve.
-5. Sort one session that has already been sorted here, and compare the output to
-   the local result. This is the step that proves the remote setup is
-   trustworthy, and it is worth the GPU time.
-6. Only then move the real queue across.
+| approach | per session | concurrent | sessions/day | blocks Trodes? |
+|---|---|---|---|---|
+| local GPU | ~5 h | 1 | ~4–5 | **yes, completely** |
+| RIS CPU, 8 cores | ~5–6 days | ~5 (storage-bound) | ~1 | no |
 
-Step 5 matters more than it looks: the point of this exercise is results that can
-sit in the same analysis as the existing ones. A remote setup that produces
-*different* output is not a faster pipeline, it is a second pipeline.
+For **clearing the 32-session backlog** that is a good trade: about a month of
+entirely unattended background sorting that costs nothing and never touches the
+recording rig. For **keeping up with daily recording** it is roughly break-even
+and tight.
 
-## What is NOT known yet — do not assume these
+Two things would change the picture, in order of leverage:
 
-- **Nothing about compute1/compute2 has been verified.** No hostname, no
-  account, no GPU model, no scheduler, no mount. Every statement in this file
-  about the nodes is a question, not a measurement.
-- **Whether the nodes can see the archive share.** The share host is on the same
-  subnet as this PC, which makes it plausible and nothing more.
-- **Whether the lab's policy allows a multi-hour GPU job**, or expects it
-  scheduled.
+1. **A GPU queue.** 30× is the difference between 5 hours and 6 days. Even
+   occasional or low-priority GPU access would dominate every other
+   optimisation here. **This is now the most important question to ask** — it
+   has replaced the share-mount question from the earlier draft.
+2. **More cores.** Worth measuring on the node with
+   `scripts/benchmark_kilosort_cpu.py --threads N` before requesting a wide
+   allocation. KS4's CPU scaling is sub-linear, and a wide request queues longer
+   for a gain that may not be there.
 
-Measurements in this file about *this* PC, the archive, and the local
-environment were taken on 2026-11-04 and are real.
+## The storage budget — and a question hiding in it
+
+Measured per session:
+
+| item | size |
+|---|---|
+| `probe1.dat` input | 252–370 GiB (mean ~325) |
+| `timestamps.dat` | ~1.9 GiB |
+| probe map JSON + channelmap | < 1 MiB |
+| **Kilosort4 output** | **19.2 GiB** (733 files; `pc_features.npy` is 5.6 GiB of it) |
+
+So ~345 GiB in flight per session, and **2 TB holds about 5 sessions at once**.
+That — not cores — is what caps concurrency.
+
+**But the 2 TB may be the wrong number to plan against.** RIS has two
+filesystems: `storage1` (persistent, quota'd, where the allocation lives) and
+`scratch1` (large, shared, purged). The *outputs* are only 19 GiB each, so 2 TB
+of `storage1` would hold **100 sessions of results** comfortably. It is the
+*inputs* that are enormous, and those belong on scratch. **If the 2 TB is
+storage1 and scratch is separate, concurrency is set by scratch, not by the
+allocation** — and could be much higher than 5.
+
+Worth asking explicitly rather than assuming the pessimistic reading.
+
+## Sequencing insight: sort and build review data in the same window
+
+If the review-tool pipeline is going to run on RIS too, it has to run **while
+the input is still staged**. Waveform extraction needs `probe1.dat`; the KS4
+output alone is not enough. Purge the input, decide later you want waveforms,
+and it is another 325 GiB copy.
+
+So the unit of work per session is: **stage → sort → build review data → copy
+results back → purge input.** Not "sort everything, then review everything."
+
+## Ask Sarah / RIS
+
+**To get started at all:**
+
+1. **The allocation**: compute group for `bsub -G` (e.g. `compute-<PI>`), and the
+   PI key id that appears in `/storage1/fs1/<PI>/Active` and `/scratch1/fs1/<PI>`.
+2. **WashU Key access**, and membership of the `storage-<PI>` AD group — that is
+   what gates the SMB mount of `storage1` from this PC.
+3. **Confirmation that `compute1` is the right platform** and it is free to use
+   until **July** (as Gil was told). RIS docs show compute1 pages migrating to a
+   **Compute2** space, so check which cluster the allocation is actually on.
+4. **VPN**: this PC is at `172.20.22.115`. RIS storage requires being on the
+   WashU network or VPN. Which VPN, and can it run alongside the lab network
+   without disturbing the acquisition link on `192.168.0.2`?
+
+**Before the first real run:**
+
+5. **Is there any GPU queue available to this allocation?** See above — this is
+   the highest-leverage question of the lot. If yes: queue name, and whether
+   `-R 'gpuhost' -gpu "num=1"` is the right incantation there.
+6. **Is the 2 TB `storage1` or `scratch1`?** And what is the scratch quota and
+   purge policy? This sets concurrency.
+7. **Queue limits**: max walltime and max cores per job on the CPU queue. A
+   5–6 day job needs a queue that permits it; if the cap is shorter, the sort has
+   to be split or checkpointed. `bqueues -l general` answers this from a client
+   host.
+8. **How many jobs may we have running at once?**
+9. **Docker registry**: where do we push the image so RIS can pull it, or should
+   RIS build it from the Dockerfile?
+10. **Kerberos**: what is the maximum renewable ticket lifetime? An expiring
+    ticket breaks a running job's access to RIS storage, and a multi-day sort is
+    well past the default. Writing results to scratch and copying them to
+    storage in a separate short job is the workaround if the lifetime is short.
+11. **Transfer method for ~325 GiB per session**: SMB mount from this PC, or
+    Globus? Globus is likely much faster and is what RIS recommends for bulk
+    data.
+
+## What is built and ready
+
+| file | what it does |
+|---|---|
+| `docker/Dockerfile.kilosort4` | CPU image, pins verified **at build time** so a job cannot discover a wrong version six hours in. No `ENTRYPOINT` and `/bin/sh` present, as LSF requires. GPU variant documented at the bottom. |
+| `scripts/run_kilosort4_session.py` | The existing runner with paths and thresholds as arguments. **Refuses** to fall back to CPU if `--device cuda` was asked for, refuses a probe whose channel count disagrees, and writes `run_provenance.json` beside the results. |
+| `scripts/ris_submit_kilosort.sh` | `bsub` template: `LSF_DOCKER_VOLUMES`, `span[hosts=1]`, walltime, `kinit` check. Allocation-specific values marked `PENDING`. |
+| `scripts/stage_session_to_ris.ps1` | Generates the probe map, sanity-checks it, checks destination free space, then robocopies `probe1.dat` + `timestamps.dat` + channelmap + map JSON + DIO. Writes nothing to the archive. |
+| `scripts/benchmark_kilosort_cpu.py` | The CPU benchmark above. **Re-run it on the node** — the number that matters is the node's, not this PC's. |
+| `~/.ssh/id_ed25519_compute` + config | From the earlier draft. Still useful for `compute1-client-*`, though RIS logins are WashU-Key based, so the key may not be the auth path. |
+
+## Two hazards the remote path must not walk into
+
+Both produce output that looks completely normal and is wrong, so both are
+enforced in code rather than documented and hoped for:
+
+- **The KS4 thresholds are per session.** 20260916 used `Th_universal` 9.0 /
+  `Th_learned` 8.0; 20260910 and 20260901 used 9.2 / 7.0. They are **required
+  arguments** in `run_kilosort4_session.py` — no default, because a default is
+  exactly how the wrong pair gets used silently.
+- **There are two channel maps**, differing by a silent **820 µm depth shift**
+  (map A through 2026-10-23, map B from 2026-10-26). The runner prints and
+  records the probe's y-coordinate range, which is the only thing that
+  distinguishes them by eye, and the staging script prints it before the copy.
+
+## Before trusting any of it
+
+**Re-sort a session that has already been sorted here, and compare the output.**
+The point of this exercise is results that belong in the same analysis as the
+existing ones. A remote setup that quietly produces different output is not a
+faster pipeline, it is a second pipeline. `20260916_110311` is the obvious
+candidate — it is the current working session and its KS4 output is on F.
+
+## What is NOT known — do not assume
+
+- **Nothing about the allocation has been verified**: no group, no paths, no
+  queue, no GPU, no quota split between storage1 and scratch1. Every statement
+  here about RIS is from public documentation plus Gil's relay, not from a
+  login.
+- **Whether a 5–6 day job is permitted** on the CPU queue.
+- **Whether the review-tool pipeline runs unmodified on Linux.** It has only
+  ever run on Windows here.
+- **The exact RIS hostnames.** The docs use both `wustl.edu` and `washu.edu`;
+  verify against the allocation.
+
+Measurements about *this* PC, the archive, and the CPU/GPU benchmark were taken
+on 2026-11-04 and are real.
+
+Sources for the RIS platform details: the WashU RIS wiki pages on
+[Docker and the RIS Compute1 Platform](https://washu.atlassian.net/wiki/spaces/RUD/pages/1705115761/Docker+and+the+RIS+Compute1+Platform),
+[Storage1 Access Control](https://washu.atlassian.net/wiki/spaces/RUD/pages/1795948625/Storage1+Access+Control),
+[Connecting to Storage from Linux](https://washu.atlassian.net/wiki/spaces/RUD/pages/1795260493/Connecting+to+Storage+from+Linux),
+and the [Compute2 Cluster](https://washu.atlassian.net/wiki/spaces/RUD/pages/3307929753) page.
+
+## A note on `make_probe_map.py`
+
+The canonical copy Gil runs lives at `D:\Gil\make_probe_map.py`, **outside this
+repo and tracked nowhere**. Since the remote path depends on it entirely, a
+byte-identical snapshot is now committed at `scripts/make_probe_map.py`
+(sha256 `d1bdd7ba6abc1c65...`, verified identical on 2026-11-04).
+
+`stage_session_to_ris.ps1` still defaults to the `D:\Gil` copy so Gil's existing
+workflow is unchanged. That means the two can drift — if the canonical one is
+edited, re-copy it into the repo.
