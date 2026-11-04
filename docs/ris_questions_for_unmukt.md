@@ -90,16 +90,19 @@ With 5 at once the backlog takes about a month; with 10, about two weeks.*
 *We measured Kilosort on 8 cores. More would help, though less than
 proportionally — worth knowing the ceiling before we test.*
 
-**5. Is there any GPU we could use, and how busy is it?**
-*This is the big one for speed: ~30× faster. We need a **small** GPU — 3.3 GB of
-graphics memory, about 4.5 hours per session, which is roughly 20% of one GPU
-running continuously. Since Compute1 is free, this is a question about
-availability and queue time, not cost. Also: which queue, and does it need the
-`gpuhost` flag we saw in the docs?*
+**5. Which GPU queue can we use, and how long is the wait in practice?**
+*Partly answered already — RIS publishes an inventory of **242 V100 / A100 /
+H100 / A40 GPUs**, with **100+ in the general pool**, so GPUs definitely exist on
+Compute1. What we still need is which queue our allocation may use and what the
+realistic wait is. Our job is small: **3.3 GB** of GPU memory and ~4.5 h per
+session, so any of those cards is far more than enough. Since Compute1 is free,
+this is purely about availability.*
 
-**6. How long is a single job allowed to run?**
-*A CPU sort may need 5–6 days. If the queue cap is shorter, we have to split the
-work or use a GPU.*
+**6. ~~How long is a single job allowed to run?~~ — ANSWERED, no need to ask**
+*RIS documentation: the **`general` queue allows jobs up to 28 days**
+(`general-interactive` is 24 h, but that is only for interactive sessions). A
+5–6 day CPU sort fits comfortably. This was my main worry about the CPU route
+and it is resolved.*
 
 **7. What is the best way to send ~325 GB per session from a Windows PC?**
 *Can we map RIS storage as a network drive (`\\storage1.ris.wustl.edu\...`) and
@@ -146,3 +149,49 @@ asking directly rather than discovering it.*
 | measured GPU speed | 1.1× real time on an RTX 2060 → **~4.5 h/session** |
 | GPU memory needed | **3.3 GB peak** |
 | software | Kilosort 4.0.24, PyTorch 2.4.0, Python 3.9 |
+
+## The storage plan, now that the 2 TB is understood
+
+The 2 TB is Gil's practical slice of the **lab's 5 TB free faculty allocation**,
+not a separate grant — so it is shared space and shouldn't be filled with
+hundreds of gigabytes of temporary files. Final results go back to the lab's
+own Z: server.
+
+That makes the split clean:
+
+| what | where | how much |
+|---|---|---|
+| `probe1.dat`, during the sort only | **`scratch1`** (temporary, auto-purged) | ~325 GB × however many run at once |
+| Kilosort results, briefly | `storage1` (the 2 TB) | 19 GB each — **30 sessions is only 570 GB** |
+| Kilosort results, permanently | **back on Z:** | — |
+
+So the 2 TB is comfortable for results even for the whole backlog at once. The
+entire question is whether the **325 GB inputs can go on `scratch1`**. If yes,
+concurrency stops being a storage problem. If no, and they must sit in the 2 TB,
+we can only run about **five at a time**.
+
+## What can be answered without asking anyone
+
+Once there is a login, `scripts/survey_ris.sh` measures most of this directly —
+it is read-only, submits nothing, and is piped in over ssh so it leaves nothing
+behind:
+
+```
+ssh <wustlkey>@compute1-client-1.ris.wustl.edu 'bash -s' < scripts/survey_ris.sh
+```
+
+| question | answerable from a login? |
+|---|---|
+| 2 — where the big file goes, scratch size, purge window | **yes** — `df`, quota commands, and RIS writes its own `RIS_cleanup_policy` file into the scratch directory |
+| 3 — how many jobs at once | **yes** — `busers`, `bqueues -l` job limits |
+| 4 — cores per job | **yes** — `lshosts` |
+| 5 — GPU queues and current load | **yes** — `lshosts -gpu`, `bhosts -gpu` |
+| 6 — walltime | **already answered**: 28 days on `general` |
+| 7 — transfer method | **partly** — the Windows mount can just be tried |
+| 8 — Docker registry | **partly** — whether a client-side docker exists is checkable |
+| 9 — Kerberos lifetime | **yes** — `klist` shows the renewable lifetime |
+| 1 — allocation before 1 Jan 2027 | **no — human only** |
+| 10 — what fails in practice | **no — human only** |
+
+So realistically only **two** of the ten need a person: whether we can get the
+allocation in time, and Unmukt's own experience of what breaks.
