@@ -6574,3 +6574,78 @@ full sessions sort on this box, which has 64 GB. So the submit script asks for *
 and now carries a comment saying the benchmark figure is a floor rather than an
 estimate -- otherwise someone reads 7.89 GB, requests 16 GB, and loses a five-day job to
 an out-of-memory kill at hour 100.
+
+### 5bd.22 The rewired Bpod sync, checked against 953 known-good trials (2026-11-05)
+
+Gil rewired the Bpod-to-MCU sync and recorded `test_synch` -- a few trials, nothing
+else -- to find out whether the state word is arriving intact before committing the
+wiring. The question was narrow: do the numbers coming off the six lines look like real
+trials?
+
+They do. Verdict first: **the connection works**, including Din1, which had died
+mid-session on 2026-10-29 and is the reason any of this was in doubt.
+
+`F:\Gil\Shamir\test_synch.rec` is 99.1 s, 2,972,923 packets, 856 bytes each, 384
+channels at 30 kHz. Five complete trials plus a partial one at each end.
+
+**The standard check refused to run, correctly.** `scripts/check_bpod_dio_in_rec.py`
+stops if the packet timestamp does not increment by exactly 1, because a wrong packet
+offset would otherwise produce a confident wrong answer about the wiring. It found 1,643
+breaks and bailed. That self-check earned its keep, but here it was a false alarm about
+layout: the 0x55 sentinel is clean on **every one of the 2.97M packets**, and the breaks
+are all positive, all small (2-12 samples), and all confined to one burst between
+packet 325,526 and 327,727 -- **t = 10.85 s to about 11.3 s**. Total loss is 12,574
+samples, **419 ms**, in one half-second hiccup; the other 98.6 s is contiguous. That is
+a Trodes acquisition dropout, not a parsing error and not a sync problem.
+
+So I decoded it in a separate scratch script rather than loosening the check script's
+guard, and took **time from the packet timestamp rather than the packet index**, so the
+dropout cannot fabricate a long-held state. Nothing in `sync_pipeline/` was touched; its
+`dio_decoder` was imported read-only for the comparison below.
+
+**The trial structure** (code 40 = ITI, which ends a trial):
+
+```
+trial 1  40 0 1 2 3 5 6 8 10 11 | 14 15 25 26 27 38 37
+trial 2  40 0 1 2 3 5 6 8 10 11 | 14 15 25 26 27 38 37
+trial 3  40 0 1 2 3 5 6 8 10 11 | 14 15 19 20 29 31
+trial 4  40 0 1 2 3 5 6 8 10 11 | 12 13 16 17 28 30
+trial 5  40 0 1 2 3 5 6 8 10 11 | 14 15 19 20 29 31
+```
+
+The first ten states are identical across all five trials and the divergence begins
+exactly at the point a choice should branch, producing three distinct outcome paths.
+
+**The check that actually settles it** is not internal consistency but agreement with a
+session recorded when the wiring was known good. Decoding `20260916_110311` (953 trials)
+gives a reference set of state values and per-value durations. Against it:
+
+- **No novel values.** Every number `test_synch` put on the wire appears in those 953
+  trials. Nothing illegal, nothing above 40.
+- **The hardware-timed states match to the sample**: code 1 at 49.90 ms on all six
+  occurrences (known good 49.87-49.90, n=954), code 2 at 500.00-500.03 (identical range,
+  n=954), code 8 at 350.00-350.03, code 28 at 84.60 (known good 84.60-84.63, n=138),
+  code 40 at 999.97-1000.03 (n=953). Even the 0.10 ms pass-through states (10, 12-15,
+  37, 38) land in their known ranges.
+
+That combination is what rules out a **swapped pin** specifically, which was the real
+worry: a swap remaps bits, so legal-looking numbers still come out, but the 50 ms state
+would arrive on some *other* number. Instead 49.90 ms landed on code 1 six times out of
+six and 1000 ms on code 40 six out of six.
+
+**Two deviations, both benign:**
+
+- **Code 29 was 73.70 ms, both times.** The known-good session has it at 87.30-87.33 ms
+  across 153 occurrences -- tight enough that 73.70 is clearly a different number, not
+  noise. Its sibling code 28 matched exactly. One state's fixed duration changing while
+  the other 25 stay sample-exact cannot come from wiring; it is a protocol-side change,
+  most likely a **valve recalibration or a changed reward amount**. Flagged for Gil to
+  confirm he meant it.
+- **Code 26 ran 10.3 s and 11.0 s** against a known-good max of 5.4 s. It is an
+  animal-paced waiting state and there was no animal in the box, so a long wait is the
+  expected result of a bench test, not a fault.
+
+Din7 and Din8 remain at zero transitions, so **Din7 is still free for the camera strobe**
+as designed in `docs/flir_camera_sync_design.md`. This recording does not test the
+Din7-export hypothesis recorded in `docs/bpod_mcu_sync_wiring.md`, since Din7 had no
+transitions here either -- that still needs a recording with a real pulse on it.
