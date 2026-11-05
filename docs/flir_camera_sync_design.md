@@ -286,8 +286,74 @@ Points that decide whether a 4-hour recording survives:
   pull-up would use. Line numbering differs between cased and board-level
   variants, so confirm against this model's own installation guide rather than a
   generic Blackfly S pinout.
-- **Which physical pin is Din7**, as above.
+- **Which physical pin is Din7**, as above. **No longer a blocker**: with a camera
+  emitting a known 60 fps strobe, `scripts/find_camera_strobe_in_rec.py` reads all
+  eight DIO bits and names whichever line the pulses landed on, so a wrong guess
+  costs one 60 s recording instead of a datasheet hunt. See §9.
 - **The Trodes digital input's logic threshold and whether it has a pull-up** —
   needed to know whether the camera's GPIO can drive it directly.
 - **Whether `trodesexport` exports a Din7 that actually has transitions** — the
   hypothesis in §2, to be checked on the first test recording.
+
+## 9. Settled camera-side parameters, and the strobe geometry to expect (2026-11-05)
+
+The camera PC has these measured and locked. They are recorded here so verifying a
+recording is a lookup rather than a re-derivation.
+
+| | |
+|---|---|
+| resolution / format | 1280×1024, Mono8 |
+| frame rate, nominal | 60 fps |
+| frame rate, **measured** | **59.9944 fps** (−94 ppm; ordinary crystal tolerance) |
+| exposure | **15.0 ms fixed**, `ExposureAuto` **off** |
+| gain | **12.9 dB fixed**, `GainAuto` **off** |
+| GPIO | **Line1**, source `ExposureActive` |
+| sustained test | 1 h, **215,971 frames, zero dropped, zero FrameID gaps** |
+
+**Why 15 ms and not 10.** I first asked for ≤10 ms to guarantee a wide gap between
+pulses, then walked it back. The pulse-merging hazard is real but belongs to
+*auto*-exposure, which was already off; at a fixed 15 ms the low gap is **50 samples at
+30 kHz**, which is ample. Measured cost of going to 10 ms was **gain 12.9 → 16.4 dB**
+(the 3.5 dB the one-third light loss predicts). Gain is sensor noise and this video feeds
+**DeepLabCut**, so the cleaner image wins. Rule for later: buy brightness with IR
+illumination first, exposure second, gain last.
+
+Note the sustained hour-long test was run at 15 ms, so **the shipped configuration is the
+validated one** — the exposure decision needed no re-test.
+
+### What `find_camera_strobe_in_rec.py` should see
+
+At 30 kHz, with `--fps 60 --exposure-ms 15`:
+
+| quantity | expected |
+|---|---|
+| period | **500 samples** (500.05 at the measured 59.9944 fps) |
+| pulse width | **450 samples** = 15.0 ms |
+| low gap between pulses | **50 samples** = 1.667 ms |
+| `frac high` | **≈ 0.90** |
+| pulses in 60 s | **≈ 3600** |
+
+Three failure signatures worth recognising:
+
+- **width ≈ 50 samples (1.667 ms) instead of 450** — the line is **inverted**. Pulse
+  *count* is unaffected, since there is still one rising edge per frame, so this is a
+  polarity fix and not lost data.
+- **width matching neither 450 nor 50** — probably not `ExposureActive`. `ExposureEnd`
+  and `FrameTriggerWait` have different widths.
+- **pulse count below frame count** — pulses were missed, not frames. The classic cause
+  is exposure too close to the frame period, which is exactly what fixing exposure at
+  15 ms with auto off is there to prevent.
+
+Pulse count minus frame count of **0 or +1 is correct**: the last exposure can fire as the
+recording script stops, before that frame reaches the container. Anything beyond that is
+a finding.
+
+### Note on the pin-ID test
+
+Because the pin is unknown, the first test deliberately does not assume it. Wire a best
+guess, record ~60 s with the camera running, and `find_camera_strobe_in_rec.py` names the
+line the pulses arrived on. The **Trodes-first invariant does not apply to this test** —
+it only matters for "first pulse = video frame 1" in real sessions — but the start order
+should be recorded rather than assumed. The script warns if the strobe appears on
+**Din1–Din6**, which would mean the camera is on a Bpod pin and that recording's
+behavioural decode is corrupted.

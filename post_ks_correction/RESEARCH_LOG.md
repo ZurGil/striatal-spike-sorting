@@ -6703,3 +6703,45 @@ sensor noise that DeepLabCut pays for. Keep 10 ms only if gain stays low; otherw
 with lower gain is the better trade, and extra IR illumination beats both.
 
 Nothing in `sync_pipeline/` is imported or modified by any of this.
+
+### 5bd.24 Camera settings locked, and the strobe geometry written down (2026-11-05)
+
+The camera PC settled its parameters and they are now recorded in
+`docs/flir_camera_sync_design.md` §9, so verifying a recording is a lookup rather than a
+re-derivation each time.
+
+**Final: 1280×1024 Mono8, 60 fps nominal / 59.9944 measured, exposure 15.0 ms fixed, gain
+12.9 dB fixed, both Auto off, GPIO Line1 = `ExposureActive`.**
+
+The exposure question resolved against my first recommendation, correctly. Measured cost
+of 10 ms instead of 15 was **gain 12.9 → 16.4 dB** — which is the 3.52 dB that losing a
+third of the light predicts, so the measurement and the arithmetic agree. Since the
+merging hazard belonged to auto-exposure (already off) and a fixed 15 ms still leaves a
+**50-sample** low gap at 30 kHz, there was no reason to pay 3.5 dB of sensor noise for
+margin that was not needed. The video feeds DeepLabCut, which pays for noise. The rule
+worth keeping: **IR illumination first, exposure second, gain last.**
+
+Worth noting the sustained hour-long test had itself been run at 15 ms, so the shipped
+configuration is the validated one and the exposure decision needed no re-test. The
+camera-side frame audit also came back clean on the stronger version of the check — all
+215,971 CSV rows parsed, **zero FrameID gaps**, inter-frame interval 16.6617–16.6748 ms
+with no outliers, timestamp span 3599.838 s. I re-derived it: 215,970 intervals at
+16.66819 ms matches their 16.668232 ms mean, which puts the true rate at 59.9944 fps, and
+at that rate a full 3600.000 s would yield 215,980 frames — so the 9-frame shortfall is
+0.150 s of startup latency, exactly what they described. The naive "29 frames missing" was
+my own assumption of exactly 60.000 fps. Nothing lost.
+
+**Expected strobe geometry at 30 kHz** (now in §9): period **500 samples**, width **450**
+(= 15 ms), low gap **50**, `frac high` **≈0.90**, **~3600 pulses in 60 s**. Three
+signatures to recognise: a width of ~50 instead of 450 means the line is **inverted**
+(count is unaffected — one rising edge per frame either way, so it is a polarity fix, not
+lost data); a width matching neither suggests the signal is `ExposureEnd` or
+`FrameTriggerWait` rather than `ExposureActive`; a pulse count *below* frame count means
+pulses were missed rather than frames.
+
+**The Din7 pin is no longer a blocker**, and §8 has been amended to say so. The pin-walk
+procedure in `docs/bpod_mcu_sync_wiring.md` is no longer the only route now that there is
+a camera emitting a known 60 fps signal: wire a guess, record 60 s, and
+`find_camera_strobe_in_rec.py` names the line it arrived on. The Trodes-first invariant
+does not apply to that test — it only matters for the "first pulse = video frame 1"
+property in real sessions — but the start order gets recorded rather than assumed.
