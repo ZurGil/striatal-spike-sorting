@@ -6649,3 +6649,57 @@ Din7 and Din8 remain at zero transitions, so **Din7 is still free for the camera
 as designed in `docs/flir_camera_sync_design.md`. This recording does not test the
 Din7-export hypothesis recorded in `docs/bpod_mcu_sync_wiring.md`, since Din7 had no
 transitions here either -- that still needs a recording with a real pulse on it.
+
+### 5bd.23 A reader that names the pin the camera strobe landed on (2026-11-05)
+
+The camera PC reached the point of wiring the GPIO to Trodes, which runs straight into
+the one thing nobody knows: **which physical pin of the 20-pin controller connector is
+Din7.** The pin-walk procedure in `docs/bpod_mcu_sync_wiring.md` would measure it, but
+there is a cheaper route now that there is a camera emitting a known signal -- wire a
+best guess, record a minute, and let the recording say where the pulses went.
+
+`scripts/find_camera_strobe_in_rec.py` does that. It reads all eight DIO bits out of the
+`.rec` and asks which one looks like a free-running frame strobe, then names it. The
+discriminator is deliberately two-sided: **a tight period AND a tight pulse width**. A
+period alone is not enough, because a behavioural state line can be regular for stretches;
+requiring the width to be near-constant as well is what separates a strobe from a state
+word. Period is checked against `--fps` and width against `--exposure-ms`, since on
+`ExposureActive` the pulse width *is* the exposure time.
+
+It reports three things the wiring test actually needs:
+
+- **which `Din`**, and a loud warning if the answer is Din1-Din6, because that means the
+  camera is sitting on a Bpod pin and that recording's behavioural decode is corrupted --
+  the only outcome of a wrong guess that is worse than nothing happening at all;
+- **polarity**, by checking whether the measured width is the exposure or the frame period
+  *minus* the exposure. The latter is an inverted line, which is a one-line fix and
+  otherwise looks like a plausible signal;
+- **pulse count against the camera's own frame count** (`--frames`), where 0 or +1 is
+  expected (the last exposure can fire as the recording script stops, before that frame
+  reaches the container) and anything else is a finding -- more pulses than frames means
+  frames exposed but not written, fewer means pulses were missed.
+
+Unlike `check_bpod_dio_in_rec.py` this one does **not** abort on a timestamp
+discontinuity. That guard is right for the Bpod check, but a Trodes dropout is a real and
+survivable event -- §5bd.22 measured one at 419 ms -- and refusing to look is worse than
+looking carefully. So time comes from the packet **timestamp** rather than the packet
+index, and any interval spanning a gap is **held out** of the period and width statistics
+instead of silently widening them. The sentinel check is kept, because that is the one
+that actually detects a wrong byte offset.
+
+**Smoke-tested against a recording with no strobe in it**, which is the test that matters
+for a detector: run on `test_synch`, it correctly reported no strobe rather than inventing
+one, correctly classified all six Bpod lines as state-word bits (their periods are tens of
+thousands of samples against the 500 a 60 fps strobe would give), showed Din7/Din8 idle,
+and held out the 419 ms dropout.
+
+**Exposure, corrected.** I warned the camera side that an exposure close to the frame
+period could merge consecutive pulses and make my pulse count read low -- which would
+mimic dropped frames, the exact failure this scheme exists to detect. That hazard is real
+but it belongs to **auto-exposure**, which was already disabled there. At a fixed 15 ms
+the low gap is 1.667 ms = **50 samples**, ample. So I walked the recommendation back:
+going 15 -> 10 ms costs a third of the light and about 3.5 dB more gain, and gain is
+sensor noise that DeepLabCut pays for. Keep 10 ms only if gain stays low; otherwise 15 ms
+with lower gain is the better trade, and extra IR illumination beats both.
+
+Nothing in `sync_pipeline/` is imported or modified by any of this.
