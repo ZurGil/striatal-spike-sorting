@@ -158,3 +158,83 @@ five lines kept working. The symptom set, worth recognising again:
 None of that is recoverable in software — a jammed bit destroys the information.
 The chatter before the latch is the one diagnostic hint: a logic output that dies
 usually dies at once, whereas a contact that is losing grip chatters first.
+
+## The Digital I/O pinout, from the SpikeGadgets MCU manual (added 2026-11-05)
+
+Gil found the MCU manual (SpikeGadgets, Rev 2d-0723, p.13). It answers the pin question
+that the pin-walk procedure above was written to measure, and it adds a prerequisite
+nobody knew about.
+
+### The connector
+
+Figure 2 of the manual gives the Digital I/O header as **10 columns × 2 rows**. Column
+labels, left to right:
+
+```
+   5V    8    7    6    5    4    3    2    1   GND
+   []   []   []   []   []   []   []   []   []   []     <-- INPUTS   (top row)
+   []   []   []   []   []   []   []   []   []   []     <-- OUTPUTS  (bottom row)
+```
+
+So **`Din7` is the top row, third column from the left** — immediately right of the `8`
+column, immediately left of the `6` column. The numbering runs **descending** left to
+right, which is the opposite of what most people assume, and the power/ground pins sit at
+the two ends.
+
+Two miswires to avoid, in order of seriousness:
+
+- **One column to the RIGHT of Din7 is Din6 — a live Bpod state-word line.** Landing the
+  camera there would corrupt the behavioural decode of every recording made that way.
+  The safe direction to err is **left**, onto Din8, which carries nothing.
+- **The bottom row is OUTPUTS.** Column 3 of the bottom row is *Dout7*, not Din7.
+  Connecting the camera's output to the MCU's output means two drivers on one node.
+
+`scripts/find_camera_strobe_in_rec.py` detects the first of these explicitly and warns,
+because it is the one failure worse than nothing happening.
+
+### Prerequisite: Din7 and Din8 are DISABLED by default
+
+The manual, verbatim: *"By default, 6 digital inputs (Din 1 - 6) are enabled for
+receiving signals from other hardware devices. **Digital inputs 7 & 8 as well as digital
+outputs are turned off by default.**"*
+
+**This is not something the workspace file can fix.** I checked both our
+`20260901_084658_shamir.trodesconf` and Trodes' own
+`Resources/Images/DeviceProfiles.xml`: both declare all eight channels with
+`dataType="digital"` and nothing else, and **no enable/disable attribute exists anywhere
+in the schema**. The DIO byte always carries 8 bits; bits 6 and 7 simply report whatever
+a disabled input buffer produces. That is consistent with what we measured — `Din7`
+constant 0 and `Din8` constant 1, with **zero** transitions over both a 300 s and a 99 s
+recording. An *enabled* but unconnected input would be more likely to show at least
+occasional noise.
+
+So **Din7 must be enabled at the MCU before the strobe test**, through Trodes' hardware
+settings rather than the workspace file. (I cannot determine the exact menu path from the
+filesystem; it is an MCU-level setting.)
+
+**Why this ordering matters:** if the test recording is made with Din7 still disabled, a
+null result is **ambiguous** — "wrong pin" and "right pin, input disabled" look
+identical. Enabling first makes the test interpretable.
+
+This also retro-explains the open question in §2 above. The reason `trodesexport` never
+produced a Din7 file is now over-determined: the channel had no transitions *and* the
+input was off. It still does not tell us whether export works once there are real
+transitions, so that hypothesis stays open.
+
+### Electrical limits, from the same page
+
+- Digital inputs are **3.3 V TTL** with a **5 V maximum**. The manual highlights:
+  *"Inputs greater than 5V will damage the system."*
+- **Pull up to 3.3 V, never to 5 V or higher.** The camera's GPIO pin 6 supplies
+  3.3 V / 120 mA, which is exactly the right rail for this.
+- **Grounds must be tied.** The `GND` pin is the far-right column. The manual's own
+  Ground Point note asks for a shared ground across experimental hardware, and an
+  opto-isolated camera output specifically has no return path without it.
+- The camera side selected **Line1 = `ExposureActive`**. On a cased Blackfly S, Line1 is
+  the **opto-isolated output**, which is **open-drain**: it needs that pull-up, and the
+  resulting logic is typically **inverted** (exposure active ⇒ output pulled low). So the
+  expected strobe may well arrive as 1.667 ms high / 15 ms low rather than the other way
+  round. That costs nothing — there is still exactly one rising edge per frame — and
+  `find_camera_strobe_in_rec.py` reports it rather than being confused by it. The
+  non-isolated bidirectional line is the alternative if a direct 3.3 V push-pull drive is
+  preferred.
