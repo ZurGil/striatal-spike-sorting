@@ -6745,3 +6745,50 @@ a camera emitting a known 60 fps signal: wire a guess, record 60 s, and
 `find_camera_strobe_in_rec.py` names the line it arrived on. The Trodes-first invariant
 does not apply to that test — it only matters for the "first pulse = video frame 1"
 property in real sessions — but the start order gets recorded rather than assumed.
+
+### 5bd.25 Code 29 explained, and the camera wiring state before compaction (2026-11-06)
+
+**Code 29 is closed.** Gil confirmed the 73.70 ms it showed in `test_synch`, against
+87.30–87.33 ms across 153 occurrences of the known-good session: **the reward value in one
+port was changed during calibration.** So code 29 is a **valve-open time**, and its
+duration is expected to move whenever valves are recalibrated.
+
+Worth keeping as a rule for future comparisons: when a new recording is checked against a
+known-good one, a **single** fixed-duration state moving while its siblings stay
+sample-exact means **protocol or hardware calibration, not wiring**. A wiring fault cannot
+change one state's duration selectively — it would relabel numbers, not retime one of
+them. That is what let code 29 be set aside as benign on 2026-11-05 before Gil confirmed
+it, and the confirmation is what turns the inference into a fact.
+
+With that, **`test_synch` is fully accounted for**: every value matched the known-good set,
+every hardware-timed state matched to the sample, the one duration change is explained, and
+the only other anomaly was a 419 ms Trodes acquisition dropout at t = 10.85 s (§5bd.22).
+The rewired Bpod connection is good.
+
+**Camera state at the point Gil compacted the session.** He asked me to stop messaging the
+camera-PC agent ("you burn token for vain") and to park the file-transfer problem — a flash
+drive covers it for now and he is pursuing the network route himself. Both noted; the
+durable state is in `docs/flir_camera_sync_design.md`, `docs/bpod_mcu_sync_wiring.md` and
+memory.
+
+Three things were settled in that exchange and one was not:
+
+- **Settled, and it is the next action: `Din7` is disabled by default at the MCU** and the
+  workspace file cannot enable it — neither our `.trodesconf` nor Trodes'
+  `DeviceProfiles.xml` has any enable attribute in the schema. It is a GUI/MCU setting for
+  Gil. **It must happen before the test recording**, because with Din7 off a null result
+  cannot be told apart from a wrong pin.
+- **Settled: the MCU-side pinout.** `Din7` is the **top row, third column** of a header
+  labelled `5V 8 7 6 5 4 3 2 1 GND` left to right. The column immediately right is **Din6,
+  a live Bpod line** — err left onto Din8.
+- **Settled: the isolation topology.** The pull-up for the opto output must be powered from
+  the **MCU** side, via a 2.2 k/4.7 k divider off the header's 5 V; pulling up from the
+  camera's own 3.3 V would bond the grounds through the very part chosen to isolate them,
+  invisibly.
+- **Not settled: camera-side pin numbers**, and I stopped asserting them. I was wrong twice
+  from unsourced recall (pin 6 for the 3.3 V supply; pin 2/1 for Line1/OPTO_GND). FLIR's
+  docs give pin 4 = Line1 and pin 5 = opto ground **for cased models** — but FLIR fits two
+  connectors with different pinouts, and our notes record the *board-level* JST part for a
+  camera whose `-C` suffix implies the cased Hirose. Looking at the connector settles it.
+  The camera agent's **software-toggle test** identifies the pair by function and makes the
+  question moot, which is the better route regardless.
