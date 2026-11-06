@@ -6792,3 +6792,70 @@ Three things were settled in that exchange and one was not:
   camera whose `-C` suffix implies the cased Hirose. Looking at the connector settles it.
   The camera agent's **software-toggle test** identifies the pair by function and makes the
   question moot, which is the better route regardless.
+
+### 5bd.26 — Din7 cannot be enabled by us: it is a factory configuration
+
+Gil asked what he should do on the Trodes side to enable Din7 — open Trodes, load an old
+session, or just have the program running. The answer turned out to be **none of those**,
+and the reason is worth recording because it closes a line of investigation rather than
+advancing it.
+
+The MCU manual page Gil photographed says digital inputs 7 and 8 are off by default. The
+sentence that matters is the one just past the edge of the photo. SpikeGadgets' **Control
+Units manual** (p.12, "Inputs/Outputs") and their **System manual** (same section) both
+carry it verbatim:
+
+> "By default, only Din pins 1-6 are turned on for digital event logging. **If requested,**
+> this connector can also be configured for additional digital lines, including up to eight
+> outputs with custom behavior (hardware synchronization, etc)."
+
+and under the pin figure:
+
+> "Douts 1-8 are turned off by default but can be enabled for custom applications."
+
+"If requested" means requested from SpikeGadgets. This is an MCU firmware/hardware
+configuration, not a setting exposed to the user, and four independent checks agree:
+
+1. **Trodes 2.4.2 has exactly one MCU dialog.** Extracting the UI strings from `Trodes.exe`
+   recovers the menu tree — the dialog is reached at `Settings → Headstage → MCU
+   settings...`, and the only widgets inside it are `Sampling Rate (kHz)` and `Set Sampling
+   Rate`. Nothing about digital lines. (The binary also carries `MCU Settings (None
+   detected)`, which confirms the dialog needs live hardware to populate — relevant only if
+   there had been anything in it to set.)
+2. **No command-line setter exists.** `mcu_utils/windows/` ships `get_mcu_settings.exe`,
+   `get_mcu_version.exe`, `set_rfchannel.exe`, `set_samplingrate_mcu.exe` and
+   `recordSync.exe`. There is a getter for settings and setters for the radio channel and
+   the sampling rate; there is no digital-input setter.
+3. **The schema has no enable flag** (established earlier, §5bd.23). `DeviceProfiles.xml`
+   declares `Controller_Din1` through `Controller_Din8` on the single DIO byte, all with
+   `dataType="digital"` and no enable attribute; the session workspace matches. Notably the
+   `Controller_DIO` profile declares no Douts at all, while the `ECU` profile declares 32 —
+   consistent with the MCU's outputs being disabled at the factory too.
+4. **The measurement agrees.** Din7 constant 0, Din8 constant 1, zero transitions across
+   both a 300 s and a 99 s recording.
+
+So the action is an **email to SpikeGadgets** asking them to enable Din7 (and Din8, since
+asking for both costs nothing) for digital event logging. They will want the MCU serial and
+firmware. Firmware comes free from any recording header — `controllerFirmwareVersion="3.18"`
+in `test_synch.rec`. **The serial does not:** that header reads
+`controllerSerial="65535 65535"`, which is the 0xFFFF unset sentinel, so the serial has to
+be read off the sticker on the unit or from Trodes' `Help → About Hardware` with the MCU
+connected. That is the one thing opening Trodes is good for here, and it takes a minute.
+
+**One alternative worth raising in the same email**, because it could remove the firmware
+change altogether: the manual describes the front-panel **Aux 2** jack as one that
+*"receives pulses used for syncing frames on an Allied Vision GigE camera."* That is already
+a camera frame-sync input. What is **not** known is where those pulses are stored in the
+`.rec` and whether the path is usable by a camera that is not an Allied Vision GigE unit.
+Worth a question, not worth an assumption.
+
+**There is no free input to borrow instead.** Din1–Din6 all carry the Bpod state word, and
+the codes run to 40, so the word needs all six bits. This rig has no ECU (the workspace
+devices are `Controller_DIO`, `Multiplexed`, `neuropixels_LFP`, `SysClock`); an ECU would
+bring 32 digital inputs, which is the heavyweight fallback if SpikeGadgets will not
+reconfigure the MCU.
+
+**Consequence for sequencing.** Wiring Din7 now is harmless and the wiring plan is unchanged
+— same pin, same divider, same isolation rules. But a test recording made before the input
+is enabled teaches nothing, because a null result cannot distinguish "wrong pin" from "input
+disabled". The strobe test waits on SpikeGadgets' reply, not on the soldering.

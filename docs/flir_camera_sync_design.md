@@ -64,10 +64,45 @@ Every frame gets a pulse, and every pulse is timestamped on the **same clock as
 the neural data**. That gives frame-exact alignment with no drift, and dropped
 frames show up as missing pulses rather than as a silent shift.
 
-**Din7 is genuinely free.** The `.trodesconf` declares all eight DIO channels as
-inputs (`Controller_Din1`…`Din8`, bits 0–7), and we measured Din7 constant LOW
-and Din8 constant HIGH with **zero transitions over 300 s** — nothing is wired to
-either.
+**Din7 is free, but it is also switched off at the factory — and only SpikeGadgets
+can switch it on.** The `.trodesconf` declares all eight DIO channels as inputs
+(`Controller_Din1`…`Din8`, bits 0–7), and we measured Din7 constant LOW and Din8
+constant HIGH with **zero transitions over 300 s** — nothing is wired to either.
+But nothing being wired is not the same as the input being usable. SpikeGadgets'
+**Control Units manual** (p.12) and **System manual** both say, verbatim:
+
+> "By default, only Din pins 1-6 are turned on for digital event logging. **If
+> requested,** this connector can also be configured for additional digital
+> lines, including up to eight outputs with custom behavior (hardware
+> synchronization, etc)."
+
+*If requested* means requested from SpikeGadgets. There is no user-facing toggle:
+Trodes 2.4.2's only MCU dialog (`Settings → Headstage → MCU settings...`) contains
+nothing but the sampling rate; `mcu_utils/windows/` ships setters for the radio
+channel and the sampling rate and **no** digital-input setter; and neither
+`DeviceProfiles.xml` nor the workspace schema has an enable attribute anywhere.
+
+**So the first step is an email to SpikeGadgets**, asking them to enable Din7 (and
+Din8 — asking for both costs nothing) for digital event logging on this MCU. They
+will want the serial and firmware. Firmware is in every recording header
+(`controllerFirmwareVersion="3.18"`); the serial is **not** — the header reads
+`controllerSerial="65535 65535"`, the unset sentinel — so read it off the unit or
+from Trodes' `Help → About Hardware` with the MCU connected.
+
+Worth raising in the same email: the manual describes the front-panel **Aux 2**
+jack as one that *"receives pulses used for syncing frames on an Allied Vision
+GigE camera."* That is already a camera frame-sync input, and if it is usable it
+removes the firmware change entirely. Where those pulses land in the `.rec`, and
+whether the path works for a non-Allied-Vision camera, we do not know.
+
+**There is no free input to borrow instead.** Din1–Din6 all carry the Bpod state
+word and the codes run to 40, so the word needs all six bits. This rig has no ECU;
+one would bring 32 digital inputs, and is the heavyweight fallback if SpikeGadgets
+will not reconfigure the MCU.
+
+**Sequencing:** wiring Din7 now is harmless, but a test recording made before the
+input is enabled teaches nothing — a null result cannot distinguish "wrong pin"
+from "input disabled". The strobe test waits on SpikeGadgets' reply.
 
 ### A correction to an earlier note of mine
 
@@ -86,9 +121,10 @@ of the `.rec` (the DIO byte is byte 1 of every packet), so the strobe is readabl
 even if export does ignore it. **No change to `sync_pipeline/` is needed for any
 of this.**
 
-### Prerequisite: which physical pin is Din7?
+### Which physical pin is Din7?
 
-This is the one real blocker. We established the channel → bit → function mapping
+Settled from the manual, and no longer the blocker (the factory enable above is).
+We established the channel → bit → function mapping
 with certainty, but **not which physical pin of the 20-pin connector carries
 which `Din`** — nothing in the recording carries that. The pin-walk procedure in
 `docs/bpod_mcu_sync_wiring.md` measures it in one short recording, and it is
