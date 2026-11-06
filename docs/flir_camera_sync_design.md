@@ -266,7 +266,7 @@ Points that decide whether a 4-hour recording survives:
   **170 fps** max in Mono8, 4.8 µm pixels, 6 µs–30 s exposure, bus-powered (3 W),
   6-pin GPIO with 1 opto-isolated input, 1 opto-isolated output, 1 non-isolated
   bidirectional line, 1 non-isolated input, and a **3.3 V/120 mA auxiliary
-  output**. The recommended 1280×1024 @ 60 fps is the sensor's native resolution
+  output on pin 3** (pin 6 = GND). The recommended 1280×1024 @ 60 fps is the sensor's native resolution
   at ~35% of its maximum frame rate, and 78.6 MB/s is comfortable on USB 3.1 — so
   the recommendation stands unchanged.
 
@@ -282,7 +282,7 @@ Points that decide whether a 4-hour recording survives:
 
   **Correction to §2's electrical warning:** the opto-isolated *output* is the
   line that needs an external pull-up; the **non-isolated bidirectional** line is
-  the easier one to drive a logic input with. Pin 6's 3.3 V/120 mA is what a
+  the easier one to drive a logic input with. Pin 3's 3.3 V/120 mA (pin 6 is GND) is what a
   pull-up would use. Line numbering differs between cased and board-level
   variants, so confirm against this model's own installation guide rather than a
   generic Blackfly S pinout.

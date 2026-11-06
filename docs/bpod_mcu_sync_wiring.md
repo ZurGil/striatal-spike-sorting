@@ -225,11 +225,61 @@ transitions, so that hypothesis stays open.
 
 - Digital inputs are **3.3 V TTL** with a **5 V maximum**. The manual highlights:
   *"Inputs greater than 5V will damage the system."*
-- **Pull up to 3.3 V, never to 5 V or higher.** The camera's GPIO pin 6 supplies
-  3.3 V / 120 mA, which is exactly the right rail for this.
+- **Pull up to 3.3 V, never to 5 V or higher.** The camera's GPIO **pin 3** supplies
+  3.3 V / 120 mA (dual-function supply/GPIO pin); **pin 6 is GND**. (Corrected
+  2026-11-06 — I had these swapped; the camera side verified it against FLIR's
+  docs and a live PySpin query.) But see the isolation note below before using the
+  camera's rail as a pull-up source at all.
 - **Grounds must be tied.** The `GND` pin is the far-right column. The manual's own
   Ground Point note asks for a shared ground across experimental hardware, and an
   opto-isolated camera output specifically has no return path without it.
+### The isolation trap (added 2026-11-06)
+
+The camera side chose the **opto-isolated** output deliberately, to keep a ground loop
+out of the ephys rig. That isolation **only survives if the pull-up is powered from the
+MCU side.**
+
+The opto output is a phototransistor: collector on **pin 2 (Line1)**, emitter on
+**pin 1 (OPTO_GND)**. Both are galvanically isolated from the camera's own **pin 6 (GND)**
+and **pin 3 (+3.3 V)**.
+
+```
+CORRECT -- isolation preserved
+    MCU 5V --- 2.2k --+-- 4.7k --- MCU GND
+                      |
+                      +-- pin 2 (Line1)        pin 1 (OPTO_GND) --- MCU GND
+                      |
+                      +-- Din7                 pins 3 and 6: NOT CONNECTED
+
+WRONG -- isolation silently defeated
+    camera pin 3 (3.3V) --- Rpullup --- pin 2,  with pin 1 --- MCU GND
+```
+
+In the wrong version current leaves the camera's power domain, crosses the
+phototransistor and lands in MCU ground, **bonding the two grounds through the very part
+that was supposed to isolate them**. Nothing misbehaves visibly, so it would never be
+noticed. My earlier advice to pull up from the camera's 3.3 V was right for the
+*non-isolated* line and wrong for this one.
+
+**Divider rather than a plain pull-up**, because a 5 V pull-up sits exactly at the
+documented maximum and a nominal 5 V rail can read 5.25 V. With 2.2 k / 4.7 k the node
+idles at 5 × 4.7/6.9 = **3.4 V** (inside 3.3 V TTL) and the opto pulls it to ~0.2 V,
+sinking ~2 mA. RC is ~80 ns against a 1.667 ms pulse, so edges do not matter.
+
+**Verify before relying on it:** that the header's 5 V pin really is a supply (5 V pin to
+GND pin ≈ 5 V). The figure implies it; we have not measured it.
+
+**Identifying unlabelled wires**, since the cable in use is not a factory one:
+- **GND (pin 6) vs OPTO_GND (pin 1)**, both reading 0 V — camera powered **off**, meter in
+  continuity mode, one probe on the chassis or USB shell. **Pin 6 reads ~0 Ω; pin 1 reads
+  open**, because it is isolated by design. This doubles as a check that the isolation is
+  actually intact.
+- **The two wires reading ~3 V** — a supply sources current, an input idling high through
+  an internal pull-up does not. Load with **1 kΩ to GND**: the real 3.3 V rail barely
+  moves (3.3 mA of a 120 mA budget); an internal pull-up of tens of kΩ collapses to a few
+  hundred mV. Safe for both cases. Better still, toggle the line in PySpin and watch which
+  wire moves — a supply pin does not respond to a Line command.
+
 - The camera side selected **Line1 = `ExposureActive`**. On a cased Blackfly S, Line1 is
   the **opto-isolated output**, which is **open-drain**: it needs that pull-up, and the
   resulting logic is typically **inverted** (exposure active ⇒ output pulled low). So the

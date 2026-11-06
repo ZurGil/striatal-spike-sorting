@@ -40,7 +40,7 @@ frame so the video can be aligned to neural data afterwards.
 | max frame rate | **170 fps** at full resolution in Mono8 |
 | interface | **USB 3.1**, 5 V bus-powered, 3 W max |
 | exposure range | 6 µs – 30 s |
-| I/O | 6-pin GPIO: 1 opto-isolated input, 1 opto-isolated output, 1 non-isolated bidirectional line, 1 non-isolated input, plus a **3.3 V / 120 mA auxiliary output** |
+| I/O | 6-pin GPIO: 1 opto-isolated input, 1 opto-isolated output, 1 non-isolated bidirectional line, 1 non-isolated input, plus a **3.3 V / 120 mA auxiliary output on pin 3** (pin 6 = GND) |
 
 Our 60 fps target is well inside the camera's 170 fps capability, and
 1280×1024 mono8 at 60 fps is 78.6 MB/s, comfortable for USB 3.1.
@@ -138,9 +138,10 @@ board-level variants:
   external pull-up resistor** to produce any usable voltage swing. Many people
   conclude the line is dead when it is simply missing its pull-up.
 - The **non-isolated bidirectional line** is the more convenient choice for
-  driving a logic input directly, and may also want a pull-up. **Pin 6 of the
-  GPIO connector provides 3.3 V at up to 120 mA**, which is exactly what a
-  pull-up resistor would use.
+  driving a logic input directly, and may also want a pull-up. **Pin 3 of the
+  GPIO connector provides 3.3 V at up to 120 mA** (dual-function supply/GPIO);
+  **pin 6 is GND**. Note that pulling up from the camera's own rail defeats the
+  point of using the opto-isolated output — see the design doc.
 
 Please report back:
 
