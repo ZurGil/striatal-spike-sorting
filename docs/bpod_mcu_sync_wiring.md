@@ -239,20 +239,22 @@ The camera side chose the **opto-isolated** output deliberately, to keep a groun
 out of the ephys rig. That isolation **only survives if the pull-up is powered from the
 MCU side.**
 
-The opto output is a phototransistor: collector on **pin 2 (Line1)**, emitter on
-**pin 1 (OPTO_GND)**. Both are galvanically isolated from the camera's own **pin 6 (GND)**
-and **pin 3 (+3.3 V)**.
+The opto output is a phototransistor: collector on **Line1**, emitter on **OPTO_GND**.
+Both are galvanically isolated from the camera's own **GND** and **+3.3 V** pins.
+
+**Pin numbers here are deliberately omitted — see "Which connector is actually on this
+camera?" below.** Identify the wires by *function*, not by a pin number from a datasheet.
 
 ```
 CORRECT -- isolation preserved
     MCU 5V --- 2.2k --+-- 4.7k --- MCU GND
                       |
-                      +-- pin 2 (Line1)        pin 1 (OPTO_GND) --- MCU GND
+                      +-- Line1               OPTO_GND --- MCU GND
                       |
-                      +-- Din7                 pins 3 and 6: NOT CONNECTED
+                      +-- Din7                camera GND and +3.3V: NOT CONNECTED
 
 WRONG -- isolation silently defeated
-    camera pin 3 (3.3V) --- Rpullup --- pin 2,  with pin 1 --- MCU GND
+    camera +3.3V --- Rpullup --- Line1,  with OPTO_GND --- MCU GND
 ```
 
 In the wrong version current leaves the camera's power domain, crosses the
@@ -268,6 +270,41 @@ sinking ~2 mA. RC is ~80 ns against a 1.667 ms pulse, so edges do not matter.
 
 **Verify before relying on it:** that the header's 5 V pin really is a supply (5 V pin to
 GND pin ≈ 5 V). The figure implies it; we have not measured it.
+
+**FLIR's own numbers corroborate the divider.** Their GPIO documentation specifies the
+opto output's test conditions as **Rext = 1 kΩ with VCC = 5 V**, an output-low sink
+capability of **25 mA**, and an output-high tolerance to **24 V**. So pulling up from the
+MCU's 5 V is exactly the intended use, the ~2 mA our divider asks it to sink is a
+fraction of its 25 mA rating, and the divider's ~1.5 kΩ Thevenin source impedance sits
+right at FLIR's reference value.
+
+### Which connector is actually on this camera?
+
+**Unresolved, and it decides every pin number.** FLIR uses two different GPIO connectors
+across the Blackfly S line, *with different pinouts*:
+
+| variant | connector | mating part |
+|---|---|---|
+| cased (e.g. BFS-U3-200S6) | **Hirose HR10A-7R-6PB** | HR10A-7P-6S(73) |
+| board-level (e.g. BFS-U3-63S4-**BD**) | **JST BM06B-NSHSS-TBT** | JST NSHR-06V-S |
+
+FLIR states explicitly that the board-level pinout **differs** and that the cased mapping
+must not be applied to it. For the **cased** models their docs give **pin 4 = Line1**
+(opto-isolated output, white) and **pin 5 = opto ground** (blue).
+
+The conflict: our camera is a **`BFS-U3-13Y3M-C`** — the `-C` suffix means cased, which
+implies Hirose — but this document previously recorded its connector as **JST
+BM06B-NSHSS-TBT**, which is the *board-level* part. One of those is wrong, and until it
+is settled **no pin number from any datasheet should be trusted.**
+
+**Resolve it by looking at the camera**: a Hirose HR10A is a small **circular** screw-lock
+connector; the JST BM06B is a **flat rectangular** header. Two seconds, and it decides
+which pinout table applies.
+
+**A note on what PySpin can and cannot confirm.** PySpin verifies which *Line* carries
+which *function* — that Line1 is the opto-isolated output. It has no knowledge of
+physical pins, so it cannot confirm a Line-to-pin mapping. That part rests on the
+datasheet, which is exactly the part the connector question puts in doubt.
 
 **Identifying unlabelled wires**, since the cable in use is not a factory one:
 - **GND (pin 6) vs OPTO_GND (pin 1)**, both reading 0 V — camera powered **off**, meter in
