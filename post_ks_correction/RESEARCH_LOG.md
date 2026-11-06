@@ -6859,3 +6859,62 @@ reconfigure the MCU.
 — same pin, same divider, same isolation rules. But a test recording made before the input
 is enabled teaches nothing, because a null result cannot distinguish "wrong pin" from "input
 disabled". The strobe test waits on SpikeGadgets' reply, not on the soldering.
+
+### 5bd.27 — Popper's configuration, and where the 820 um channel-map offset comes from
+
+Gil is building the Trodes configuration for Popper and asked two things of the archive:
+the implant depth, and which probe port the Neuropixels is connected to.
+
+**Depth: 7.8 mm.** `Z:\Gil\Popper\rat_metadata.json`, `implant_depth_mm = 7.8`, positive,
+brain surface down to probe tip. For context, Shamir_1 is 7.5 and Begin_1 is 8.0. Popper's
+probe is a *different physical probe* from Shamir's — serial `19108309652` against Shamir's
+`19108309381` — so nothing about Shamir's hardware setup should be assumed to carry over.
+
+**The probe port is not recorded anywhere, and that is worth stating plainly rather than
+guessing at.** Three places were checked:
+
+- `Z:\Gil\Popper` holds only `bpod\`, `probe_marker_label.jpg` and `rat_metadata.json`.
+  There are no Popper recordings at all, so there is no header to read it out of.
+- The `rat_metadata.json` schema has no port or slot field, on any rat.
+- The `.rec` header and the `.trodesconf` have no such field either: grepping the
+  `test_synch` header for `port`, `slot` and `probeSerial` returns **zero** hits.
+
+What Trodes *does* have is a **logical** probe index, not a physical port. The strings in
+`Trodes.exe` show the Neuropixels custom source GUI offers "Number of probes", "Probe
+selection", "Probe %1", `probeIndex`, and "Copy settings from this probe to all other
+probes". The workspace stores one `<SourceOptions name="NeuroPixels1">` block per probe, and
+`20260901_084658_shamir.trodesconf` has **exactly one**, which is why the exports are
+`probe1.dat` and `channelmap_probe1.dat`. So for a single-probe implant Trodes calls it
+**Probe 1** regardless of which connector it physically sits in. A physical port label has
+to be read off the hardware, or seen in `Source -> Specific source control -> Open custom
+source GUI for neuropixels` with the probe connected.
+
+**Din7 needs no workspace change.** `Controller_Din7` is already declared in
+`20260901_084658_shamir.trodesconf` with `bit="6"`, `input="1"`, alongside all eight bits.
+Every bit of the Din7 problem was MCU-side (§5bd.26); the config file was never the obstacle.
+
+**The incidental finding, which matters more than the questions asked.** Counting the
+workspace's `channelsOn` selection: 960 entries, **384 on, contiguous, sites 82 through
+465**. Those 82 leading off-sites are 41 rows at the Neuropixels 1.0 20 um row pitch =
+**820 um** — which is exactly the uniform `coord_dv` offset between channel map A and map B
+recorded in `Z:\Gil\Shamir_1\channel_map_history.md` (A spans 920..4740 um, B spans
+100..3920 um, "per exported row: coord_dv offsets [820] um"). The history file also notes the
+row order is "rotated by 82 positions" — the same 82.
+
+So the long-open "820 um depth origin" question is not two arbitrary maps: **one map
+measures depth from the probe tip and the other from the first *selected* site**, and the
+820 um is the selected bank's offset up the shank. That does not by itself say which
+convention is correct, but it does mean the choice is made when the channel selection is
+made, and it propagates silently into every unit through
+`depth_mm = implant_depth_mm - phy_depth/1000`. **Decide the convention before Popper's
+first recording**, not after thirty sessions exist under it.
+
+**One sign-convention trap in the workspace**, so it does not get "fixed" by mistake:
+`ProbeLocation` reads `1.2 2.45 0` = AP, ML, angle, with ML **positive**, while
+`rat_metadata.json` uses `implant_ML_mm = -2.45` for the same left-hemisphere implant.
+Popper has the same coordinates (ML -2.45, AP 1.2, angle 0), so `ProbeLocation` copies
+across unchanged.
+
+Still outstanding on Popper: `headstage_serial_number` is `null`. The Shamir recordings
+report `headstageSerial="01803 00185"`; whether that is the headstage Popper will run on is
+Gil's to confirm before it goes in the file.
