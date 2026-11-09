@@ -6972,3 +6972,88 @@ and is worth watching for in real sessions.
 
 Next: rebuild the divider on fresh perfboard, verify by the three-resistance test and the
 3.4 V output check, insulate only after both pass, then repeat the strobe recording.
+
+### 5bd.29 — The camera strobe works perfectly, and Din7/Din8 are provably dead (2026-11-09)
+
+The rebuilt divider works. The camera signal is clean. Din7 and Din8 on this MCU are not
+live digital inputs, and we now have the control experiment to prove it rather than infer it.
+
+**The rebuild.** Gil rebuilt the board on fresh perfboard after the first attempt was ruined
+by a solder bridge (§5bd.28). Three copper bars, joined only through the two resistors:
+top = RED + 2.2k top leg; middle = PURPLE + 2.2k bottom leg + 4.7k top leg + camera WHITE;
+bottom = 4.7k bottom leg + camera BLUE + BLUE jumper to GND. Within a bar the order of the
+soldered items is irrelevant -- it is one electrical node. Only which bar each leg lands on
+matters, and keeping the middle and bottom bars from touching is the whole game.
+
+**Measured, with purple out of the header:**
+
+| condition | node voltage | meaning |
+|---|---|---|
+| camera connector unplugged | 3.1 V | divider unloaded, opto absent |
+| camera connected, not streaming | 0.364 V (stable) | opto conducting |
+| camera connected, streaming | 0 to ~2.0 V, wandering | meter averaging a 60 Hz square wave; wanders with auto-exposure |
+
+3.1 V rather than the predicted 3.43 V. Still a clean HIGH (threshold ~2 V) and safely under
+the 5 V absolute maximum, so not worth chasing.
+
+**Polarity is the opposite of what the camera session described.** The line rests LOW and goes
+HIGH during exposure, not the reverse. Probably a line-inverter setting or a non-default
+`Line Source` on Line1. It changes nothing for the wiring, but it has one consequence worth
+remembering: an idle camera and a disconnected wire both read 0, so a flat line in the `.rec`
+does not by itself distinguish "camera not running" from "wiring failed".
+
+**The signal, measured in the file.** `F:\Gil\camera_test.rec` with purple on Din4, Bpod
+connector removed, camera free-running in SpinView:
+
+```
+Din4   2298 rises   frac high 0.5988   period 500.0 samples (500.0-501.0)
+                                        width  299.0 samples (299.0-300.0)
+       implied frame rate 60.0000 fps, 0 ppm from nominal
+       pulse width 9.97 ms median (9.97-10.00 ms)
+```
+
+Period exactly 500 samples at 30 kHz with a one-sample spread. 2298 pulses in 38.3 s. This is
+a better sync signal than the Bpod state word.
+
+**The control experiment.** The decisive step, and the one that should have come first. With
+nothing proven about the logging chain, "lines 7-8 are disabled" and "our board does not
+deliver what we think it does" are indistinguishable. So purple was walked along the top row
+one column at a time, letting Trodes name each pin:
+
+| pin Trodes reported | pulses seen |
+|---|---|
+| Din4 | yes |
+| Din5 | yes |
+| Din6 | yes |
+| Din7 | **no, flat 0** |
+| Din8 | **no, flat 1** |
+
+Identical signal, identical board, identical camera, moved one column at a time. The enabled
+range stops at Din6. This also confirms the physical pin mapping is exactly
+`5V 8 7 6 5 4 3 2 1 GND` left to right on the top row, which had been assumed but never
+verified against Trodes' own labels.
+
+**A second, independent sign.** With the Bpod connector removed, every unconnected working
+input floats to 1 -- Din1, 2, 3, 5, 6 and Din8 all read constant 1. Din7 reads constant 0.
+Din7 does not behave like any live input on the header.
+
+**Three lessons.**
+
+1. *Din7 appearing on the Trodes screen proves nothing about the hardware.* The workspace
+   declares `Controller_Din1..Din8` with `input="1"` regardless of what the controller
+   actually has, so the on-screen line exists whether or not the pin does. This cost most of
+   a day: we treated "I found Din7 and it shows up" as evidence the line was enabled. It was
+   not. §5bd.26's original conclusion -- that only SpikeGadgets can enable it -- was right
+   after all, and the retraction in that section was itself wrong.
+2. *Build the positive control before the experiment, not after.* Every hour spent on
+   "is it the board or the pin?" would have been answered in two minutes by putting the same
+   signal on a known-good input first.
+3. *A multimeter cannot read a 60 Hz line, and its averaging is not noise.* The reading that
+   wandered between 0 and 2 V was the correct answer to a question the meter cannot ask.
+   Hz mode, or a recording, is the only honest readout.
+
+**Next:** Slack SpikeGadgets to ask how lines 7 and 8 get enabled -- firmware we can flash, or
+does the unit go back. Restore the Bpod wire to Din6. A fallback worth designing while we
+wait: run the signal the other way, a Bpod- or Trodes-visible pulse into the camera's Line0
+(opto-isolated input, black wire) stamped into each frame's chunk data. Same alignment,
+opposite direction, no new MCU input needed.
