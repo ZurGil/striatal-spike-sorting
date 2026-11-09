@@ -6918,3 +6918,57 @@ across unchanged.
 Still outstanding on Popper: `headstage_serial_number` is `null`. The Shamir recordings
 report `headstageSerial="01803 00185"`; whether that is the headstage Popper will run on is
 Gil's to confirm before it goes in the file.
+
+### 5bd.28 — The first camera-sync wiring attempt failed, and why
+
+The Din7 strobe test was run on 2026-11-06 with `test_camera.rec` and produced nothing:
+255 s recorded, **Din7 constant 0, zero transitions**, while the camera was confirmed
+streaming. Din8 sat at its usual floating 1 and Din1-Din6 were idle (Bpod not running).
+
+The fault is now fully diagnosed, and it was in the MCU-side divider, not the camera.
+Measuring resistance between the three detached jumper terminals gave:
+
+| between | measured | expected |
+|---|---|---|
+| red (5V) ↔ purple (Din7) | **2.2 k** | 2.2 k &nbsp;✔ |
+| blue (GND) ↔ purple (Din7) | **0** | 4.7 k &nbsp;✘ |
+| red ↔ blue | **2.2 k** | 6.9 k &nbsp;✘ |
+
+So **purple and blue are the same node**: the 4.7 k is bridged across and Din7 is tied
+directly to ground. Almost certainly the solder bridge on the perfboard ran one pad too far
+and caught the 4.7 k's ground-side pad along with the three junction pads. The pull-up half
+was built correctly; only the pull-down leg was shorted out.
+
+That single fault explains every observation: Din7 held hard at 0 V cannot be moved by an
+open-drain output, so the camera's pulses had nowhere to go, and the line looked exactly as
+it had before any wiring existed.
+
+**Three things worth keeping from this.**
+
+1. **Everything was potted in silicone before anything was measured.** That turned a
+   two-minute solder fix into a lost session and made the junction unreachable — the
+   diagnosis had to be done entirely from the three jumper ends. The order must be: solder,
+   measure the three resistances, measure 3.4 V on the output, *then* insulate.
+2. **The three-terminal resistance test is the right diagnostic** and should be reused. It
+   characterises the whole assembly from outside without disturbing the MCU: red↔purple
+   2.2 k, blue↔purple 4.7 k, red↔blue 6.9 k. Any 0 means a bridge is too long; a swapped
+   pair shows up as 4.7/2.2 instead of 2.2/4.7.
+3. **A dead input and a shorted input look identical from the `.rec`.** Din7 read constant 0
+   before the wiring and constant 0 after it, so the recording alone could never have
+   distinguished "input disabled", "wrong pin" and "node shorted to ground". Only the meter
+   separated them. This is the same ambiguity flagged in §5bd.26, and it argues for a
+   bench check of the divider output before any future test recording is made.
+
+**Also confirmed along the way:** the camera session states that `ExposureActive` asserts
+(opto conducting, line pulled low) **during** the exposure and releases between frames, so
+with the camera idle Din7 should rest **high** via the pull-up. That settles the polarity
+question — the expected signature stays as recorded: ~15 ms low, ~1.67 ms high, one falling
+edge per frame.
+
+**One incidental finding in `test_camera.rec`:** a timestamp gap at t = 44.894 s losing
+1,574,221 samples (**52.5 s**). It falls well before the camera ran, so it did not affect
+this test, but it is a much larger dropout than the 419 ms seen in `test_synch` (§5bd.22)
+and is worth watching for in real sessions.
+
+Next: rebuild the divider on fresh perfboard, verify by the three-resistance test and the
+3.4 V output check, insulate only after both pass, then repeat the strobe recording.
