@@ -7057,3 +7057,51 @@ does the unit go back. Restore the Bpod wire to Din6. A fallback worth designing
 wait: run the signal the other way, a Bpod- or Trodes-visible pulse into the camera's Line0
 (opto-isolated input, black wire) stamped into each frame's chunk data. Same alignment,
 opposite direction, no new MCU input needed.
+
+### 5bd.30 — SpikeGadgets' answer: the camera input is Aux2, and Din8 is already wired to it (2026-11-09)
+
+Daria at SpikeGadgets replied the same afternoon. Two statements, both important:
+
+1. **Din7 and Din8 are used by the system** — they are not free header pins and will not be
+   made free. The walk-the-signal experiment in §5bd.29 was reading pins that are internally
+   committed.
+2. **Din8 is already configured in the MCU to take a camera pulse**, routed from the **Aux2
+   RJ45 port on the front of the MCU**, not from the Digital I/O header. SpikeGadgets ship a
+   cable for the Allied Vision Manta/Mako; for any other camera you make your own adapter.
+
+**Aux2 RJ45 pinout, as given:**
+
+| RJ45 pin | function |
+|---|---|
+| 1 | **digital input** — this is the line that reaches Din8 |
+| 4 | **+5 V**, supplied by the MCU |
+| 5 | **ground** |
+
+**Hard constraint: "not input more than 3.3V pulses."** Our current divider is 2.2k/4.7k off
+5 V, nominally 3.43 V and measured 3.1 V. That is at or slightly over the stated limit.
+Change the top resistor so the output lands comfortably inside it — 4.7k/4.7k gives
+5.03 x 0.5 = **2.52 V**, still well above any plausible V_IH (CMOS 0.7 x 3.3 = 2.31 V,
+TTL 2.0 V) and with real headroom under 3.3 V. Gil has 30 of each resistor, so this is a
+one-component swap.
+
+**This retro-explains a measurement from §5bd.29.** With nothing connected, Din7 read a
+constant **0** while Din8 read a constant **1**. Every working header input floats to 1. Din8
+floating high is exactly what an enabled input sitting behind an unconnected Aux2 pin 1
+should do; Din7 held at 0 is what a line committed to an internal function looks like. The
+two lines were never equivalent, and the difference was visible in the data the whole time.
+
+**That the MCU supplies 5 V on pin 4 at all is the tell.** You only need a rail next to a
+digital input if the expected source is open-collector and needs an external pull-up — which
+is precisely what the FLIR Line1 OPTOOUT is. The circuit SpikeGadgets expect is the circuit
+we already built.
+
+**Plan:** keep the perfboard, move its three wires from the Digital I/O header to an RJ45
+plug. A cut Ethernet cable is the simplest adapter; under T568B, pin 1 = white/orange,
+pin 4 = blue, pin 5 = white/blue. Verify the cable's wiring with a meter before trusting the
+colour code. Restore the Bpod wire to Din6 — the header is no longer involved at all. The
+strobe will then appear on **Din8** in the `.rec`.
+
+**Open questions for Daria:** (a) the logic threshold on Aux2 pin 1, and whether the MCU
+already provides an internal pull-up there — if it does, our divider may be unnecessary or
+may need re-sizing against it; (b) confirmation of the RJ45 pin-numbering reference in the
+image she sent. She also asked what camera we use: FLIR Blackfly S BFS-U3-13Y3M-C, USB3.
