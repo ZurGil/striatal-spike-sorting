@@ -7190,3 +7190,72 @@ the meter check is still worth doing -- find the pin pair reading 5 V, then the 
   putting back on Din6.**
 - Open with SpikeGadgets: the connector questions above, plus the input threshold (~2.7 V per
   Daria, unconfirmed, referred to Magnus Karlsson).
+
+### 5bd.33 — RIS access granted, surveyed end to end (2026-11-10)
+
+Charlotte Rouse granted access: *"zur has been granted access to compute-akepecs &
+compute2-akepecs."* WUSTL key **zur**. First interactive login created the home directory;
+the ed25519 key prepared on 2026-11-04 was installed and `~/.ssh/config` filled in, so
+`ssh compute1` now works non-interactively from this PC. The read-only survey
+(`scripts/survey_ris.sh`) ran clean, plus four targeted follow-ups. Nothing was submitted.
+
+**Groups:** `compute-akepecs`, `compute-akepecs-t1`, `compute2-akepecs`, `compute2`,
+`storage2-akepecs-gil_zur-rw`, `storage1/2/3`. Both platform allocations, and a personal
+read-write slice on storage2. The 1 Jan 2027 new-user cutoff is cleared.
+
+**Cluster:** IBM Spectrum LSF 10.1.0.12, cluster `compute1-lsf`.
+
+| queue | walltime | per-user job limit | state now |
+|---|---|---|---|
+| `general` | **40320 min = 28 days** | 500 | **19765 jobs, 16251 PENDING, 3514 running** |
+| `general1k` | 40320 min = 28 days | 1000 | **completely empty** |
+| `general-interactive` | 1440 min = 24 h | 64 | 388 jobs, 175 pending |
+
+28 days confirmed, so a 5-6 day CPU sort fits with room. `zur` has **no personal MAX cap**,
+so concurrency is bounded by the queue limit, not by policy.
+
+**The congestion is the new risk, and it is severe.** 16251 jobs pending on `general` against
+3514 running. Throughput maths assuming jobs start promptly is now suspect. `general1k` has
+the same 28-day limit, double the per-user cap, and *zero* jobs on it -- that asymmetry is
+either an opportunity or a trap, and it is worth one question to Unmukt before relying on it.
+
+**GPUs:** host group `general-gpu`, 17 hosts. Mostly Tesla V100 (SXM2 and PCIE), plus compute
+capability 8.0 (A100), 8.6 (A40/A10) and 9.0 (H100) elsewhere in the cluster. At the time of
+the survey six GPU hosts were **completely idle** -- roughly 24 V100s doing nothing. KS4 needs
+3.3 GB VRAM, so any of them is enormous overkill. Request with `-R 'gpuhost' -gpu "num=1"`.
+
+**Node size:** largest hosts are 128-core AMD EPYC with 1.9 TB RAM. Kilosort cannot span
+hosts, so one node's core count is the ceiling -- and 128 is far above anything we need.
+
+**Storage -- the question that decided concurrency is answered YES.**
+
+| | path | state |
+|---|---|---|
+| scratch | `/scratch1/fs1/akepecs/zur` | **writable**, 58 TB free on the filesystem |
+| permanent | `/storage2/fs1/akepecs/Active/Gil_Zur` | **writable**, currently empty |
+| storage1 | `/storage1/fs1/akepecs` | exists but not readable by us |
+
+A 1 GiB write test to scratch ran at **4.0 GB/s**. Unmukt already parks **325 GB** in
+`/scratch1/fs1/akepecs/unmukt`, which is exactly one session's input -- so the precedent for
+staging a whole `probe1.dat` on scratch is already set in this very allocation. **Storage no
+longer limits how many sessions run at once.**
+
+`mmlsquota` cannot see these filesystems from the client host, so the per-fileset quota is
+still unknown. The daily `RIS_cleanup_policy.akepecs.<date>` files in the scratch root are
+plain lists of doomed paths and do **not** state the purge window; that still needs asking.
+
+**Two operational findings not in the plan:**
+
+1. **Key-based login obtains no Kerberos ticket** -- `klist` reports no credentials cache at
+   all. Despite that, reads and writes to both `/scratch1` and `/storage2` worked. So the
+   Kerberos worry recorded earlier may not apply to these mounts, but it has only been tested
+   from the submission host, not from inside a job on an exec node.
+2. **No docker client on the submission host** (`docker: command not found`), and the system
+   python is 3.6.8 with no conda. The container is mandatory and must either be pulled from a
+   registry at submit time or built through RIS's own mechanism -- we cannot `docker build`
+   here. That is a real gap in the plan: `docker/Dockerfile.kilosort4` exists but there is no
+   path yet from that file to an image the cluster can run.
+
+**Next, in order:** settle how the image gets built/published; then the validation sort of
+`20260916_110311` on RIS compared against the output on F; only then the backlog. Gil's nod
+is still outstanding for the first real submission and for the batch of 30.
