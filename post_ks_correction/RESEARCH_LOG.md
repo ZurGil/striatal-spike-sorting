@@ -7154,3 +7154,39 @@ replaced the entire perfboard with two wires.
 
 **Still open:** Magnus to confirm the threshold. Then build the adapter, restore the Bpod wire
 to Din6, and record. Expect the strobe on **Din8**, resting high and dropping ~10 ms per frame.
+
+### 5bd.32 — Our MCU has no RJ45: Aux1/Aux2 are round connectors (2026-11-10)
+
+Before building anything, Gil photographed the MCU front panel. There is **no RJ45 on this
+unit**. The front carries two **round multi-pin sockets engraved 1 and 2**, a card slot, two
+buttons and a power LED.
+
+Daria's PCB image showed a staggered 2x4 pad layout with mounting posts, which is an RJ45
+footprint. So her unit and ours are different hardware revisions. The electrical design behind
+the connector is probably unchanged -- 200 ohm in series, 10 k pull-up to 3.3 V -- but **the
+pin numbering does not carry across**: contact 1/4/5 on an RJ45 says nothing about which pin
+is which on a round 8-pin connector.
+
+**Nothing is to be unsoldered or cut until SpikeGadgets confirm the connector.** Asked:
+whether the round socket marked 2 is Aux2, its pin numbering (input / 5 V / ground), the
+connector type so the mating plug can be ordered, and whether the 200 ohm / 10 k arrangement
+is the same on this revision. Photo sent.
+
+**Do not probe the socket blind** to find out. The pins are recessed and closely spaced, and
+slipping between the 5 V and ground pins shorts the MCU supply. Once the pinout is confirmed,
+the meter check is still worth doing -- find the pin pair reading 5 V, then the pin sitting at
+3.3 V -- as verification, not as discovery.
+
+**State of play, so this can be picked up cold:**
+
+- The divider board is built, correct, and **not needed** (§5bd.31). It stays intact and out
+  of the signal path. Camera WHITE and BLUE are still soldered to it; unsolder, never cut.
+- The camera signal itself is fully proven: 60.0000 fps, 0 ppm, 2298 pulses in 38.3 s
+  (§5bd.29). Nothing about the camera side is in question.
+- Final wiring, once the connector is known: camera WHITE (Line1) to the input pin, camera
+  BLUE (opto GND) to ground. No 5 V, no components.
+- The pulses will land in the **Din8** column of the `.rec`.
+- Rear header: Din7 and Din8 are used internally and unusable. **The Bpod wire still needs
+  putting back on Din6.**
+- Open with SpikeGadgets: the connector questions above, plus the input threshold (~2.7 V per
+  Daria, unconfirmed, referred to Magnus Karlsson).
