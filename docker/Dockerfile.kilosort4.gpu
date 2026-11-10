@@ -1,0 +1,103 @@
+# Kilosort4 for the WashU RIS Compute1 platform -- GPU build.
+#
+# Same pins as Dockerfile.kilosort4 (the CPU build); only the base image and the
+# torch wheel index differ. kilosort 4.0.24 is NOT to be bumped casually: a
+# version change makes new output incomparable to every session already sorted
+# on the Neuropixels PC, and the first thing this image has to do is reproduce
+# one of those sorts.
+#
+# Why GPU, decided 2026-11-10 after surveying the cluster: measured throughput
+# is 1.10x realtime on a GPU against 34.54x on 8 CPU threads, so a 4.13 h
+# session is ~4.5 GPU-hours versus ~6 CPU-days. compute1 has 17 GPU hosts and
+# six of them were completely idle at survey time. Latency per session stops
+# mattering when it is a third of a day.
+#
+# CUDA choice: the GPU hosts report driver 550.54.15 (measured, lshosts -gpu),
+# which carries CUDA 12.4. cu121 is therefore safe, and is what torch 2.4.0
+# ships a wheel for. The cards present are V100 (sm_70), A100 (sm_80),
+# A40/A10 (sm_86) and H100 (sm_90) -- all inside torch 2.4.0 cu121's build.
+#
+# RIS requirements this image satisfies:
+#   - /bin/sh is present (LSF's Docker integration requires it)
+#   - no ENTRYPOINT (LSF requires /bin/sh or none; the command comes from bsub)
+#
+# The project's own scripts are deliberately NOT baked in -- see the note at the
+# bottom. That keeps this image free of lab code, so it can live in a PUBLIC
+# Docker Hub repository and the cluster needs no credentials to pull it.
+#
+# Build it on the cluster (there is no docker client on the submission host):
+#   bash scripts/ris_build_image.sh
+
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# python3.9 is not in jammy's default repos, hence deadsnakes. procps is here
+# for the same reason as in the CPU image: without ps, a stuck job cannot be
+# diagnosed from inside the container.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        software-properties-common ca-certificates gnupg \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        python3.9 python3.9-distutils python3-pip procps \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 \
+    && update-alternatives --install /usr/bin/python  python  /usr/bin/python3.9 1 \
+    && python -m pip install --upgrade pip==24.2
+
+# torch FIRST, and explicitly from the CUDA 12.1 index. If kilosort is allowed
+# to pull torch as a dependency, pip picks whatever default build it likes --
+# which on a GPU node may well be the CPU wheel, and the job then runs 31x
+# slower while reporting nothing wrong.
+RUN python -m pip install --no-cache-dir \
+        torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+
+# Then the pinned scientific stack and kilosort itself. numpy and scipy are
+# pinned ahead of kilosort so its resolver cannot drift them.
+RUN python -m pip install --no-cache-dir \
+        numpy==1.26.4 \
+        scipy==1.13.1 \
+        kilosort==4.0.24
+
+# Assert the pins at BUILD time. A drifted image that only reveals itself six
+# days into a sort is the failure mode this guards against.
+RUN python - <<'PY'
+import kilosort, torch, numpy, scipy
+assert kilosort.__version__ == "4.0.24", kilosort.__version__
+assert torch.__version__.startswith("2.4.0"), torch.__version__
+assert numpy.__version__ == "1.26.4", numpy.__version__
+assert torch.version.cuda is not None, "torch has no CUDA runtime -- the CPU wheel was installed"
+assert torch.version.cuda.startswith("12.1"), torch.version.cuda
+print("pins OK:", kilosort.__version__, torch.__version__,
+      "cuda", torch.version.cuda, numpy.__version__, scipy.__version__)
+PY
+
+WORKDIR /opt/spike_sorting_agent
+
+# No ENTRYPOINT on purpose -- see the header. bsub supplies the command.
+CMD ["/bin/sh"]
+
+# ---------------------------------------------------------------------------
+# Why the scripts are not COPYed in, unlike the CPU image
+#
+# WashU has no private container registry, so an image either goes in a public
+# Docker Hub repository or in the single private repo a free account allows --
+# and a private repo means the cluster needs stored credentials to pull it at
+# job time, which is one more thing to break in the middle of a 30-session run.
+#
+# Keeping lab code out of the image makes the public route uncontroversial: the
+# image is nothing but pinned open-source packages. The scripts are mounted from
+# Gil's own storage at submit time instead:
+#
+#   LSF_DOCKER_VOLUMES="/storage2/fs1/akepecs/Active/Gil_Zur/code:/opt/spike_sorting_agent"
+#
+# The side benefit is that editing a script no longer costs an image rebuild.
+#
+# torch.cuda.is_available() must be TRUE inside the running container. If it is
+# false the job has landed on a non-GPU host or the -gpu request was dropped --
+# run_kilosort4_session.py refuses to fall back to CPU for exactly this reason.
+# ---------------------------------------------------------------------------
