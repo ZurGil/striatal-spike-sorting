@@ -7259,3 +7259,70 @@ plain lists of doomed paths and do **not** state the purge window; that still ne
 **Next, in order:** settle how the image gets built/published; then the validation sort of
 `20260916_110311` on RIS compared against the output on F; only then the backlog. Gil's nod
 is still outstanding for the first real submission and for the batch of 30.
+
+### 5bd.34 — The Kilosort4 container is built, pushed and proven on a cluster GPU (2026-11-10)
+
+The image blocker from §5bd.33 is cleared, and not the way the docs suggested.
+
+**The route.** RIS's own `esub.docker_build` builds on the cluster and pushes to Docker Hub
+(WashU has no private registry). Unmukt builds locally with Docker Desktop instead -- that is
+the documented path, but it is the wrong one here: **Docker Desktop must not go on the
+Neuropixels PC**, which is the acquisition rig, and which already cannot run Trodes and
+Kilosort at once ([[project-trodes-kilosort-gpu-conflict]]). Building on the cluster installs
+nothing locally.
+
+**The option names are not in the public docs** -- the Atlassian pages were partly
+unreachable. They came from running the builder's own `--help` through LSF:
+`--login_only`, `--login-username`, `--login-password`, `--push-url`, `-f/--file`, `-t/--tag`.
+The push URL is an *esub* argument: `-a 'docker_build(<url>)'`, not a `bsub` flag.
+
+**Built:** `zurgil/kilosort4:4.0.24-cu121`, public, digest
+`sha256:f79d0ab9ccf323e555e81da2046022691e1220c5e8ab9204500c7062b203bbe8`.
+Job 705043, **dispatched in 1 second, done in 10 minutes**, 4 cores / 16 GB (it used 54 MB).
+
+Build-time assertion fired and passed:
+
+    pins OK: 4.0.24 2.4.0+cu121 cuda 12.1 1.26.4 1.13.1
+
+Same kilosort version as every session already sorted here, which is what makes the planned
+re-sort comparison meaningful rather than a version experiment.
+
+**Proven on a real GPU.** Job 705302, `-R 'gpuhost' -gpu "num=1"` on the `general` queue:
+
+    KS 4.0.24 torch 2.4.0+cu121 cuda_available True device Tesla V100-SXM2-32GB
+
+A V100 with 32 GB against KS4's measured 3.3 GB requirement.
+
+**Design decision worth keeping.** The image contains no lab code at all -- the scripts are
+mounted from `/storage2/fs1/akepecs/Active/Gil_Zur/code` via `LSF_DOCKER_VOLUMES`. Two
+consequences: the image can be public, so the cluster needs no stored credential to pull it
+mid-run; and editing a script costs nothing, where baking it in would cost a rebuild and a
+push every time.
+
+**A credential mistake, recorded so it is not repeated.** The builder's
+`--login_password_stdin` does *not* suppress terminal echo despite its name, so Gil's Docker
+Hub password appeared on screen. It was reset immediately. The replacement was an access
+token, which then also ended up in the transcript and was revoked and reissued. **Use an
+access token, never the account password, and expect it to be visible** -- the entire reason
+a token is right here is that revoking one is two clicks.
+
+**Unmukt's answers to the four questions:**
+
+1. *Images* -- build locally with Docker Desktop and publish a public tag. Superseded by the
+   cluster-build route above, for the acquisition-PC reason.
+2. *Queue waits* -- "Most of them are rubbish; some have been pending for a year because the
+   resource requested is just not possible. Typically a few minutes to a day; faster if CPU
+   only." Both our jobs dispatched in ~1 s against 16251 pending, which corroborates it. The
+   caveat is that **GPU jobs are the slower case**, and both of ours were short.
+3. *`general1k`* -- he misread the question, but volunteered something better: **he had RIS
+   create his own queue with no job limits**. Worth pursuing for the 30-session batch.
+   (`general1k` itself is `USERS: f.qichen`, so it was never available.)
+4. *Scratch purge window* -- he does not know either, but **runs a daemon that syncs off
+   scratch continuously**, which answers the practical question: do not trust scratch to hold
+   anything. Copy each session's results out as soon as its sort finishes, rather than at the
+   end of the batch. He is sharing the script.
+
+**Next:** stage one session to scratch and re-sort `20260916_110311`, comparing against the
+KS4 output already on F. Expect a few percent difference in spike count between GPU runs on
+different hardware; a large divergence means something is wrong. Gil's go-ahead is still
+outstanding for that first real submission and for the batch of 30.

@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-: "${DOCKERHUB_USER:?set DOCKERHUB_USER to the Docker Hub account name}"
+DOCKERHUB_USER="${DOCKERHUB_USER:-zurgil}"   # Gil's Docker Hub account, created 2026-11-10
 
 IMAGE="${DOCKERHUB_USER}/kilosort4:4.0.24-cu121"
 GROUP="compute-akepecs"
