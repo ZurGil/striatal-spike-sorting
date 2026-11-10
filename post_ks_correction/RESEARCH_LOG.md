@@ -7105,3 +7105,52 @@ strobe will then appear on **Din8** in the `.rec`.
 already provides an internal pull-up there — if it does, our divider may be unnecessary or
 may need re-sizing against it; (b) confirmation of the RJ45 pin-numbering reference in the
 image she sent. She also asked what camera we use: FLIR Blackfly S BFS-U3-13Y3M-C, USB3.
+
+### 5bd.31 — The MCU already contains the pull-up: the divider board is not needed (2026-11-10)
+
+Daria's follow-up, with a board layout image: **"The signal runs through a 200 Ohm and then 10k
+pullup on the MCU side, not sure what the threshold is, I think 2.7V but [Magnus] will know
+this."**
+
+So inside the MCU, Aux2 pin 1 passes through a 200 ohm series resistor and is pulled up to
++3.3 V through 10 k before reaching the logic input that becomes Din8. That is precisely the
+circuit the perfboard was built to supply. It was there all along, and the 5 V on pin 4 is
+for cameras that need something else, not for us.
+
+**The wiring is now two wires and no components:**
+
+| camera wire | Aux2 contact |
+|---|---|
+| WHITE (Line1, ExposureActive, open-drain) | 1 |
+| BLUE (opto GND) | 5 |
+
+Contact 4 (+5 V) stays unused. Levels: 3.3 V between frames when the opto releases, ~0.2 V
+while exposing. The camera sinks 3.3/10200 = **0.32 mA**, nothing against its 25 mA rating.
+
+**Two ways to get this wrong, both computed rather than guessed:**
+
+1. *Leave the whole board connected.* Our Thevenin source is 3.43 V behind 2.2k||4.7k =
+   1.499 k; theirs is 3.3 V behind 10.2 k. The node settles at
+   `(3.43/1.499 + 3.3/10.2) / (1/1.499 + 1/10.2) = 3.41 V` -- **above their stated 3.3 V
+   maximum**, and pushing current back into the MCU's own rail.
+2. *Remove only the red wire and leave the 4.7 k to ground.* Worse. It divides against their
+   internal 10.2 k: `3.3 x 4700/14900 = 1.04 V`. Below any plausible threshold -- the line
+   would never register a pulse. A partial teardown is more dangerous than none.
+
+The board comes out of the signal path entirely.
+
+**On the threshold.** Daria put it at roughly 2.7 V but was explicit that she was unsure and
+referred it to a colleague. It does not block anything: driven directly the line swings the
+full 0 to 3.3 V. Worth recording that the divider's measured 3.1 V would have left only
+0.4 V of margin above a 2.7 V threshold -- so the direct connection is not merely simpler, it
+is the better circuit. Had we built the Aux2 adapter around the divider without asking
+question 1, we would have shipped something marginal and never known why it was flaky.
+
+**The lesson, and it is the same one as §5bd.29 in a different costume.** Both failures came
+from building before asking what was already there. First we assumed a header pin was wired
+to the line that bears its name; then we assumed an input had no pull-up because our camera's
+output needed one. One question to the manufacturer, asked before any soldering, would have
+replaced the entire perfboard with two wires.
+
+**Still open:** Magnus to confirm the threshold. Then build the adapter, restore the Bpod wire
+to Din6, and record. Expect the strobe on **Din8**, resting high and dropping ~10 ms per frame.
