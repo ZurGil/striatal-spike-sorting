@@ -7613,3 +7613,141 @@ Worth noting for the batch: F is now effectively empty of Shamir sessions, and s
 30 of 31 sessions already have an exported `.probe1.dat` on Z, the batch does not need
 F at all. The old "copy the .rec down, re-export, upload" route is only needed for
 `20261015_094934`.
+
+### 5bd.39 — Is it the same neuron tomorrow? What the field does, and what we should save now
+
+Gil asked the general question while the upload waits: how do you tell whether a unit
+in session A is the same neuron as a unit in session B, is there anything we can do,
+and how have other labs attacked it. Writing the answer down because one part of it is
+time-sensitive -- it changes what the cluster job has to save, and the cheap moment to
+save it is while the raw `.dat` is on scratch.
+
+#### The honest framing
+
+Identity cannot be proven. There is no measurement that distinguishes "the same cell"
+from "a different cell that happens to sit 8 um away with a similar spike". So the
+question is never "is this the same neuron" but "what is the false-match rate of my
+decision rule, at what recall". Same discipline as the sorter comparison: a rule, a
+positive control, a negative control, and recall *and* precision reported per tier.
+
+The positive control is the part that makes this tractable, and it is the trick the
+whole literature now rests on: **split a single session's spikes into two halves and
+treat the halves as two recordings.** Every unit then has a partner that is the same
+neuron by construction, and the distribution of the similarity score over those pairs
+is the within-neuron distribution. Pairs of *different* units in the same session give
+the between-neuron distribution. The threshold comes from those two distributions, not
+from judgement, and the error rates fall out of the overlap.
+
+#### What actually carries the signal
+
+On a 384-site Neuropixels (ours: 4 columns, 16 um x-pitch, 20 um rows, 920-4740 um)
+a neuron's **spatial waveform footprint** is close to a fingerprint. A unit lights up
+10-20 sites; the shape of the amplitude decay across those sites, the centroid position
+to a few um, and the waveform shape on each site together are far more specific than
+anything available in the tetrode era. That is the signal. In order of usefulness:
+
+1. Footprint position (centroid from the amplitude distribution) -- strongest single cue.
+2. Amplitude decay profile across sites -- distinguishes two neurons at the same depth.
+3. Waveform shape on the peak sites -- weakest alone, useful in combination.
+4. Firing rate, ISI shape, autocorrelogram -- weak, and they move with brain state.
+
+And the trap: **functional similarity must not be used for matching.** Matching on
+tuning or PSTH similarity guarantees you find stable tuning, which is usually the
+thing you wanted to measure. The field's convention is to match on the electrical
+signature only, and then use functional agreement as *validation* of the matcher.
+This matters for us specifically, because the sessions are a learning series.
+
+#### Drift is the whole difficulty
+
+The same neuron looks different across sessions mostly because the probe moved relative
+to the brain, not because the neuron changed. So every working method estimates a
+session-to-session shift (often a rigid vertical offset of tens of um, sometimes
+depth-dependent) and applies it before comparing positions. Skip the registration and
+the matcher fails in the honest direction -- it just stops matching anything.
+
+Our own version of this hazard is bigger than drift: **the 820 um map change between
+2026-10-23 and 2026-10-26.** Across that boundary we must know whether the probe was
+physically advanced or only the channel map file was relabelled. Labels only -- undo
+the 820 um and the sessions are comparable. Probe advanced -- they are different cells
+and no matcher should be run across the boundary at all. Gil knows which; it needs to
+be written down before anybody matches across that date.
+
+#### How other labs have attacked it
+
+Two families, plus a validation-only third.
+
+**Family 1 -- sort separately, match afterwards.** The mainstream.
+
+- Tetrode/array era: waveform-shape correlation plus ISI histogram similarity, with
+  the key methodological move being to compare the across-day similarity distribution
+  against a within-day one (Tolias et al. 2007, J Neurophysiol; Dickey et al. 2009;
+  Fraser & Schwartz 2012; Eleryan et al. 2014 built a feature database over many days).
+  Their ceiling was low because 4 channels carry almost no spatial information.
+- Neuropixels 2.0 (Steinmetz et al. 2021, Science) tracked units over weeks using the
+  waveform footprint plus firing-pattern similarity, and reported stability over months.
+- **UnitMatch** (van Beest, Bimbard, Carandini et al., Nature Methods 2024) is the
+  current reference. Post-hoc on the sorted output, uses only each unit's average
+  waveform, naive Bayes classifier over footprint-derived features, gives a
+  *probability* per cross-session pair, calibrated by exactly the split-half control
+  above. It processes all sessions jointly, so a unit that vanishes for a session and
+  comes back can still be tracked. Reported ~30% of units held for >100 days; day-to-day
+  matching is far better than that number suggests.
+- Earth Mover's Distance method (eLife reviewed preprint 92495) -- physical distance
+  plus a waveform distance, applied to consecutive session pairs.
+- **DANT** (bioRxiv 2025 / Patterns 2026) -- alternates density-based clustering in
+  feature space with probe-motion estimation from the provisional matches, re-registers,
+  repeats. Aimed at freely-moving work, which is us.
+- The calcium-imaging field solved the analogous problem earlier and more rigorously
+  (CellReg, Sheintuch et al. 2017): an explicit probabilistic registration model that
+  returns a per-pair probability rather than a yes/no. Worth reading for the framing
+  even though the measurement is unrelated.
+
+**Family 2 -- sort the sessions jointly.** Concatenate two or more sessions and sort
+them as one recording; identity is then given by construction, no matching needed.
+Used by a number of labs and genuinely appealing, but: the drift correction in KS is
+built for within-session drift, not for a gap of a day with the animal unplugged; a
+bad concatenation silently splits or merges across the seam; and it would discard the
+per-session curation Gil has already done. Not for us now, but it is the thing to
+reach for if matching turns out to be hopeless across the longer gaps.
+
+**Family 3 -- functional fingerprints as validation only.** Cross-correlograms with
+other simultaneously recorded units, or tuning similarity. Good for checking a matcher,
+never for building one.
+
+#### What this means for our pipeline
+
+Three concrete consequences.
+
+**1. The cluster job must save raw split-half mean waveforms. This is the time-sensitive
+part.** KS4 already writes `templates.npy` (44 MB here -- 472 units x 61 samples x 384
+channels), which is a footprint per unit and is enough for a first-pass matcher. But KS
+templates live in whitened, drift-corrected space and are fit from a shared basis, so
+they are not the unit's true average waveform; UnitMatch and its relatives want raw
+snippet averages, and they want them **split into two halves** so the within-neuron
+calibration is available. Extracting those needs the raw `.dat`. Doing it on the cluster
+while the file is already on scratch costs minutes and a few hundred MB; doing it later
+means re-uploading ~250 GB per session. So it goes into the same job as Kilosort, for
+every session in the batch, starting with the one about to run.
+
+Size: 472 units x 2 halves x 82 samples x 384 channels x float32 is about 119 MB per
+session, 3.7 GB for the whole rat. Trimmable by keeping only sites near the peak.
+
+**2. A free feasibility test exists right now, with no upload.** Three sessions are
+already sorted on Z -- 20260901, 20260911, 20260916 -- and 20260915 is the one going to
+the cluster next. That gives a **one-day pair (15th/16th September)**, a 5-day pair, a
+10-day pair and a 15-day pair, all on the same channel map, all from the same chronic
+implant. `spike_positions.npy`, `amplitudes.npy`, `templates.npy` and
+`whitening_mat_inv.npy` are all sitting on Z for the sorted ones, so a
+position-plus-footprint matcher with split-half calibration can be built and scored
+without reading a single raw file. If the one-day pair does not match cleanly, nothing
+further is worth building.
+
+**3. The payoff is the verdict burden, not just the science.** 240 hand verdicts per
+session across 31 sessions is not a thing anyone is going to do. A calibrated matcher
+turns it into "carry the verdict across, review what is new or uncertain" -- which also
+means the matcher's precision directly sets how much wrong labelling gets propagated,
+so the per-tier precision number is the one that matters, not recall.
+
+One ordering constraint: **merges must be resolved before matching.** A merged pair is
+one neuron with one footprint, and matching the pre-merge clusters separately would ask
+the matcher to decide between two halves of the same cell.
