@@ -7326,3 +7326,91 @@ a token is right here is that revoking one is two clicks.
 KS4 output already on F. Expect a few percent difference in spike count between GPU runs on
 different hardware; a large divergence means something is wrong. Gil's go-ahead is still
 outstanding for that first real submission and for the batch of 30.
+
+### 5bd.35 — A sort-vs-sort comparison, and the self-check that caught two bugs in it (2026-11-10)
+
+To judge a cluster re-sort against the sort already on F we need a comparison, and the
+honest framing matters: neither sort is ground truth. Both are estimates of the same
+recording, so "accuracy" is meaningless and the only question is agreement — did the
+second run reproduce the first? Agreement is directional, so every matched pair gets
+**both** recall (did the test sort find the reference unit's spikes) and precision (is
+the test cluster pure), tiered by the reference sort's KSLabel. A unit the test run
+split scores high precision and low recall; a merge scores the reverse. One number
+cannot distinguish them, so `scripts/compare_two_sorts.py` never prints one, and counts
+splits and merges on their own lines.
+
+The matching took three attempts. The self-check — running the reference sort against
+*itself*, where every number must come out exactly 1.000 — is what caught the first two.
+
+**Attempt 1** walked both spike trains in step for every cluster pair. Correct, but that
+is 472×472 Python-level loops over 25 M spikes. It does not finish.
+
+**Attempt 2** was fast and wrong: for each reference spike, find the nearest test spike
+anywhere in the recording and credit its cluster. Measured on this session, **74.65% of
+spikes have another spike within 20 samples** — across 384 channels that is simply what
+dense extracellular data looks like. So "nearest spike in the recording" is usually a
+different cell firing at nearly the same moment. It scored the sort against itself at
+**0.963**. Had the self-check not run first, that 3.7% would have been read as a real
+GPU-vs-CPU difference and chased into Kilosort.
+
+**Attempt 3, in now,** is two-stage. Stage 1 is a cheap upper bound: for each reference
+spike take the *window* of all test spikes within ±tol and tally their clusters — pairs,
+not nearest, so no real partner is ever missed. Stage 2 takes the dozen clusters that
+bound says are plausible and counts them exactly. Exact because `searchsorted` brackets
+each reference spike between two spikes *of that candidate cluster*, and the nearer of
+that pair is necessarily the nearest in the whole train — so the cluster's internal
+spacing is irrelevant. An intermediate version warned about internal spacing; that
+warning was wrong and was replaced by a check for the failure that can actually occur,
+two reference spikes claiming one test spike (which would push precision above 1).
+
+The self-check also found a second, quieter bug: `kilosort_original/` holds the pristine
+arrays but **no `cluster_KSLabel.tsv`** — the labels live in the parent phy directory. So
+every unit was being reported as unlabelled and the tiering was silently empty. It now
+looks one directory up and prints which file the labels came from.
+
+Self-check result: **1.000 median, IQR and minimum on both recall and precision across
+all 472 units** (187 good, 285 mua), no splits, no merges, nothing unmatched on either
+side. Two minutes on 25 M spikes. Default tolerance is ±10 samples (0.33 ms); two runs of
+the same algorithm on the same data align to within a sample or two, so that is generous.
+
+### 5bd.36 — Getting a GPU on compute1 is not a matter of asking for one (2026-11-10)
+
+The first real submission, job 715494 (`20260916_110311`, Th_universal 9.0, Th_learned
+8.0) was queued at 20:15 and sat in PEND with:
+
+    Job's requirements for reserving resource (ngpus_physical) not satisfied: 4 hosts
+
+while `bhosts -gpu` reported every GPU on those hosts completely idle. Idle and available
+are different things here. What the survey turned up:
+
+- **The lab has a purchased GPU entitlement.** LSF exposes it as the host resource
+  `akepecs_t1_gpus`, value 1 on each of six V100 hosts (exec-195 to 198, 209, 210). This
+  is the condo model — Alex's lab bought capacity. It also answers the cost question: we
+  are spending an allocation that already exists, not running up a new per-hour charge.
+- **Gil is in four groups**, not one: `compute-akepecs`, `compute-akepecs-t1`,
+  `compute2-akepecs`, `storage2-akepecs-gil_zur-rw`. The `-t1` suffix is the subscription
+  identity and is a different group from the one I had been submitting under.
+- **Those six subscription hosts sit in host group `subscription`, served by a queue of
+  the same name** — on whose USERS list `compute-akepecs-t1` does appear. But that queue
+  is `Closed:Inact`, with zero jobs. So on compute1 the lab's own subscription GPUs are
+  not reachable at all right now.
+- **The `general` host group does contain GPUs**: 8 hosts with TeslaV100_SXM2_32GB, 4
+  with NVIDIA A40, 2 with A100_SXM4_40GB. So GPU work via `general` is possible.
+- Claiming `rusage[akepecs_t1_gpus=1]` did **not** fix it (job 715613, same error), so the
+  entitlement was not the blocker — the `gmodel=TeslaV100_SXM2_32GB` constraint is the
+  likelier culprit, since it pins the job to exactly the card family that mostly lives in
+  the closed subscription group.
+- `general` itself is heavily loaded: **15,146 jobs pending, 3,206 running**, JL/U 500,
+  fairshare with backfill. PRIO 1, against subscription's PRIO 9.
+
+Job 715643 is a deliberately cheap probe of the remaining hypothesis — 1 core, 4 GB,
+10 min walltime, `-gpu "num=1"` with **no model constraint** — running `nvidia-smi` and a
+`torch.cuda.is_available()` check in our own image. If a plain GPU request schedules, the
+`gmodel` pin was the whole problem and the fix is to drop it. Lesson recorded for its own
+sake: a ten-minute probe is the right way to test a scheduler hypothesis, not a 48-hour
+job that fails to start.
+
+**Still open:** whether the `subscription` queue is closed permanently or by maintenance,
+and whether **compute2** (Gil also has `compute2-akepecs`) is where the lab's capacity
+actually runs — Charlotte's grant named both clusters, and compute2's client hostname has
+never been confirmed.

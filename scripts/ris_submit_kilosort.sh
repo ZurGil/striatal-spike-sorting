@@ -30,6 +30,15 @@ GROUP="compute-akepecs"
 IMAGE="zurgil/kilosort4:4.0.24-cu121"
 QUEUE="general"
 
+# The Kepecs lab owns a GPU entitlement on this cluster. LSF exposes it as the
+# host resource akepecs_t1_gpus, value 1 on each of six V100 hosts (exec-195 to
+# 198, 209 and 210). A job that does NOT claim it competes for general-pool GPUs
+# other labs have already reserved, and sits in PEND indefinitely with
+#   "Job's requirements for reserving resource (ngpus_physical) not satisfied"
+# while bhosts cheerfully reports every GPU on those hosts idle. That is what
+# held up the first submission, job 715494.
+LAB_GPU="akepecs_t1_gpus"
+
 # CPU side of a GPU job: KS4 still does its file I/O and some preprocessing on the
 # host. 4 cores is plenty; asking for more only lengthens the queue wait.
 CORES=4
@@ -82,7 +91,7 @@ bsub \
     -q "${QUEUE}" \
     -J "ks4_${SESSION}" \
     -n "${CORES}" \
-    -R "rusage[mem=${MEM}] span[hosts=1] select[gpuhost]" \
+    -R "rusage[mem=${MEM},${LAB_GPU}=1] span[hosts=1] select[gpuhost && ${LAB_GPU}>0]" \
     -gpu "num=1:gmodel=TeslaV100_SXM2_32GB" \
     -M "${MEM}" \
     -W "${WALLTIME}" \
