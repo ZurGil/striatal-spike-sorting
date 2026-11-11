@@ -7553,3 +7553,37 @@ Result: **776 files, 293.0 GiB, everything present on Z and matching.** Z additi
 holds the 301.4 GiB `.rec`, which F no longer has, and the new review bundle.
 
 So F holds nothing that Z does not. The deletion is safe to make; it is Gil's to call.
+
+### 5bd.38a — The archived review tool now shows the verdicts it archives
+
+Serving the bundled page off Z, Gil's reaction was immediate and correct: every unit
+rendered un-reviewed, and his first thought was that the verdicts had not been saved.
+
+They had. The cross-check, run entirely against Z: all **240** stored verdicts match
+the `group` column of `cluster_info.tsv` on Z, zero differences, zero units missing --
+and his 114 `good` calls are exactly the 114 goods in the dataset. The decisions were
+made between 2026-09-17 15:07 and 2026-10-01 14:39, and the timestamps are in the file.
+
+The fault was the page. `initDb` does `claude.use('db')`, and on a copy with no
+database it returns early with the status text "local only (db unavailable)" and leaves
+every verdict unset. The data was beside it the whole time in `verdicts/`.
+
+`patch_review_tool_offline_verdicts.py` replaces that early return with a loader that
+fetches the three exported collections and fills exactly the globals the snapshot
+handlers fill (`verdicts`, `timeSel`/`timeSelDocs`, `mergeVerdicts`), then re-renders.
+It refuses unless all three exports exist and parse, asserts its anchor appears exactly
+once, and refuses to patch twice. The page is left read-only and says so in a banner,
+because `setVerdict` already guards its write with `if(db)` -- so clicking a verdict on
+the archived copy changes the screen and nothing else, which is a trap worth naming
+rather than leaving silent.
+
+Two lessons, both general:
+
+1. **An archive that cannot display what it archives will be read as an empty archive.**
+   The files were correct, verified and in the right place, and the thing still looked
+   like data loss. For a bundle whose entire purpose is to outlive the tool that made
+   it, "the data is there if you open the JSON" is not good enough.
+2. **Serve the bundle, never double-click it.** `fetch()` of a relative path is blocked
+   for `file://` pages, so opening the page from disk gives units but no verdicts and a
+   dead merge panel -- indistinguishable from a broken archive. The README now says this
+   and gives the one-line http.server command.
