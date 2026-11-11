@@ -185,36 +185,59 @@ def main():
         if ref.size < a.min_spikes:
             continue
         bound = candidate_counts(ref, t_st, t_sc_dense, n_test, a.tol)
-        # Each test cluster may be claimed once, so a reference unit whose best
-        # partner is taken falls back to its next best. That is what makes the
-        # leftover counts at the end mean something.
-        if claimed:
-            bound[np.fromiter(claimed, dtype=np.int64, count=len(claimed))] = 0
-        cand = np.argsort(-bound)[:a.candidates]
-        cand = [int(k) for k in cand if bound[k] > 0]
+        cand = [int(k) for k in np.argsort(-bound)[:a.candidates] if bound[k] > 0]
 
-        best, best_n = None, 0
+        # Exact counts once per candidate, reused by both matchings below.
+        counts = {}
         for k in cand:
             n, ok = exact_overlap(ref, T[k], a.tol)
+            counts[k] = n
             if not ok and k not in shaky:
                 shaky.append(k)
-            if n > best_n:
-                best, best_n = k, n
 
-        if best is None:
-            rows.append((cid, ref.size, r_lab.get(cid, ""), -1, 0, 0, 0.0, 0.0, ""))
-            continue
-        claimed.add(best)
-        tid, n_t = int(t_ids[best]), int(t_sizes[best])
-        rows.append((cid, ref.size, r_lab.get(cid, ""), tid, n_t, best_n,
-                     best_n / float(ref.size), best_n / float(n_t),
-                     t_lab.get(tid, "")))
+        # Ties on matched count are common for small units in dense data: a
+        # 60-spike unit's own cluster overlaps all 60, and so can a 200k-spike
+        # cluster that happens to have something within tol of each one. Break
+        # the tie on precision -- among equal overlaps the purest cluster is the
+        # better match. Without this a self-comparison reports a spurious merge.
+        def rank(k):
+            return (counts[k], counts[k] / float(t_sizes[k]))
+
+        # OPEN match: best overlap regardless of who else wants it. This answers
+        # "were the spikes found at all", and the structural verdicts read off it.
+        o_best = max(counts, key=rank) if counts else None
+        if o_best is not None and counts[o_best] == 0:
+            o_best = None
+
+        # EXCLUSIVE match: each test cluster claimed once, so the leftovers at
+        # the end are real. Kept because it is the only way to count units
+        # unaccounted for on each side -- but on its own it LIES about merges.
+        # When the test sort fuses two reference units, the larger claims the
+        # cluster and the smaller is handed an unrelated leftover, scoring ~0.00
+        # and looking like a unit the test sort missed. Measured here: reference
+        # unit 94 scores 0.006 exclusive and 0.861 open, its spikes sitting
+        # inside a 197k-spike cluster it simply does not own.
+        free = [k for k, v in counts.items() if k not in claimed and v > 0]
+        x_best = max(free, key=rank) if free else None
+        if x_best is not None:
+            claimed.add(x_best)
+
+        def q(k):
+            if k is None:
+                return (-1, 0, 0, 0.0, 0.0, "")
+            nt, nm = int(t_sizes[k]), counts[k]
+            return (int(t_ids[k]), nt, nm, nm / float(ref.size), nm / float(nt),
+                    t_lab.get(int(t_ids[k]), ""))
+
+        rows.append((cid, ref.size, r_lab.get(cid, "")) + q(x_best) + q(o_best)[:5])
 
     with open(a.out, "w") as fh:
-        fh.write("ref_unit,ref_n,ref_kslabel,test_unit,test_n,n_matched,"
-                 "recall,precision,test_kslabel\n")
+        fh.write("ref_unit,ref_n,ref_kslabel,"
+                 "test_unit,test_n,n_matched,recall,precision,test_kslabel,"
+                 "open_test_unit,open_test_n,open_matched,open_recall,"
+                 "open_precision\n")
         for r in rows:
-            fh.write("%d,%d,%s,%d,%d,%d,%.4f,%.4f,%s\n" % r)
+            fh.write("%d,%d,%s,%d,%d,%d,%.4f,%.4f,%s,%d,%d,%d,%.4f,%.4f\n" % r)
     print("wrote %s (%d reference units scored)" % (a.out, len(rows)))
     if shaky:
         print("NOTE: %d test cluster(s) had more reference spikes claim them than "
@@ -223,40 +246,66 @@ def main():
               % (len(shaky), ", ".join(str(int(t_ids[k])) for k in shaky[:10])))
     print()
 
-    def report(name, sel):
+    def report(name, sel, ri, pi):
         if not sel:
             print("%-14s none" % name)
             return
-        rec = np.array([r[6] for r in sel])
-        pre = np.array([r[7] for r in sel])
+        rec = np.array([r[ri] for r in sel])
+        pre = np.array([r[pi] for r in sel])
         print("%-14s n=%d" % (name, len(sel)))
         for lbl, v in (("recall", rec), ("precision", pre)):
             print("    %-10s median %.3f   IQR %.3f-%.3f   min %.3f   >=0.90: %d/%d"
                   % (lbl, np.median(v), np.percentile(v, 25), np.percentile(v, 75),
                      v.min(), int((v >= 0.90).sum()), len(v)))
 
-    print("=== agreement, tiered by the reference sort's KSLabel ===")
-    print("(recall = reference spikes found; precision = test unit purity)")
-    print()
-    report("good", [r for r in rows if r[2] == "good"])
-    report("mua", [r for r in rows if r[2] == "mua"])
+    g = [r for r in rows if r[2] == "good"]
+    m = [r for r in rows if r[2] == "mua"]
     rest = [r for r in rows if r[2] not in ("good", "mua")]
-    if rest:
-        report("unlabelled", rest)
-    print()
+
+    # Weighted by spikes, not by unit, because a unit with 300 spikes and one
+    # with 300,000 are not the same evidence. Both are printed: the per-unit
+    # medians above say how a typical cluster fared, this says how much of the
+    # recording the two sorts actually agree about.
+    def mass(sel, ri):
+        tot = sum(r[1] for r in sel)
+        if not tot:
+            return 0.0, 0.0
+        agree = sum(r[1] for r in sel if r[ri] >= 0.80)
+        return 100.0 * agree / tot, tot
+
+    for title, ri, pi in (("OPEN match -- were the spikes found at all?", 12, 13),
+                          ("EXCLUSIVE match -- one test cluster per unit", 6, 7)):
+        print("=== %s ===" % title)
+        print("(recall = reference spikes found; precision = test unit purity)")
+        print()
+        report("good", g, ri, pi)
+        report("mua", m, ri, pi)
+        if rest:
+            report("unlabelled", rest, ri, pi)
+        pc, tot = mass(rows, ri)
+        print("    %-10s %.2f%% of all %d reference spikes sit in units with "
+              "recall >= 0.80" % ("by mass", pc, tot))
+        print()
 
     # Split and merge are the two failure modes a per-pair score cannot show on
-    # its own, so they are counted separately and explicitly.
-    splits = [r for r in rows if r[6] < 0.80 <= r[7]]
-    merges = [r for r in rows if r[7] < 0.80 <= r[6]]
-    neither = [r for r in rows if r[6] < 0.80 and r[7] < 0.80]
-    print("=== structural disagreements (threshold 0.80 on either side) ===")
-    print("  looks SPLIT in the test sort (high precision, low recall) : %d" % len(splits))
-    print("  looks MERGED in the test sort (high recall, low precision): %d" % len(merges))
-    print("  no good counterpart at all                                : %d" % len(neither))
-    print("  reference units unmatched by any test cluster             : %d"
+    # its own, so they are counted separately. Read off the OPEN match, because
+    # a merge is precisely the case the exclusive match cannot represent.
+    splits = [r for r in rows if r[12] < 0.80 <= r[13]]
+    merges = [r for r in rows if r[13] < 0.80 <= r[12]]
+    neither = [r for r in rows if r[12] < 0.80 and r[13] < 0.80]
+    print("=== structural verdicts, from the OPEN match ===")
+    print("  SPLIT by the test sort (high precision, low recall)  : %d" % len(splits))
+    print("  MERGED by the test sort (high recall, low precision) : %d" % len(merges))
+    print("  no counterpart at all, even unclaimed                : %d  (%.2f%% of spikes)"
+          % (len(neither),
+             100.0 * sum(r[1] for r in neither) / max(1, sum(r[1] for r in rows))))
+    print("  reference units with NO overlapping test cluster     : %d"
+          % len([r for r in rows if r[9] == -1]))
+    print()
+    print("=== leftovers, from the EXCLUSIVE match ===")
+    print("  reference units left without a free counterpart      : %d"
           % len([r for r in rows if r[3] == -1]))
-    print("  test clusters never claimed                               : %d"
+    print("  test clusters never claimed by any reference unit    : %d"
           % (n_test - len(claimed)))
     return 0
 
