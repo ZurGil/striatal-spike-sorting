@@ -7751,3 +7751,60 @@ so the per-tier precision number is the one that matters, not recall.
 One ordering constraint: **merges must be resolved before matching.** A merged pair is
 one neuron with one footprint, and matching the pre-merge clusters separately would ask
 the matcher to decide between two halves of the same cell.
+
+#### 5bd.39a — the map question answered, and four things to settle before the batch sorts
+
+Gil, 2026-11-11: **"it was only map changing."** The probe was never advanced. So the
+820 um between map A and map B is a bookkeeping difference between two descriptions of
+one unchanged geometry, and the entire 2026-09-01 .. 2026-10-28 series sits in a single
+coordinate frame. Cross-session tracking is therefore possible over the whole two
+months, not just within each map era. One of the two maps is simply wrong about where
+the probe sits in the brain; which one is open, but it is a rigid offset applied to
+everything and can be settled later without re-sorting anything.
+
+He then asked what should be done before the sessions are sorted. Four things, and two
+of them are confounds rather than improvements.
+
+**(a) One pair of detection thresholds for the whole batch.** `run_kilosort4_session.py`
+makes `Th_universal`/`Th_learned` required arguments with no default, precisely because
+they have been per session so far: 9.0/8.0 on 20260916, 9.2/7.0 on 20260901 and
+20260910. That was the right call for one-off sorts and is the wrong call for a series.
+Detection thresholds set how many units are found and how big their footprint
+amplitudes are, so letting them vary session to session puts a non-biological trend
+straight into a learning series, and it perturbs the very features a matcher scores on.
+The cluster makes the fix cheap: a 3-point sweep on two sessions is six jobs, parallel
+and free, and it measures how much the yield actually moves. Needs Gil's input on how
+the current values were chosen before anything is fixed.
+
+**(b) One Kilosort version.** The RIS container is pinned to **4.0.24**; the three
+sessions already sorted on Z (20260901, 20260911, 20260916) ran **4.1.7**. The size of
+the difference is already measured, which is the useful part: cluster 4.0.24 against
+local 4.1.7 on the same session, same thresholds, gave 99.8% recall and 99.2% precision
+on the matched units. So the version split is small enough not to be alarming, but the
+batch should still be internally uniform, with the legacy sorts either redone on the
+cluster or kept plainly separate rather than mixed in.
+
+**(c) Every session's map expressed in one frame — but still derived per session.**
+Tempting conclusion from "the probe never moved" would be to feed one shared probe JSON
+to all 31 sessions. That would be wrong: the row order of `probe1.dat` differs between
+the two eras, because the ntrode list is rotated by 82, so a shared file would
+mis-assign channels. The correct operation is per session derivation from its own
+`channelmap_probe1.dat` (which `make_probe_maps_batch.py` already does) followed by a
+re-expression of map-B sessions into map A's frame: +820 um in dv, and undo the 16 um
+swap of the staggered ML columns. Check afterwards that the SET of (xc, yc) pairs is
+identical across all 31; if it is not, stop. A uniform offset preserves every
+inter-channel distance, so this changes the reported depths and not the clustering --
+but doing it before the sorts means the coordinates are right in the files forever,
+with no post-hoc correction for anyone to forget.
+
+**(d) Raw split-half mean waveforms, written by the sort job.** Repeated from 5bd.39
+because it is the only item whose cost is irreversible: on the cluster, while the `.dat`
+is on scratch, it is minutes and about 120 MB per session; afterwards it is a 250 GB
+re-upload per session. Save the mean waveform over all 384 channels for each half of
+each unit's spikes, plus the per-half spike count and centroid, and keep `ops.npy` for
+its drift estimate.
+
+One thing deliberately NOT done: re-sorting 20260916 in place. Its 240 verdicts are
+keyed to that sort's cluster ids. A cluster re-sort of it goes in its own directory and
+the verdicts are carried over with `compare_two_sorts.py`, which is the same machinery
+that produced the agreement numbers in (b).
