@@ -7473,3 +7473,83 @@ thing to run.
 30 is logistics, not validation — staging (data + the right probe JSON per session), the map
 A/B boundary at 2026-10-26, streaming results off scratch, and the scratch purge window,
 which is still unknown.
+
+---
+
+## 5bd.38 — Probe maps for the whole batch, and the archive bundle that lets F be cleared
+
+Two jobs today, both prerequisites for sorting the remaining sessions on the cluster.
+
+### The channel map comes from the session, not from the calendar
+
+I had planned to pick map A or map B per session by date, with the boundary at
+2026-10-26. That works but it is a rule applied to the data from outside, and the
+failure it protects against -- an 820 um depth error that produces a completely
+plausible-looking sort -- is exactly the kind that nothing downstream would catch.
+
+It is also unnecessary. Every session carries its own `channelmap_probe1.dat`, written
+by Trodes at acquisition, and the geometry is read from that. `make_probe_maps_batch.py`
+derives each map from the session's own file and uses the date **only to check the
+answer**, never to produce it. It groups the sessions by date and asserts the two groups
+have different geometry and that each is internally consistent.
+
+Result over 31 Shamir sessions:
+
+| group | yc range | sessions |
+|---|---|---|
+| through 2026-10-23 | 920.0 – 4740.0 um | 27 |
+| from 2026-10-26 | 100.0 – 3920.0 um | 3 |
+
+920 − 100 = **820 um**, exactly the documented shift, and the split falls exactly on the
+documented date. The map story is now confirmed from the raw acquisition files rather
+than believed from a note.
+
+Stronger still: for the four sessions that already had a map, the regenerated file is
+identical in all five fields (`chanMap`, `xc`, `yc`, `kcoords`, `n_chan`) to the one
+used for the original sorts. The md5 differs only because of JSON whitespace. So the
+generator reproduces exactly what was used before.
+
+`20261015_094934` has no `channelmap_probe1.dat` and no exported `.probe1.dat` -- it
+survives only as a `.rec` and needs the old export route. It is the one session of 31
+that cannot be staged directly from the archive.
+
+Two things were needed to import the Trodes reader at all, both recorded because they
+will bite again: it calls `np.set_printoptions(threshold='nan')` at module level, which
+has raised `TypeError` since numpy 1.13; and it is a *script*, not a library -- at import
+it runs `readTrodesExtractedDataFile(argv[1])`, so importing it with any command line
+makes it try to open your first argument as a Trodes file. Both are worked around during
+the import and restored immediately after.
+
+### The review bundle: making a session self-contained on Z
+
+The verdicts for a session do not live in the repo or the dataset. They live in the
+review tool's own database on claude.ai. That is fine while the page is reachable and
+useless as an archive, which matters now that F is to be cleared.
+
+So the database was exported and placed on Z beside the data, at
+`<session>.kilosort/review/`: the published page, the `data/merge_candidates.json` it
+fetches, the three verdict collections as plain files, and the inputs needed to rebuild
+the page from scratch. A README states where the verdicts already are in the dataset and
+warns about a real trap -- `cluster_group.tsv` and `cluster_KSLabel.tsv` are byte-identical
+to each other, because they are Kilosort's own output and curation never touched them.
+The decisions are in the `group` column of `cluster_info.tsv` (114 good / 327 mua /
+31 noise, against 189 / 259 / 24 before curation).
+
+The export was checked against the 2026-10-20 one document by document: verdicts 240,
+merge_verdicts 10, trial_selections 20, no field differences in any shared document and
+no documents on either side only. Nothing has changed since October, so the dump is
+current.
+
+### Verifying before deleting
+
+`verify_archive_before_delete.py` is the gate. Every file on F must exist on Z at the
+same size and matching content: 767 files hashed in full, and the 9 files over 200 MB
+compared by 64 sampled 1 MiB blocks plus first and last, read on both sides. A full read
+of 293 GiB over the network would take hours and would not change the decision -- sampling
+catches truncation, partial copies, a wrong file and a stale version, which are the
+failures that actually occur, and the script says so rather than claiming more.
+
+Result: **776 files, 293.0 GiB, everything present on Z and matching.** Z additionally
+holds the 301.4 GiB `.rec`, which F no longer has, and the new review bundle.
+
+So F holds nothing that Z does not. The deletion is safe to make; it is Gil's to call.
