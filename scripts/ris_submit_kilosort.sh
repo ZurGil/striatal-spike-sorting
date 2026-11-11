@@ -30,14 +30,23 @@ GROUP="compute-akepecs"
 IMAGE="zurgil/kilosort4:4.0.24-cu121"
 QUEUE="general"
 
-# The Kepecs lab owns a GPU entitlement on this cluster. LSF exposes it as the
-# host resource akepecs_t1_gpus, value 1 on each of six V100 hosts (exec-195 to
-# 198, 209 and 210). A job that does NOT claim it competes for general-pool GPUs
-# other labs have already reserved, and sits in PEND indefinitely with
-#   "Job's requirements for reserving resource (ngpus_physical) not satisfied"
-# while bhosts cheerfully reports every GPU on those hosts idle. That is what
-# held up the first submission, job 715494.
-LAB_GPU="akepecs_t1_gpus"
+# TWO WAYS TO ASK FOR A GPU AND NOT GET ONE -- both cost us a submission.
+#
+# 1. Naming a card model. gmodel=TeslaV100_SXM2_32GB pends forever with
+#    "requirements for reserving resource (ngpus_physical) not satisfied" because
+#    most hosts carrying that model sit in the `subscription` host group, whose
+#    queue is Closed:Inact, and the few in `general` are busy. There is no reason
+#    to name a model: Kilosort4 needs 3.3 GB of VRAM (measured), and the smallest
+#    card in the general pool is an A40 with 48 GB. gmem=8G asks for enough and
+#    takes whatever is free -- A40, A100 or V100.
+#
+# 2. Forgetting select[gpuhost]. Without it LSF considers CPU-only hosts too,
+#    cannot place the GPU request, and says "There are no suitable hosts for the
+#    job" -- which sounds like a cluster-wide shortage and is really a typo.
+#
+# The lab also owns an entitlement (host resource akepecs_t1_gpus, value 1 on
+# exec-195..198, 209, 210), but it is only reachable through that closed queue,
+# so claiming it does not help today. Left here as a note, not a request.
 
 # CPU side of a GPU job: KS4 still does its file I/O and some preprocessing on the
 # host. 4 cores is plenty; asking for more only lengthens the queue wait.
@@ -91,8 +100,8 @@ bsub \
     -q "${QUEUE}" \
     -J "ks4_${SESSION}" \
     -n "${CORES}" \
-    -R "rusage[mem=${MEM},${LAB_GPU}=1] span[hosts=1] select[gpuhost && ${LAB_GPU}>0]" \
-    -gpu "num=1:gmodel=TeslaV100_SXM2_32GB" \
+    -R "rusage[mem=${MEM}] span[hosts=1] select[gpuhost]" \
+    -gpu "num=1:gmem=8G" \
     -M "${MEM}" \
     -W "${WALLTIME}" \
     -o "${LOGDIR}/ks4_${SESSION}_%J.out" \
