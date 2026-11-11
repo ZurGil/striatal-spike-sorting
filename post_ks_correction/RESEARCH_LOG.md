@@ -7385,7 +7385,7 @@ are different things here. What the survey turned up:
 
 - **The lab has a purchased GPU entitlement.** LSF exposes it as the host resource
   `akepecs_t1_gpus`, value 1 on each of six V100 hosts (exec-195 to 198, 209, 210). This
-  is the condo model — Alex's lab bought capacity. It also answers the cost question: we
+  is the condo model — the Kepecs lab (akepecs = Adam Kepecs, our own lab) bought capacity. It also answers the cost question: we
   are spending an allocation that already exists, not running up a new per-hour charge.
 - **Gil is in four groups**, not one: `compute-akepecs`, `compute-akepecs-t1`,
   `compute2-akepecs`, `storage2-akepecs-gil_zur-rw`. The `-t1` suffix is the subscription
@@ -7414,3 +7414,62 @@ job that fails to start.
 and whether **compute2** (Gil also has `compute2-akepecs`) is where the lab's capacity
 actually runs — Charlotte's grant named both clusters, and compute2's client hostname has
 never been confirmed.
+
+---
+
+## 5bd.37 — The cluster sort is validated. Decision: no run-to-run control.
+
+Job **715803** sorted `20260916_110311` on a Tesla V100-SXM2-32GB in **02:41:24**, against
+roughly 5.4 h for the same session on the Trodes PC — and without occupying the acquisition
+machine at all. 174 units came out with good refractory periods.
+
+The job's own log printed its map at run time rather than us trusting the staging step:
+
+    384 channels | yc 920.0..4740.0 um | xc 2426.0..2474.0 um
+
+That is map A, correct for a September session (map B begins 2026-10-26). This is Gil's
+standing requirement — verify the map on the data the sort actually read, not on the file
+we think we uploaded — satisfied inside the run.
+
+**Agreement with the September sort on F** (`kilosort_original/`, i.e. before any of Gil's
+curation was applied — the parent phy dir's `cluster_info.tsv` has had verdicts in it since
+October and is not a fair reference):
+
+| | cluster | Trodes PC |
+|---|---|---|
+| spikes | 25,348,358 | 25,229,992 |
+| clusters | 449 | 472 |
+
++0.47% on spike count. Per tier, using the OPEN matching (recall = fraction of the
+reference unit's spikes found; precision = purity of the test cluster that holds them):
+
+- **good, n=187** — recall median 0.987 (IQR 0.969–0.996, min 0.148, >=0.90 in 170/187);
+  precision median 0.982 (IQR 0.913–0.994, min 0.001, >=0.90 in 144/187)
+- **mua, n=285** — recall median 0.965 (IQR 0.928–0.981, min 0.033, >=0.90 in 230/285);
+  precision median 0.965 (IQR 0.909–0.980, >=0.90 in 219/285)
+
+Weighted by spikes rather than by unit: **95.05%** of all 25,229,992 reference spikes sit in
+units matched at recall >= 0.80.
+
+Structurally the residual is merging, not loss: 10 splits, **55 merges**, 29 reference units
+with no counterpart holding 3.08% of spikes, and zero units with no overlapping cluster at
+all. 449 clusters instead of 472 is the same fact seen from the other side. Disagreement
+concentrates almost entirely in small units — of 50 reference units under 1,000 spikes only
+10 agree, while 191/211 agree in the 20k–100k band and 63/68 above 100k.
+
+**The control we are not running.** Kilosort4 is nondeterministic run to run and we have
+never measured its own spread, so strictly speaking the 55 merges cannot be attributed to
+the cluster rather than to Kilosort being run a second time. The clean experiment is a
+second cluster sort of this same session scored against this one, at 2:41 of free compute.
+I recommended it; **Gil declined on 2026-11-11** — "i dont see any reason for another test,
+it works." That is a reasonable call on the evidence: 95% of spike mass reproduced, the
+residual is in units too small to carry analysis weight, and the direction of the residual
+(merging of small units) is the known signature of a reclustering rather than of a broken
+environment. Recording the decision so that nobody later reads the uncertainty as an
+oversight. If a specific session's cluster sort ever looks wrong, this control is the first
+thing to run.
+
+**Verdict: the cluster is cleared for production sorting.** What remains before the batch of
+30 is logistics, not validation — staging (data + the right probe JSON per session), the map
+A/B boundary at 2026-10-26, streaming results off scratch, and the scratch purge window,
+which is still unknown.
