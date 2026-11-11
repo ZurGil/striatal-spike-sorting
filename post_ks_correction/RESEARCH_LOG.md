@@ -7587,3 +7587,29 @@ Two lessons, both general:
    for `file://` pages, so opening the page from disk gives units but no verdicts and a
    dead merge panel -- indistinguishable from a broken archive. The README now says this
    and gives the one-line http.server command.
+
+### 5bd.38b — F cleared of 20260916_110311
+
+Deleted `F:\Gil\Shamir\20260916_110311.rec` on 2026-11-11 at Gil's instruction, after
+he had opened the archived review tool from Z and confirmed his verdicts were there.
+
+Gates passed before the delete, in order:
+
+1. Full content verification earlier the same session -- 776 files, 293.0 GiB, 767
+   hashed in full and the 9 files over 200 MB compared by sampled blocks on both
+   sides. Everything present on Z and matching.
+2. A metadata re-check immediately before deleting: same 776 files, same byte total,
+   nothing on F modified that day, every file confirmed present on Z at matching size.
+   Content was not re-read -- Trodes was recording and nothing had written to F since
+   the full check, so a second 293 GiB read would have cost acquisition bandwidth to
+   re-prove an unchanged fact.
+3. Gil's own inspection of the archived review tool, served from Z.
+
+280.9 GiB freed; F went from 1,113 to 1,394 GiB free. Z retains the 301.4 GiB `.rec`
+that F never had, the full 293.1 GiB kilosort subtree, and the review bundle. Verdicts
+re-read from Z after the delete: 240, of which 114 good, plus 10 merge decisions.
+
+Worth noting for the batch: F is now effectively empty of Shamir sessions, and since
+30 of 31 sessions already have an exported `.probe1.dat` on Z, the batch does not need
+F at all. The old "copy the .rec down, re-export, upload" route is only needed for
+`20261015_094934`.
