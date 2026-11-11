@@ -7835,3 +7835,59 @@ Gil also said items (c) and (d) of 5bd.39a were not clear. Both are code changes
 side with nothing for him to do, which is the part that had not been said plainly. The
 lesson is the same one as the archived review tool: a correct explanation that leaves
 the reader unsure whether they are being asked for something has not done its job.
+
+#### 5bd.39c — where the verdicts fit, and Gil's concatenation idea becomes the ground truth
+
+Two questions from Gil on 2026-11-11, both of which change the plan.
+
+**Where do the verdicts fit?** UnitMatch runs strictly *after* Kilosort, on the sorted
+output. It never re-sorts, never touches spike times, never renumbers clusters. Its
+input is each unit's average waveform plus the channel positions; its output is a table
+of cross-session pairs with a probability. So the verdicts are not an input and are not
+at risk. What the matcher produces is a *mapping between cluster ids across sessions*,
+and propagating the verdicts along that mapping is our own step, not UnitMatch's.
+
+Three design points for that step:
+
+1. Apply merges first. A merged pair is one neuron with one footprint
+   ([[project-merge-tool-semantics]]).
+2. Restrict matching to units worth tracking -- Gil's good and mua -- rather than all
+   472 clusters. Fewer candidates means fewer false matches, and the noise units are
+   not worth following.
+3. **A disagreement is data, not an error.** If a unit is good on day 1 and its match
+   looks like noise on day 2, that is a fact about the recording, so the propagated
+   label must stay distinguishable from a hand-made one. Verdicts carry provenance:
+   hand-made, or inherited from session X at probability p.
+
+**Concatenation.** Gil asked whether people don't concatenate part of the previous and
+next sessions with the current one before sorting. They do -- it is the joint-sorting
+family from 5bd.39, and the partial-overlap variant he describes is a real technique for
+giving the sorter a bridge so one cell keeps one id across the seam. Assessed honestly,
+it is a poor fit as our *production* route:
+
+- The seam is a genuine discontinuity -- the animal was unplugged and the probe settles
+  differently -- and KS4 estimates drift over the whole file (`nblocks=1`), so a step
+  change at the seam gets absorbed as drift and can smear templates on both sides.
+- One compromise template is fit to both days, so a cell whose waveform genuinely
+  changed is isolated *worse* in each session than if that session were sorted alone.
+- Every cluster id changes, which detaches the 240 verdicts.
+- Overlapping pairs means sorting most of the data twice: compute is free on the
+  cluster, storage is not.
+
+But it is an excellent *check*, and that is the better use of the idea. A joint sort of
+two sessions yields units that span the seam **by construction**, which is a same-neuron
+label we did not have to assume. So:
+
+> Sort 20260915 + 20260916 concatenated, once, as a second opinion. Units spanning the
+> seam give the matcher's recall; pairs the matcher claims that the joint sort keeps
+> separate are candidate false positives, giving precision.
+
+Two independent methods on one pair, from Gil's own suggestion, and nearly free because
+both sessions are staged anyway. It is a second opinion rather than truth -- a joint
+sort can also merge two different cells across the seam -- so the numbers it gives are
+an estimate with its own error, not a gold standard. Said plainly now so the figure is
+not over-read later.
+
+Also: the localhost:8765 server for the archived review tool was stopped, along with the
+leftover verdict-comparison task. Bringing the review tool back is one command, recorded
+in the bundle's README.
