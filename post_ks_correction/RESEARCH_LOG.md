@@ -7808,3 +7808,30 @@ One thing deliberately NOT done: re-sorting 20260916 in place. Its 240 verdicts 
 keyed to that sort's cluster ids. A cluster re-sort of it goes in its own directory and
 the verdicts are carried over with `compare_two_sorts.py`, which is the same machinery
 that produced the agreement numbers in (b).
+
+#### 5bd.39b — thresholds settled: Kilosort4 stock defaults, 9.0/8.0, for all 31 sessions
+
+Gil, 2026-11-11: "use the default settings of kilosor, which is i think 9.0/8.0". He is
+right, and it was worth checking rather than agreeing: `kilosort.parameters`
+`DEFAULT_SETTINGS` in 4.0.24 gives `Th_universal = 9`, `Th_learned = 8` exactly. So the
+batch runs on stock detection thresholds, which is the best possible answer for a
+series -- uniform by construction, and nobody has to defend a hand-tuned number later.
+
+Consequences worth noting:
+
+- **20260916 already used 9.0/8.0**, so the curated session and its 240 verdicts are
+  already on the batch setting. That is lucky rather than planned.
+- **20260901 and 20260910 used 9.2/7.0**, which are NOT the defaults. Those two sorts
+  are off-batch and should be redone on the cluster before they are used in any
+  cross-session comparison. Until then, the only session on Z that is both sorted and
+  batch-consistent is 20260916.
+- The thresholds stay required arguments in `run_kilosort4_session.py`; the submit
+  script is where 9.0/8.0 now gets passed for every session. A default in the runner
+  would hide exactly the kind of drift we just removed.
+- No threshold sweep will be run. It was offered as a way to measure the sensitivity
+  and is unnecessary once the answer is "stock defaults for everything".
+
+Gil also said items (c) and (d) of 5bd.39a were not clear. Both are code changes on our
+side with nothing for him to do, which is the part that had not been said plainly. The
+lesson is the same one as the archived review tool: a correct explanation that leaves
+the reader unsure whether they are being asked for something has not done its job.
