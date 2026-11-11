@@ -32,8 +32,20 @@ SID = sys.argv[1] if len(sys.argv) > 1 else None
 if not SID:
     raise SystemExit(__doc__)
 
-F = "F:" + B + "Gil" + B + "Shamir" + B + SID + ".rec"
-Z = "Z:" + B + "Gil" + B + "Shamir_1" + B + SID + ".rec"
+# F: and Z: do not agree on folder names for the same animal, so the caller has to say
+# which rat this session belongs to. Default stays Shamir so old invocations still work.
+RAT_DIRS = {
+    "Shamir": ("Shamir", "Shamir_1"),
+    "Popper": ("Popper", "Popper"),
+    "Begin":  ("Begin",  "Begin_1"),
+}
+RAT = sys.argv[2] if len(sys.argv) > 2 else "Shamir"
+if RAT not in RAT_DIRS:
+    raise SystemExit("unknown rat %r; known: %s" % (RAT, ", ".join(sorted(RAT_DIRS))))
+F_DIR, Z_DIR = RAT_DIRS[RAT]
+
+F = "F:" + B + "Gil" + B + F_DIR + B + SID + ".rec"
+Z = "Z:" + B + "Gil" + B + Z_DIR + B + SID + ".rec"
 KS = SID + ".kilosort"
 BIG = (".rec", ".probe1.dat", ".timestamps.dat")
 SMALL_MAX = 10 * 1024 * 1024

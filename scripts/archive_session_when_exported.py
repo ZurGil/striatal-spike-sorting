@@ -31,11 +31,15 @@ SID = None
 PIDS = []          # --pid may be given more than once: Trodes can be told to export
                    # the same session twice, and then BOTH writers must be gone before
                    # the output can be judged complete.
+RAT = "Shamir"    # --rat picks the animal; the two drives name it differently, see below
 args = sys.argv[1:]
 i = 0
 while i < len(args):
     if args[i] == "--pid":
         PIDS.append(int(args[i + 1]))
+        i += 2
+    elif args[i] == "--rat":
+        RAT = args[i + 1]
         i += 2
     else:
         SID = args[i]
@@ -43,8 +47,21 @@ while i < len(args):
 if not SID:
     raise SystemExit(__doc__)
 
-SRC = "F:" + B + "Gil" + B + "Shamir" + B + SID + ".rec"
-DST = "Z:" + B + "Gil" + B + "Shamir_1" + B + SID + ".rec"
+# F: and Z: do NOT use the same folder name for the same animal. Shamir records to
+# F:\Gil\Shamir but archives to Z:\Gil\Shamir_1; Popper uses "Popper" on both. Getting
+# this wrong creates a plausible-looking folder in the wrong place rather than failing,
+# so the mapping is explicit and an unknown animal is refused.
+RAT_DIRS = {
+    "Shamir": ("Shamir", "Shamir_1"),
+    "Popper": ("Popper", "Popper"),
+    "Begin":  ("Begin",  "Begin_1"),
+}
+if RAT not in RAT_DIRS:
+    raise SystemExit("unknown --rat %r; known: %s" % (RAT, ", ".join(sorted(RAT_DIRS))))
+F_DIR, Z_DIR = RAT_DIRS[RAT]
+
+SRC = "F:" + B + "Gil" + B + F_DIR + B + SID + ".rec"
+DST = "Z:" + B + "Gil" + B + Z_DIR + B + SID + ".rec"
 KS = os.path.join(SRC, SID + ".kilosort")
 REC = os.path.join(SRC, SID + ".rec")
 PROBE = os.path.join(KS, SID + ".probe1.dat")
@@ -256,7 +273,7 @@ for name, path in (("rec", REC), ("probe1.dat", PROBE), ("timestamps.dat", TS)):
 log("")
 log("re-verifying with the Windows cache bypassed")
 v = os.path.join(os.path.dirname(os.path.abspath(__file__)), "verify_archive.py")
-r = subprocess.run([sys.executable, v, SID], capture_output=True, text=True)
+r = subprocess.run([sys.executable, v, SID, RAT], capture_output=True, text=True)
 for line in (r.stdout or "").strip().split("\n"):
     log("  | %s" % line)
 if (r.stderr or "").strip():
@@ -271,8 +288,8 @@ if r.returncode != 0:
     log("")
     log("the independent check could not finish (exit %d). The copy itself passed "
         "every check above, but the big files are not independently confirmed -- run "
-        "scripts/verify_archive.py %s by hand before deleting anything from F."
-        % (r.returncode, SID))
+        "scripts/verify_archive.py %s %s by hand before deleting anything from F."
+        % (r.returncode, SID, RAT))
     raise SystemExit(7)
 
 log("")
