@@ -32,6 +32,17 @@ param(
 $SRC = Join-Path $SessionRoot "$Session.rec\$Session.kilosort"
 if (-not (Test-Path $SRC)) { throw "no such session root: $SRC" }
 
+$srcKs = Join-Path $SRC "kilosort4"
+if (-not (Test-Path $srcKs)) {
+    throw ("no sort to copy: $srcKs does not exist. Fetch the Kilosort4 output into the " +
+           "local staging folder before setting up workers -- an earlier version of this " +
+           "script printed 'worker N ready' after failing to copy it, which is how you get " +
+           "four worker roots that look fine and have no sort in them.")
+}
+$nKs = (Get-ChildItem $srcKs -File).Count
+if ($nKs -lt 10) { throw "$srcKs holds only $nKs files -- that is not a complete Kilosort4 output." }
+"sort: $srcKs  ($nKs files)"
+
 $raw = Join-Path $SRC "$Session.probe1.dat"
 if (-not (Test-Path $raw)) { throw "no raw file to link: $raw" }
 $rawBytes = (Get-Item $raw).Length

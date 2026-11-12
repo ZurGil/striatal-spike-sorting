@@ -45,9 +45,36 @@ def discover_session(session_root: str) -> SessionPaths:
     ks4_output_dir = os.path.join(kilosort_input_dir, "kilosort4")
 
     for p, label in [(probe_dat, "probe1.dat"), (channel_map_json, "channel map json"),
-                      (timestamps_dat, "timestamps.dat"), (ks4_output_dir, "kilosort4 output dir")]:
+                      (ks4_output_dir, "kilosort4 output dir")]:
         if not os.path.exists(p):
             raise FileNotFoundError(f"Missing expected {label}: {p}")
+
+    # timestamps.dat is required for an ordinary session and legitimately ABSENT for a
+    # concatenated one. Nothing in striatal_agent reads it -- it is carried on this
+    # dataclass and validated here so a session staged without it is caught early, since
+    # scripts/build_session_timeline_data.py does need it and runs much later.
+    #
+    # A joint session (two recordings of one day joined into a single raw file, see
+    # WORKFLOW.md STAGE 0) has one timestamps.dat PER PART and none for the whole,
+    # because the Trodes sample counter restarts when Trodes restarts -- and the two
+    # parts' counters OVERLAP, so a concatenated timestamps.dat would be non-monotonic at
+    # the seam and every elapsed time computed from it downstream would be wrong. Writing
+    # one to satisfy this check would be a booby trap, so instead the check is waived when
+    # the concatenation provenance file is sitting beside the sort, which is proof this is
+    # a joint session rather than a mis-staged ordinary one. timestamps_dat is then None,
+    # so anything that tries to use it fails immediately and visibly instead of reading a
+    # fabricated file. The concat timeline builder reads each part's own file.
+    if not os.path.exists(timestamps_dat):
+        import glob
+        concat_prov = [f for f in glob.glob(os.path.join(kilosort_input_dir, "concat_*.json"))]
+        if not concat_prov:
+            raise FileNotFoundError(
+                f"Missing expected timestamps.dat: {timestamps_dat}\n"
+                "If this is a CONCATENATED session it has none by design -- put its "
+                "concat_*.json provenance file next to the sort in "
+                f"{kilosort_input_dir} and this check is waived."
+            )
+        timestamps_dat = None
 
     return SessionPaths(
         session_id=session_id,
