@@ -8428,3 +8428,49 @@ STILL on scratch (168 GiB, confirmed today), so its post-KS half can run there i
 waiting for the rig -- and since the same session was just scored locally, its cluster
 result is a free end-to-end correctness check: same inputs, same code, same unit scores
 expected.
+
+### 5bd.45 — The joint session's review tool is live, and the cluster half proved itself (2026-11-12)
+
+**https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb** — 465 units, the first review tool
+built for a joint session and the first whose raw-bound half ran on RIS.
+
+**The correctness check that mattered.** 20260915_084812_103710_concat had already been
+scored on this PC, so running it again on the cluster was a free end-to-end comparison.
+LSF 762947, 53 minutes, and the consolidated agent report came back **identical**: median
+6.14476495185639 % spikes recovered, the same 155-unit red-flag list, the same tier split
+(459 tier2 / 1 tier1 / 5 tier3). Same inputs, same code, different machine, same science.
+
+**bombcell on the joint session:** 74 GOOD, 148 GOOD+NON-SOMA, 97 MUA, 142 MUA+NON-SOMA,
+4 NOISE. Against bombcell's own original labels the corrected classification promotes 65
+of its NOISE calls to GOOD, which is the same pattern every session has shown and the
+reason the correction exists.
+
+**Two steps failed, for one reason, and it is a joint-session reason.**
+`build_trodes_channel_lookup_session.py` reads the SpikeNTrode XML out of the `.rec`
+header; a concatenated session has no `.rec` at all, so there was nothing to read, and
+`raw_separation_metric_session.py` then failed because it reads that lookup's CSV. Fixed
+by extracting the config from **part 2's** `.rec` (255 KB, 384 SpikeNTrode entries) and
+dropping it in as the concat session's `.trodesconf` -- the two parts of one day share a
+config. Re-run as LSF 763728: 384/384 channels matched, then 465/465 units in 2462 s.
+`ris_submit_postks.sh` now checks for that file up front and names the two steps that
+will fail without it.
+
+**The timeline, which was the step to be careful with.** 207 bins from part 1 and 184
+from part 2, 391 of 20 s, seam exactly on a bin boundary. **670 trial markers** (356 +
+314). No dropped-packet gaps in either part. Part 1's 5.000 s sub-bin tail drops 10,719
+spikes (0.115 %) from the display only. The 37m56s break is in the JSON as
+`real_time_gap_seconds`, not drawn as empty bins.
+
+**Assembled and published.** merge_review_data reported `cluster_points=0, separation=0,
+burst=0, trodes_channel=0` missing -- every field populated for all 465 units. 150 merge
+candidates, the strongest 311/312 (0 um apart, similarity 0.974, CCG dip 0.185, waveform
+r 0.964). 465 `raw_traces` documents pushed to the artifact db in 39 batches of 12 (12 is
+the ceiling: 25 serialises to 1.92 MB against a 1 MiB request limit).
+
+**Two things learned about the build that are not about this session.** The post-KS image
+passed every build-time check and then died on a real node -- numba could not write
+bombcell's `@njit(cache=True)` cache into read-only site-packages -- so a green build is
+not evidence the image runs, and step 3 of the build recipe is not optional. And the
+build job exits 101 even when the push succeeded, because `docker_build(docker.io)` makes
+the builder tag and push a bogus `docker.io/library/docker.io` first; judge it by a
+`digest:` line in the log, never by `bjobs`.
