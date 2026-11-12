@@ -34,6 +34,24 @@ or the flat form
 Units with no ranges are dropped: "kept everything" and "never reviewed" mean the same
 thing and must not produce different files.
 
+WHICH CLOCK THE RANGES ARE IN, AND WHY IT IS CHECKED RATHER THAN ASSUMED
+------------------------------------------------------------------------
+The ranges come from the review tool's "Firing rate across the session" panel, so they
+are in whatever clock `outputs/session_timeline_<session_id>.json` used -- the tool
+plots that file's axis and stamps its ephys_t0_s/ephys_t1_s onto every selection. For
+an ordinary session that is absolute Trodes seconds, which is what sync_pipeline
+expects, and nothing more needs saying.
+
+A CONCATENATED session is the exception. Two recordings joined into one raw file have
+one Trodes sample counter each, and they overlap, so the timeline uses
+`concat_elapsed_seconds` instead (see build_session_timeline_data_concat.py). Ranges
+measured on that axis, written out labelled `trodes_absolute_seconds`, would send every
+trial-inclusion decision for the session to the wrong trials -- silently, since the
+numbers are all plausible. So this script reads the clock from the timeline file rather
+than assuming it, copies its `clock_mapping` into the output, and refuses to write a
+selection whose clock sync_pipeline cannot yet apply unless --force_clock says to.
+Pass --no_timeline_check only if there is genuinely no timeline file for the session.
+
 Usage:
   python write_unit_trial_selection.py <session_id> <rec_root> <input.json> [--ks_subdir kilosort4]
   e.g. python write_unit_trial_selection.py 20260916_110311 F:\\Gil\\Shamir\\20260916_110311.rec \\
@@ -100,6 +118,25 @@ def session_window(doc):
     return {"t0": lo[0], "t1": hi[0]}
 
 
+SYNC_CAN_APPLY = ("trodes_absolute_seconds",)
+TIMELINE_DIR = r"D:\Gil\spike_sorting_agent\outputs"
+
+
+def timeline_clock(session_id):
+    """What clock the review tool was actually plotting, read from its own data file.
+
+    Returns (clock_name, clock_mapping, path) or (None, None, None) when there is no
+    timeline file -- in which case the tool showed no rate panel, so any ranges in hand
+    did not come from one and the caller is on their own.
+    """
+    p = os.path.join(TIMELINE_DIR, "session_timeline_%s.json" % session_id)
+    if not os.path.exists(p):
+        return None, None, None
+    with open(p, "r", encoding="utf-8") as fh:
+        tl = json.load(fh)
+    return tl.get("clock", "trodes_absolute_seconds"), tl.get("clock_mapping"), p
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -110,6 +147,14 @@ def main():
                     help="folder under <session>.kilosort/ holding spike_clusters.npy "
                          "(default kilosort4; use e.g. verdict_review after Phy)")
     ap.add_argument("--source", default="review tool trial_selections export")
+    ap.add_argument("--no_timeline_check", action="store_true",
+                    help="write without reading the session timeline's clock. Only when "
+                         "there is genuinely no timeline file for the session.")
+    ap.add_argument("--force_clock", action="store_true",
+                    help="write the selection even though sync_pipeline cannot apply its "
+                         "clock yet (a concatenated session). The file is stamped with the "
+                         "real clock name, so sync_pipeline refuses it instead of "
+                         "misapplying it -- this keeps the hand work rather than losing it.")
     args = ap.parse_args()
 
     ks_dir = os.path.join(args.rec_root, args.session_id + ".kilosort", args.ks_subdir)
@@ -118,20 +163,53 @@ def main():
     selections = normalise(raw_doc)
     window = session_window(raw_doc)
 
+    # --- which clock are these numbers in? read it, do not assume it -----------
+    clock, mapping, tl_path = timeline_clock(args.session_id)
+    if clock is None:
+        if not args.no_timeline_check:
+            raise SystemExit(
+                "no outputs\\session_timeline_%s.json, so there is no record of which clock "
+                "the review tool was plotting when these ranges were drawn. Build it with "
+                "build_session_timeline_data.py (or _concat.py for a joined session), or pass "
+                "--no_timeline_check if you are certain the ranges are in absolute Trodes "
+                "seconds." % args.session_id)
+        clock, mapping = "trodes_absolute_seconds", None
+        print("--no_timeline_check: assuming absolute Trodes seconds")
+    else:
+        print("clock from %s: %s" % (tl_path, clock))
+    if clock not in SYNC_CAN_APPLY and not args.force_clock:
+        raise SystemExit(
+            "the review tool plotted this session on the '%s' axis, and sync_pipeline can "
+            "only apply ranges in %s.\n\n"
+            "This is a CONCATENATED session: its parts each have their own Trodes clock and "
+            "they overlap, so one absolute axis does not exist. Writing these ranges as "
+            "absolute Trodes seconds would quietly apply them to the wrong trials.\n\n"
+            "The selection itself is fine and worth keeping -- what is missing is the split. "
+            "Each range has to be cut at the seam and handed to the per-part sync run with "
+            "that part's own Bpod file, using clock_mapping in the timeline file. See the "
+            "OPEN_PROBLEM_sync note in outputs/session_registry.json.\n\n"
+            "--force_clock writes the file with clock='%s' so the ranges are not lost; "
+            "sync_pipeline will then refuse it rather than misapply it."
+            % (clock, " or ".join(SYNC_CAN_APPLY), clock))
+
     fp = fingerprint(ks_dir)
     doc = {
         "format": FORMAT,
         "session_id": args.session_id,
-        "clock": "trodes_absolute_seconds",
+        "clock": clock,
+        "clock_source": tl_path,
+        "clock_mapping": mapping,
         "inclusion_rule": "trial_start_inside_range",
         "clustering": fp,
         "written": datetime.datetime.now().isoformat(timespec="seconds"),
         "written_by": "scripts/write_unit_trial_selection.py",
         "source": args.source,
         "note": ("Per-unit stability selection: the time windows during which each listed "
-                 "unit was actually present. Absolute Trodes seconds. A unit not listed "
-                 "here keeps every trial. Read automatically by sync_pipeline from this "
-                 "filename; see sync_pipeline/HOW_TO_RUN.md section 6b."),
+                 "unit was actually present, in the clock named in the 'clock' field above "
+                 "(read from the session's own timeline file, not assumed). A unit not "
+                 "listed here keeps every trial. Read automatically by sync_pipeline from "
+                 "this filename; see sync_pipeline/HOW_TO_RUN.md section 6b. sync_pipeline "
+                 "refuses any clock but trodes_absolute_seconds, by design."),
         # The session's full ephys span, as the review tool measured it. Carried so
         # write_unit_merges.py can express "this merged unit keeps every trial" as a
         # real range when one of its parents was never restricted.

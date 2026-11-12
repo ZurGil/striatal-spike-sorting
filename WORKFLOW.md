@@ -373,6 +373,41 @@ e.g. `F:\Gil\Shamir\20260911_100049.rec`) as CLI args:
    sample indices MUST go through `<session>.timestamps.dat` or the rate curve
    slides relative to the trial ticks by the ephys export offset (87.5134s on
    `20260916_110311`), and the trial ticks come from TTL code 1, not code 0.
+
+   **For a CONCATENATED session use `build_session_timeline_data_concat.py`
+   instead** — same arguments plus `--parts_root` (default `Z:\Gil\Shamir_1`),
+   same output contract, so step 4 needs no change. It exists because a joint
+   session has **no single Trodes clock**: each part has its own
+   `timestamps.dat` and its own sample counter, and those counters *overlap*,
+   so "absolute Trodes seconds" is not a well-defined axis. It reads each
+   part's own `timestamps.dat` and `.DIO`, converts both to seconds elapsed
+   within that part, lays the parts end to end, and declares
+   `clock: "concat_elapsed_seconds"`. The 38-minute real gap is **not** drawn
+   as empty bins (that would read as "the cell went silent"); the seam is put
+   on an exact bin boundary, and the ≤`bin_s` remainder at the end of each
+   non-final part is dropped from the display and counted, rather than drawn
+   as a short bin — a short 208th bin would show a 4× dip right at the seam,
+   which is exactly where someone would look hardest. Everything else
+   (payload offsets, dropped-packet gaps, TTL decoding) is imported from the
+   plain builder, not copied. The part list and the seam come from the
+   concatenation provenance JSON only, never from the folder name.
+
+   **The clock name is load-bearing.** The review tool stamps its axis onto
+   every kept-time-range selection it exports, and
+   `write_unit_trial_selection.py` writes those ranges out for
+   `sync_pipeline` to apply. Ranges measured on `concat_elapsed_seconds` but
+   labelled `trodes_absolute_seconds` would send every trial-inclusion
+   decision for the session to the wrong trials, silently, because all the
+   numbers stay plausible. So `write_unit_trial_selection.py` now **reads the
+   clock out of the timeline file instead of assuming it**, carries its
+   `clock_mapping` into the output, and refuses to write a selection whose
+   clock `sync_pipeline` cannot apply (`--force_clock` writes it anyway with
+   the true clock name stamped, so the hand work is kept and
+   `sync_pipeline`'s own check — which already refuses any clock but
+   `trodes_absolute_seconds` — rejects it rather than misapplying it).
+   It will also now refuse to run if there is no timeline file at all, since
+   then there is no record of what the ranges were drawn against;
+   `--no_timeline_check` is the escape hatch.
 4. **`build_review_html.py <session_id>`** — reads
    `pipeline_review_data_<session_id>.json`, renders
    `outputs/unit_review_pipeline_<session_id>.html`, sets the page's `<title>`

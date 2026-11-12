@@ -8201,3 +8201,121 @@ own Bpod file, carrying the same unit numbering into both. The result is two tri
 sharing one unit space, kept separate with a `part` column or concatenated with trials
 renumbered and the 37m56s gap recorded rather than closed. What must not happen is either
 half being synced against the wrong Bpod file, or anything interpolating across the gap.
+
+### 5bd.43 — The joint sort came back, and 462 of 465 units span both recordings (2026-11-12)
+
+LSF 759350 finished in 1.595 h wall, 0.734 x realtime, inside the 0.69-0.77 band the
+two earlier cluster sorts measured. **465 units (216 good / 249 mua), 16,681,732 spikes
+over 2.172 h = 2134 sp/s.** Kilosort 4.0.24, stock Th_universal=9 / Th_learned=8,
+do_CAR, map A (`yc 920.0..4740.0`, byte-identical to the map the standalone
+20260915_103710 sort used). The split-half waveform extractor ran in the same job:
+108.7 MB, all 465 units, microvolts; one unit (433) has fewer than 20 spikes in a half
+and was written with its true counts, 17/17.
+
+**Fetched without scp, as the rule now says.** Everything but `pc_features.npy` by
+streaming tar (58 s), then `pc_features.npy` (4.0 GB) by `dd` over ssh (56 s). All 28
+files present at identical names and sizes; md5 equal on `spike_times`,
+`spike_clusters`, `amplitudes`, `templates`, `pc_features`, `cluster_KSLabel` and
+`unit_waveforms.npz`. The 15,360-byte `du` difference is the remote directory inodes,
+not data — worth noting because it looks like a mismatch and is not.
+
+**The sort behaves as one recording.** `spike_times` is monotonic, min 1, max
+234,557,910 — 53 samples from the end of the file, so nothing was lost off the tail.
+Part 1 (below sample 124,350,000) holds 9,283,188 spikes = 2240 sp/s; part 2 holds
+7,398,544 = 2014 sp/s. Population rate in 10 s bins either side of the seam: 2215 sp/s
+in part 1's last bin, 2056 sp/s in part 2's first, against a bin-to-bin scatter of
+2056-2456 sp/s over the surrounding two minutes. No step at the seam.
+
+**And the thing the join was for, measured: 462 of the 465 units fire in BOTH
+recordings — 99.4 %, including 214 of the 216 good units.** Only unit 73 is
+part-1-only; only 151 and 346 are part-2-only. Over those 462 units the median
+log2(rate in part 2 / rate in part 1) is -0.03, with the 10th and 90th percentiles at
+-1.50 and +1.30 and 72 % inside a factor of two. So the units are not merely present on
+both sides of the gap, they fire at the same rate on both sides.
+
+**What joining bought, stated against the alternative.** The standalone sort of part 2
+alone found 447 units (222 good / 225 mua), 7,900,062 spikes over 1.02 h. The joint sort
+finds 465 over 2.172 h, 462 of them spanning both halves. Joining did NOT inflate the
+unit count — it is the same population watched for twice as long, which is what should
+happen and is itself more evidence the probe did not move. Had we sorted the halves
+apart we would have had ~900 unit ids for ~465 neurons, each neuron's spikes split
+across two files, and no way to know which id in one file was which in the other.
+Part 2's spike count inside the joint sort is 6.3 % below its standalone count, which is
+ordinary between two sorts that learn their templates independently.
+
+**Bookkeeping on Z, since a joint session has no natural home.** The results went to
+`Z:\Gil\Shamir_1\20260915_084812_103710_concat.rec\20260915_084812_103710_concat.kilosort\`
+— deliberately the same shape as a real session folder, so every `--rec`-scoped script
+works on it unchanged. It is not a Trodes folder and there is no `.rec` file inside, so
+a script that needs one fails loudly, which is the right behaviour until the sync
+problem is solved. Three documents were written so nobody meets these folders without
+knowing which sort is the record: a `README_THIS_IS_A_JOINT_SESSION.txt` in the concat
+folder (the seam rule, the trim, what is in here, what is still open), and a
+`WHICH_SORT_IS_WHICH.txt` in each part — part 1's saying it must never be sorted alone
+and recording the 116.7 s trim, part 2's saying its standalone sort is SUPERSEDED and
+that the two sets of unit ids do not correspond. The 180 GB joint raw file is not kept
+on Z: it is reproducible exactly from the two parts with two commands, which the README
+gives.
+
+**The local raw file was rebuilt, not downloaded.** The post-KS pipeline memory-maps the
+raw file, so it has to exist locally. Rather than pull 180 GB off the cluster, part 1's
+first 95,500,800,000 bytes were read off Z and part 2's already-staged local copy
+appended — after spot-checking that local copy md5-equal to Z's at five 16 MiB offsets
+first, which is the check that would have caught a stale or torn staging copy. The four
+parallel worker roots then get the result by **hardlink**, not copy; that is how
+`par\w1..w4` have shared one 84 GB raw file all along (link count 5 on the file), and it
+is the only reason four workers fit on F at all.
+
+**Two scripts stopped hardcoding a session id.** `setup_pipeline_workers.ps1` and
+`run_pipeline_workers.sh` both had `SESSION=20260915_103710` baked in. That is the kind
+of default that quietly runs one session's whole pipeline against another session's raw
+file, so the session id is now a required parameter with no default on both. The setup
+script also now refuses a raw file whose size is not a multiple of 768 (2 bytes x 384
+channels) — the same guard `ris_submit_session.sh` has, because a truncated raw file
+sorts successfully and is quietly wrong — and treats `timestamps.dat` as optional,
+since a joint session has one per part and none for the whole.
+
+**The timeline step needed real new code, and the reason is a clock.** The review tool's
+firing-rate panel reads `session_timeline_<sid>.json`, which the plain builder writes on
+the absolute Trodes clock via `timestamps.dat`. A joint session has one such file per
+part and none for the whole, because the sample counter restarts when Trodes restarts —
+and the two parts' absolute seconds *overlap*, so "absolute Trodes seconds" is not a
+well-defined axis here. `scripts/build_session_timeline_data_concat.py` reads each
+part's own `timestamps.dat` and `.DIO`, converts both to seconds elapsed within that
+part, lays the parts end to end, and declares `clock: "concat_elapsed_seconds"`. It
+imports the plain builder's payload-offset, gap-finding and timestamp-map functions
+rather than copying them, and it takes the seam and the part list from the concatenation
+provenance JSON only — never from the folder name.
+
+Two display decisions worth recording because both alternatives mislead exactly where
+someone would look hardest. The 37m56s real gap is **not** drawn as empty bins: 38
+minutes of blank would eat a third of the panel and read as "the cell went silent"
+rather than "nothing was recorded", so it is reported in the JSON and the seam is put on
+an exact bin boundary instead. And each non-final part contributes only whole bins —
+part 1 spans 4145.0 s, which is 207 bins of 20 s plus 5 s left over, and those 5 s
+(~11 k of 16.7 M spikes, 0.07 %) are left out of the display and counted in the output.
+A short 208th bin would draw a 4x dip right at the seam; folding its spikes into bin 207
+would inflate that bin by a quarter.
+
+**The clock name is load-bearing, and is now checked rather than assumed.** This is the
+part that would have bitten us weeks later. The review tool stamps its own axis
+(`ephys_t0_s`/`ephys_t1_s`) onto every per-unit kept-time-range selection it exports,
+and `write_unit_trial_selection.py` wrote those ranges out as
+`clock: trodes_absolute_seconds` for `sync_pipeline` to apply with
+`inclusion_rule: trial_start_inside_range`. Hand it ranges measured on
+`concat_elapsed_seconds` under that label and every trial-inclusion decision for the
+session goes to the wrong trials — silently, because all the numbers stay plausible.
+So `write_unit_trial_selection.py` now reads the clock out of the session's own timeline
+file instead of assuming it, carries that file's `clock_mapping` into the output, and
+refuses to write a selection whose clock `sync_pipeline` cannot apply. `--force_clock`
+writes it anyway with the true clock name stamped, so the hand work is kept rather than
+lost and `sync_pipeline`'s own check — which already refuses any clock but
+`trodes_absolute_seconds`, and which was not modified — rejects it instead of
+misapplying it. It also now refuses to run with no timeline file at all, since then
+there is no record of what the ranges were drawn against; `--no_timeline_check` is the
+escape hatch. Checked against both existing sessions (20260915_103710, 20260916_110311):
+both still read `trodes_absolute_seconds` and still pass.
+
+Nothing in `sync_pipeline` was touched. The split-at-the-seam work Gil flagged is still
+open and still deferred until after the verdicts; what changed is that the deferral is
+now enforced by a check instead of remembered by whoever reads the registry.

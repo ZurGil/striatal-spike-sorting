@@ -3,30 +3,41 @@
 # each batch a fresh python process (WORKFLOW.md 1e -- the pipeline dies around unit
 # 20-24 inside a single long-lived process regardless of free RAM).
 #
-#   run_worker.sh <worker-index> <first-batch> <last-batch>
+#   run_pipeline_workers.sh <worker-index> <first-batch> <last-batch> <session-id>
 #
-# Paths use FORWARD slashes on purpose. Windows Python accepts them, and the previous
+# The session id is REQUIRED and has no default. It used to be hardcoded to
+# 20260915_103710, which is the kind of default that quietly runs one session's
+# batches against another session's raw file.
+#
+# Paths use FORWARD slashes on purpose. Windows Python accepts them, and an early
 # version of this script was written through a bash heredoc, which halved the doubled
 # backslashes and left "\${SESSION}" -- an escaped dollar -- so every batch was handed
 # a root path containing the literal text ${SESSION} and failed instantly.
 #
 # Per-batch stdout goes to a log, not /dev/null: the first run of this hid the real
-# error behind an exit code.
+# error behind an exit code. Override LOGDIR in the environment to put them elsewhere.
 set -uo pipefail
 
 W="${1:?worker index}"
 B0="${2:?first batch}"
 B1="${3:?last batch}"
+SESSION="${4:?session id, e.g. 20260915_084812_103710_concat}"
 
-SESSION=20260915_103710
-ROOT="F:/Gil/Shamir/par/w${W}/${SESSION}.rec"
-PY="/d/conda_envs/kilosort/python.exe"
+PAR="${PAR:-F:/Gil/Shamir/par}"
+ROOT="${PAR}/w${W}/${SESSION}.rec"
+PY="${PY:-/d/conda_envs/kilosort/python.exe}"
 SCRIPT="D:/Gil/spike_sorting_agent/scripts/run_pipeline_batch_session.py"
-LOGDIR="C:/Users/Adam/AppData/Local/Temp/claude/D--Gil-spike-sorting-agent/8186c809-76fa-41ff-bbca-59d44125e5fc/scratchpad/worker_logs"
+LOGDIR="${LOGDIR:-D:/Gil/spike_sorting_agent/outputs/worker_logs/${SESSION}}"
+
+if [ ! -d "${ROOT}" ]; then
+    echo "worker ${W}: no such root ${ROOT} -- run setup_pipeline_workers.ps1 -Session ${SESSION} first"
+    exit 2
+fi
 
 mkdir -p "${LOGDIR}"
 echo "worker ${W}: batches ${B0}..${B1}"
 echo "  root ${ROOT}"
+echo "  logs ${LOGDIR}"
 
 FAILED=""
 for B in $(seq "${B0}" "${B1}"); do
@@ -44,7 +55,7 @@ for B in $(seq "${B0}" "${B1}"); do
     fi
 done
 
-N=$(ls "F:/Gil/Shamir/par/w${W}/${SESSION}.rec/${SESSION}.kilosort/kilosort4/agent_processed/batch_reports/" 2>/dev/null | grep -c report)
+N=$(ls "${ROOT}/${SESSION}.kilosort/kilosort4/agent_processed/batch_reports/" 2>/dev/null | grep -c report)
 echo "worker ${W} DONE $(date -u +%H:%M:%SZ) -- ${N} batch reports in this root"
 if [ -n "${FAILED}" ]; then
     echo "worker ${W} FAILED BATCHES:${FAILED}"
