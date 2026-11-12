@@ -1,0 +1,118 @@
+{
+  "_readme": [
+    "Provenance for the concatenated 2026-09-15 recording. Trodes was stopped and restarted",
+    "that day, so the session exists on disk as two .rec folders; they are one session in",
+    "every sense that matters, and this file records exactly how they were joined so that",
+    "spike times from the joint sort can be mapped back to each part's own clock and to its",
+    "own Bpod file. Sample indices are 30 kHz samples of 384 int16 channels (768 bytes a",
+    "sample). Nothing here is inferred from the file names: every number was measured."
+  ],
+
+  "concat_session_id": "20260915_084812_103710_concat",
+  "rat": "Shamir",
+  "date": "2026-09-15",
+  "sampling_rate_hz": 30000,
+  "n_channels": 384,
+  "bytes_per_sample": 768,
+
+  "parts": [
+    {
+      "order": 1,
+      "session": "20260915_084812",
+      "source": "Z:\\Gil\\Shamir_1\\20260915_084812.rec\\20260915_084812.kilosort\\20260915_084812.probe1.dat",
+      "source_bytes": 98188818432,
+      "source_samples": 127850024,
+      "source_seconds": 4261.667,
+      "wall_clock_start": "2026-09-15T08:48:12",
+      "wall_clock_end": "2026-09-15T09:59:14",
+      "used_bytes": 95500800000,
+      "used_samples": 124350000,
+      "used_seconds": 4145.0,
+      "offset_in_concat_samples": 0,
+      "trimmed": {
+        "dropped_seconds": 116.667,
+        "dropped_samples": 3500024,
+        "cut_at_second": 4145.0,
+        "why": [
+          "At t = 4150 s (69.17 min) 82 of the 384 channels jump above three times the",
+          "healthy spike-band noise level and stay there for the remaining 112 s. The",
+          "affected channels alternate -- 10, 12, 14 .. 32, then 59, 61, 63 .. 105 -- which",
+          "is a connector/ground signature rather than anything biological, and is very",
+          "probably what forced Trodes to be restarted. The cut is at 4145 s, five seconds",
+          "before the fault, so no part of it reaches the sorter: Kilosort estimates",
+          "whitening and drift over the whole file, so 112 s of 82 bad channels would",
+          "degrade the other 2.16 h rather than just itself."
+        ]
+      },
+      "bpod": "Z:\\Gil\\Shamir_1\\bpod\\Shamir01_Dual2AFC_nat_Sep15_2026_Session1.mat"
+    },
+    {
+      "order": 2,
+      "session": "20260915_103710",
+      "source": "Z:\\Gil\\Shamir_1\\20260915_103710.rec\\20260915_103710.kilosort\\20260915_103710.probe1.dat",
+      "source_bytes": 84639715584,
+      "source_samples": 110207963,
+      "source_seconds": 3673.599,
+      "wall_clock_start": "2026-09-15T10:37:10",
+      "wall_clock_end": "2026-09-15T11:38:24",
+      "used_bytes": 84639715584,
+      "used_samples": 110207963,
+      "used_seconds": 3673.599,
+      "offset_in_concat_samples": 124350000,
+      "trimmed": null,
+      "bpod": "Z:\\Gil\\Shamir_1\\bpod\\Shamir01_Dual2AFC_nat_Sep15_2026_Session2.mat"
+    }
+  ],
+
+  "seam": {
+    "sample_index": 124350000,
+    "second": 4145.0,
+    "byte_offset": 95500800000,
+    "real_time_gap_seconds": 2276,
+    "real_time_gap_text": "37 min 56 s between 09:59:14 and 10:37:10",
+    "warning": [
+      "The seam is a real discontinuity in time, not in the data array. Anything that bins",
+      "over time, computes a rate, or looks for drift must treat sample 124350000 as a",
+      "break of 37m56s and never interpolate across it. One Kilosort batch straddles the",
+      "seam and its spikes should be checked for a rate artefact after sorting."
+    ]
+  },
+
+  "total": {
+    "bytes": 180140515584,
+    "samples": 234557963,
+    "seconds": 7818.599,
+    "hours": 2.172
+  },
+
+  "evidence_that_joining_is_sound": {
+    "channel_map": [
+      "Both parts carry the same Trodes channelmap, and the probe map built from each is",
+      "byte-identical: map A, 384 channels, xc 2426-2474, yc 920-4740."
+    ],
+    "probe_did_not_move": [
+      "Spike-band (300-6000 Hz, after CAR) per-channel RMS fingerprints over all 384",
+      "channels: part 1 at 35 min against part 2 at 30 min gives r = 0.9157. The",
+      "within-recording controls are r = 0.9275 (part 1, 1 min vs 35 min) and r = 0.8328",
+      "(part 2, start vs end), so across the 38-minute gap the channels see the same thing",
+      "as well as they do within a single recording. Best depth lag inside part 2 is 0 rows."
+    ],
+    "gain": "0.018311105685598315 in both parts, read from each .rec header's spikeScalingToUv."
+  },
+
+  "how_to_map_results_back": [
+    "A spike at concat sample s belongs to part 1 if s < 124350000, with part-1 sample s;",
+    "otherwise it belongs to part 2, with part-2 sample s - 124350000. The same offset",
+    "applies to the DIO trial markers, which are read from each .rec separately and then",
+    "shifted, and to the two Bpod files, whose trials are renumbered continuously with the",
+    "gap recorded rather than closed."
+  ],
+
+  "written": "2026-11-11",
+  "supersedes": [
+    "The standalone sort of 20260915_103710 (LSF 741761, 447 units, review tool",
+    "https://claude.ai/artifact/QreYaMjGtujiE17m2k9zXf) covers only part 2 and has no",
+    "verdicts in it, so nothing hand-made is lost by replacing it. It stays on Z as a",
+    "second opinion; the joint sort's unit ids do not correspond to its."
+  ]
+}

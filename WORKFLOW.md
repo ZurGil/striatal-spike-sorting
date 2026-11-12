@@ -59,6 +59,72 @@ everything below assumes this order.
 
 ---
 
+## STAGE 0 — before anything else: is this date one session or two?
+
+**Gil's rule, 2026-11-11: when a date has more than one Trodes recording, find out what
+happened before sorting anything. They probably need to be joined.** Two recordings on a
+day usually means something forced him to stop Trodes and restart — so they are one
+session, and sorting them separately gives the same neuron two unit ids and splits its
+spikes across two outputs, for no reason but how the folders happened to land. Do not
+assume two is the limit; check for three or more.
+
+```
+python scripts/find_multi_recording_days.py            # every rat on Z
+python scripts/find_multi_recording_days.py --rat Shamir_1
+```
+
+It names each date with more than one recording, with durations, the real-time gap and
+that date's Bpod files. It does not decide — only the person who was in the room knows
+whether a 90-minute gap was a restart or a planned second block.
+
+**How to examine a flagged date, in the order that settles it:**
+
+1. **The gap.** Minutes means a crash and restart. Over an hour, ask.
+2. **Did the probe move?** Correlate the **spike-band (300-6000 Hz, after CAR) per-channel
+   RMS fingerprint** over all 384 channels: end of one recording against start of the
+   next — and *always* against within-recording controls from the same two files, because
+   an r with nothing to compare it to means nothing. On 2026-09-15 it was r=0.92 across a
+   38-minute gap where the within-recording controls were 0.93 and 0.83, so the channels
+   were seeing the same cells and joining was sound.
+3. **Is either edge damaged?** Same fingerprint against a healthy mid-recording reference.
+   This is what found the real story of 2026-09-15: at t=4150 s, 82 of 384 channels went
+   above 3x noise in an *alternating* pattern (ch 10, 12, 14 … then 59, 61, 63 …) — a
+   connector or ground signature, not biology, and almost certainly what forced the
+   restart. The last 112 s were trimmed before joining, because Kilosort fits whitening
+   and drift over the whole file, so a bad tail degrades the other 2.16 h as well.
+
+**If they are one session:** concatenate in time order, trim any damaged edge, record the
+seam sample index in a provenance file, and sort once.
+`outputs/concat_20260915_084812_103710.json` is the template, and
+`RESEARCH_LOG.md` 5bd.42 is the worked example. Build the file on scratch as
+`head -c <trim> part1 > joint` then `dd if=part2 | ssh compute1 "cat >> joint"`, and verify
+the total byte count, its divisibility by 768, and md5 on 16 MiB blocks either side of the
+seam before submitting.
+
+Two traps worth naming:
+
+- **The seam is a break in real time, not in the array.** Nothing may bin, rate-average or
+  drift-fit across it. One Kilosort batch straddles it; check its spikes for a rate
+  artefact after sorting.
+- **Bpod multiplicity is a weaker signal than the `.rec` count and must never be used
+  alone.** Begin_1 has up to ten Bpod sessions on a training day with one recording or
+  none.
+
+**Known as of 2026-11-11:** Shamir_1 2026-09-15 (joined, sorted as
+`20260915_084812_103710_concat`), and Begin_1 2026-08-03 (97 min gap), 2026-08-13
+(86 min) and 2026-08-17 (4 min) — the three Begin_1 dates are still unexamined, and two of
+their durations are estimated from `.rec` size because those recordings were never
+exported, so their gaps are triage numbers rather than measurements.
+
+**The sync stage does not yet understand a joint session.** `scripts/sync_session.py` and
+`sync_pipeline.process_session` take one `--rec` folder and one `--bpod_file`. The fix,
+for when it is needed: unit ids are global, trial times are per part — split the joint
+`spike_times` at the seam (below it, part 1 with its index unchanged; at or above it,
+part 2 with the seam subtracted), then run the existing per-recording sync twice, once per
+`.rec` with its own DIO and its own Bpod file, carrying the same unit numbering into both.
+
+---
+
 ## STAGE 1 — Kilosort4 output -> agent pipeline -> review tool
 
 ### 1a. Prerequisites

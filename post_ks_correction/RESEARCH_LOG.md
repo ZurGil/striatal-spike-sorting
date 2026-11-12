@@ -8089,3 +8089,115 @@ default. The channel map is the strongest version of the comparison he asked for
 staged map is **byte-identical** to the map the 20260915_103710 sort actually used, so
 it is map A (yc 920-4740, xc 2426-2474) by identity and not by inference. Map B would
 have read yc 1740-5560 and sorted the whole session 820 um deep.
+
+### 5bd.42 — 2026-09-15 is one session, not two, and the data says what interrupted it (2026-11-11)
+
+Gil asked whether 20260915_084812 was another session from the same day, and said that
+when that happens it is usually because something forced him to stop Trodes and start
+again — so they should probably be sorted together. He also asked whether Bpod had one
+session that day or two. Both questions have measured answers, and the second one turned
+out to point straight at the cause.
+
+**The two recordings.** Part 1 `20260915_084812` runs 08:48:12 to 09:59:14 (71.0 min,
+127,850,024 samples). Part 2 `20260915_103710` runs 10:37:10 to 11:38:24 (61.2 min,
+110,207,963 samples). The gap between them is **37 min 56 s**.
+
+**Bpod has two sessions that day, one per recording.**
+`Shamir01_Dual2AFC_nat_Sep15_2026_Session1.mat` was written at 09:59 and `_Session2.mat`
+at 11:39, matching the two recordings' end times to the minute. 2026-09-15 is the ONLY
+date in `Z:\Gil\Shamir_1\bpod` with a Session2, which independently says this is the only
+interrupted day in the Shamir batch.
+
+**The probe did not move, so joining is sound.** Spike-band (300-6000 Hz, after CAR)
+per-channel RMS fingerprints across all 384 channels, part 1 at 35 min against part 2 at
+30 min: **r = 0.9157**. The within-recording controls are 0.9275 (part 1, 1 min vs 35 min)
+and 0.8328 (part 2, start vs end), and the best depth lag within part 2 is 0 rows. So
+across the 38-minute gap the channels see the same thing as well as they do inside a
+single recording. The objections recorded in 5bd.39 against joint sorting were written for
+cross-day concatenation, where the animal is unplugged and the probe re-settles; none of
+them survive a 38-minute interruption within one day.
+
+The first attempt at this measurement was wrong and worth recording as a method note. Run
+on unfiltered data it gave r = 0.0197 across the gap, which reads as "the probe moved" —
+but the within-session control was also 0.05, so the measure itself was broken.
+Unfiltered RMS is dominated by LFP and slow drift, which changes with brain state between
+recordings and carries no channel fingerprint. Band-pass to the spike band first, and
+always compute the within-recording control before interpreting the across-gap number:
+without it an r is uninterpretable in either direction.
+
+**What forced the restart, found in the data.** At **t = 4150 s (69.17 min)** into part 1,
+82 of the 384 channels jump above three times the healthy spike-band noise level and stay
+there for the remaining 112 s. Narrowed to the second: r against a healthy reference is
+0.92 at 4149 s and 0.11 at 4150 s. The affected channels *alternate* — 10, 12, 14 … 32,
+then 59, 61, 63 … 105, then 154, 156, 158 … — spanning yc 1300-4640 µm, with no
+saturation and a normal total variance. Alternating channels over most of the probe is a
+connector, ground or reference signature, not biology. Part 2 at 30 min has **zero** such
+channels and percentiles identical to part 1's healthy stretch (5/50/95 of 708/826/1004
+against 709/822/1041), so whatever was done in those 38 minutes fixed it.
+
+So the join trims part 1 at **4145 s**, five seconds before the fault, dropping 116.7 s.
+Trimming rather than keeping matters because Kilosort fits whitening and drift over the
+whole file: 112 s of 82 bad channels would have degraded the other 2.16 h rather than only
+itself.
+
+**What Gil asked for instead, and why concatenation beats it.** He asked whether part 2
+could be run assuming part 1's units already exist, so it continues with the same units.
+That is a real technique — SpikeInterface's `sortingcomponents.matching` (`wobble`,
+`circus-omp-svd`) takes fixed templates and finds their spikes in new data. It is the
+worse choice here for one reason: frozen templates make part 2 blind to any unit that was
+not in part 1, and after a connector fault and 38 minutes some units will have appeared or
+changed. A joint sort learns templates over both halves, lets the drift correction see the
+seam, and still delivers the thing he actually wanted — one unit id spanning both
+recordings. It also keeps the session comparable to the other 29, which all go through
+plain KS 4.0.24. Template matching stays available as a cross-check.
+
+**The joint file.** 180,140,515,584 bytes = 234,557,963 samples = **2.172 h**, seam at
+sample **124,350,000**. Built on scratch with `head -c` for the trimmed part 1 and
+`dd | ssh "cat >>"` for part 2. The append dropped once — `Connection reset by peer` after
+39.4 GB, no orphan this time — and was resumed by truncating to a clean 1 MiB boundary
+32 MiB below the drop and continuing with `dd skip=37560`, at 93.6 MB/s, with ssh
+keepalives added so a quiet moment cannot kill it again. Verified by exact total size,
+divisibility by 768, and 16 MiB md5 against the sources on Z at five places: part 1 start,
+the last block before the seam, the first block after it, a block straddling the resume
+splice, and the tail. All five equal.
+
+Provenance is in `outputs/concat_20260915_084812_103710.json`, which self-checks: the two
+parts' sample and byte counts sum to the total, and the total divides by 768. It also
+records the rule for mapping a joint spike back to its own part and clock, which is the
+thing that will be needed weeks from now.
+
+**Submitted** as LSF 759350, RUN on compute1-exec-360, stock 9.0/8.0, and the job's own log
+printed `yc 920.0..4740.0` — map A, correct for September.
+
+A side benefit worth noticing: the waveform extractor splits each unit's spikes into two
+halves by time, and for this session the halves fall either side of the seam. So a unit's
+two half-waveforms are a same-neuron pair across a 38-minute gap **by construction** —
+exactly the calibration point between a within-session split-half and the 1-day 15/16 pair
+that the matcher had nothing for.
+
+**Gil's standing rule, now mechanical.** He asked that from now on every date with
+multiple recordings be examined first, and noted there might be more than two on a day.
+`scripts/find_multi_recording_days.py` sweeps every rat on Z and reports each such date
+with durations, the real-time gap and that date's Bpod files, plus a WORKFLOW.md STAGE 0
+section with the three measurements that settle it. The sweep found **four** dates:
+Shamir_1 2026-09-15 (now joined), and **Begin_1 2026-08-03 (97 min gap), 2026-08-13
+(86 min) and 2026-08-17 (4 min)**. The Begin_1 dates are unexamined and that rat is not in
+the current batch; two of those durations are estimated from `.rec` size because the
+recordings were never exported, and Begin_1's `.rec`-to-`.probe1.dat` ratio ranges
+1.1146-2.1507 across its exported sessions, so those two gaps are triage numbers and not
+measurements. The 4-minute one is short under any ratio in that range and is almost
+certainly a crash and restart.
+
+One correction to our own bookkeeping that falls out of this: Shamir_1 has 31 `.rec`
+folders over **30 distinct dates**. The batch is 30 sessions recorded as 31 files, and
+everything that says "31 sessions" should say 30.
+
+**Open, flagged by Gil and not solved here.** The sync stage was written for one recording
+per session: `scripts/sync_session.py` and `sync_pipeline.process_session` take one
+`--rec` and one `--bpod_file`. The shape of the fix, recorded so it is not re-derived —
+unit ids are global, trial times are per part. Split the joint `spike_times` at the seam,
+then run the existing per-recording sync twice, once per `.rec` with its own DIO and its
+own Bpod file, carrying the same unit numbering into both. The result is two trial tables
+sharing one unit space, kept separate with a `part` column or concatenated with trials
+renumbered and the 37m56s gap recorded rather than closed. What must not happen is either
+half being synced against the wrong Bpod file, or anything interpolating across the gap.
