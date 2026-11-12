@@ -74,6 +74,22 @@ if [ -z "${AFTER}" ] && [ ! -s "${SDIR}/kilosort4/spike_times.npy" ]; then
     exit 1
 fi
 
+# The Trodes config, needed by step 5 (the channel lookup) and therefore by step 6b,
+# which reads step 5's CSV. stage_session_to_ris.ps1 extracts it from the .rec header and
+# ships it -- but a CONCATENATED session has no .rec at all, so for those it has to be
+# taken from either part and dropped in by hand. Warn rather than refuse: the other four
+# steps, bombcell included, do not need it and are worth running regardless.
+if [ ! -s "${SDIR}/${SESSION}.rec/${SESSION}.trodesconf" ] \
+   && [ ! -s "${SCRATCH}/${SESSION}/${SESSION}.trodesconf" ]; then
+    echo "WARNING: no ${SESSION}.trodesconf anywhere." >&2
+    echo "  Steps 5 (trodes channel lookup) and 6b (raw separation metric, which reads" >&2
+    echo "  step 5's CSV) WILL FAIL. The other four steps are unaffected." >&2
+    echo "  For a joint session, extract it from either part's .rec and put it at" >&2
+    echo "    ${SDIR}/${SESSION}.rec/${SESSION}.trodesconf" >&2
+    echo "  (the two parts of one day share a config; checked for 20260915 on 2026-11-12)." >&2
+    echo >&2
+fi
+
 # Same truncation check as the sort's submit script: the raw file must be a whole number
 # of 384-channel int16 samples. A short file scores every unit against the wrong data.
 BYTES=$(stat -c %s "${DATA}")
