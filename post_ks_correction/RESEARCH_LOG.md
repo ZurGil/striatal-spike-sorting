@@ -7997,3 +7997,95 @@ sessions and is 87% full; both sessions' waveforms are now safely on storage2 an
 raw copies are finally free to go — but that is Gil's call to make, and the list goes to him
 first. The `kilosort4/` outputs on storage2 stay regardless: 6.5 GB a session, and they are
 the result.
+
+### 5bd.41 — Clearing RIS, and the one result that was only there (2026-11-11)
+
+Gil asked whether the results were all on Z and whether there was any reason to keep
+files on RIS. Answering it properly turned up one thing that was not on Z at all, and
+a transfer measurement that changes how every future fetch should be done.
+
+**The one result that existed only on RIS.** `storage2/.../kilosort4/20260916_110311`
+was the cluster's OWN sort of that session — Kilosort 4.0.24, 2026-11-10/11, 449 units,
+25,348,358 spikes — and it had never been fetched. Z holds the curated 4.1.7 sort
+instead, 472 units and 25,229,992 spikes, which is the one Gil's verdicts are keyed to.
+So "all the results are on Z" was true of everything except the file that would have
+been lost by acting on it. Checking before deleting is the whole reason the question
+was worth answering slowly.
+
+It is now at
+`...20260916_110311.kilosort/kilosort4_cluster_4.0.24_NOT_CURATED/`, under Gil's
+instruction to make very clear it is a spare. Two files do that: the folder's own
+`README_FIRST_SPARE_SORT_DO_NOT_USE_BY_DEFAULT.txt`, and `WHICH_SORT_IS_WHICH.txt` one
+level up, where someone browsing the session will actually meet it. Both lead with the
+same point: the sort of record is `kilosort4/`, it carries hand-made per-unit verdicts
+in `cluster_info.tsv`, and those verdicts are the most expensive object in the folder
+because they are hours of human curation that no amount of GPU reproduces. And both
+spell out the trap — the two sets of unit ids do not correspond, 118,366 spikes and 23
+units apart, so unit 137 in one is not unit 137 in the other, and anything carried
+across by id is silently wrong while looking entirely plausible. Why keep it at all:
+the other 30 sessions are being sorted with 4.0.24, so this session's sort of record is
+the odd one out of the 31, and if a batch-wide analysis ever needs one Kilosort version
+throughout, this is the copy that belongs in it. Re-making it costs a 290 GB upload and
+2.7 h of GPU, which is why it is worth 6.5 GB of archive.
+
+**scp is the slow path on this link, and it is not close.** The fetch started as `scp`
+and managed **1.5 MB/s** — 1.1 GB in twelve minutes, which is an hour for 6.5 GB. Two
+measured tests after killing it: `ssh compute1 "dd if=... bs=1M count=1024" > /dev/null`
+moved 1 GiB in **6.0 s** (179 MB/s, pure link), and the same into Z took **15.0 s**
+(71 MB/s, link plus SMB write). A streaming
+`ssh compute1 'tar cf - .' | tar xf -` of the whole directory averaged 11.5 MB/s —
+dragged down by per-file SMB writes, but still 8x scp. The upload of the next session,
+`dd | ssh "cat >"`, is running at **98 MB/s**. The rule from this: scp has no business
+on this link in either direction. It has now cost an hour today and four hours
+yesterday.
+
+**Nothing was deleted until it had been checked file by file.** For the spare sort:
+25/25 files identical in size to the cluster copy, md5 equal on `spike_times.npy`,
+`spike_clusters.npy`, `templates.npy` and `run_provenance.json`, and the last spike
+lands 13 samples from the end of the raw file — the same signature that tied the
+curated sort to the scratch copy yesterday. For 20260915_103710: all 28 files present
+on Z at identical sizes, md5 equal on four sort files and both waveform files. For
+`ks_curated_z` and `waveforms_curated_z`: md5 equal on all five files against Z.
+
+Then deleted, all of it ours and nobody else's (`stat -c %U` checked `zur` on every
+path before `rm`, and `/scratch1/fs1/akepecs/zur/` contained only our two
+directories): **352 GB of scratch** (80 GB + 272 GB of raw uploads) and **9.1 GB of
+storage2** (both kilosort4 outputs, ks_curated_z, waveforms_curated_z). RIS is down to
+**1.8 MB** — `code/`, `build/` and `logs/`. `code/` has to stay: every `bsub` points
+the container at a script inside it, so clearing it would break the next sort rather
+than save space.
+
+**A bug in the registry, from writing it through a shell.** Five strings in the
+20260915_103710 entry read `Shamir_1\x8260915_103710.rec`. The mechanism: `\20260915`
+was written through something that interprets escapes, `\202` was consumed as an octal
+escape producing byte 0x82, and `\review` lost its `\r` to a carriage return the same
+way. Repaired by putting the consumed characters back — and then, because a repaired
+path that is merely plausible is worth nothing, each of the five was checked against
+the disk with `os.path.exists`. All five exist.
+
+This is the fourth instance of the same hazard, and nothing about it is new: the
+project's own note already says that a **quoted** heredoc halves doubled backslashes
+here and already records `\202` being read back as an octal escape, which is exactly
+what damaged `WORKFLOW.md` once before. The repair attempt then walked into it a fifth
+time — `"\\202"` written through `<<'PYEOF'` arrived in the file as `"\202"`, so the
+first pass reported zero matches and looked like a logic error rather than a quoting
+one, until `cat -A` showed the file. The rule was already right and was simply not
+followed: a file containing backslashes gets written with the Write tool, never through
+a heredoc of any kind, quoted or not.
+
+**Next session chosen and verified: 20260915_084812.** It is the same-day sibling of
+the session just sorted — 08:48 against 10:37, both about an hour, back to back — which
+makes it the tightest cross-session pair in the whole batch: wider than a within-session
+split-half and narrower than the 1-day 15/16 pair, which is exactly the calibration
+point the matcher has nothing for. It is also the cheapest remaining upload, 98 GB
+against the 250-397 GB that is typical for the other 28.
+
+The pre-upload checks Gil asked to be standing: `probe1.dat` is 98,188,818,432 bytes =
+127,850,024 samples of 384 int16 channels = 71.0 min, and divides evenly by 768;
+`timestamps.dat` present; DIO present with all six Din channels and Din6 carrying
+7,137 bytes, so the Bpod sync word is complete; gain read from this session's own `.rec`
+header as 0.018311105685598315, matching the sibling rather than assumed from the
+default. The channel map is the strongest version of the comparison he asked for — the
+staged map is **byte-identical** to the map the 20260915_103710 sort actually used, so
+it is map A (yc 920-4740, xc 2426-2474) by identity and not by inference. Map B would
+have read yc 1740-5560 and sorted the whole session 820 um deep.
