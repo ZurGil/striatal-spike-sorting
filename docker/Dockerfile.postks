@@ -1,0 +1,90 @@
+# The post-Kilosort half of the pipeline, for the WashU RIS Compute1 platform.
+#
+# WHY THIS IS A SECOND IMAGE AND NOT A LAYER ON THE KILOSORT ONE
+# --------------------------------------------------------------
+# They cannot share an interpreter. Dockerfile.kilosort4 is pinned to python 3.9 /
+# numpy 1.26.4 because kilosort 4.0.24 is, and that pin is load-bearing: every session
+# already sorted on the Neuropixels PC was sorted with it, and the whole point of the
+# cluster image is to produce output comparable to those. The post-KS half runs on
+# python 3.11 / numpy 2.4.6 -- bombcell 0.89 and pandas 3.0.5 require it, and that is
+# the combination D:\conda_envs\bombcell has used for every session scored so far.
+# Forcing one image would mean moving one of those two pins, and both are the reason
+# the results are comparable session to session.
+#
+# Two images also match how the work is actually shaped. Kilosort wants a GPU host for
+# ~1 x realtime; nothing here touches a GPU, and holding a V100 idle for the hours
+# bombcell and the agent pipeline take would be a waste of a scarce resource. So it is
+# two LSF jobs, the second chained to the first with -w "done(<jobid>)", sharing the
+# staged raw file on scratch. See scripts/ris_submit_postks.sh.
+#
+# WHY IT HAS TO RUN ON THE CLUSTER AT ALL
+# ---------------------------------------
+# Same reason the waveform extractor shares the Kilosort job (see ris_run_session.sh):
+# the raw .dat is on scratch for a few days and then purged. The agent pipeline memory-
+# maps it, bombcell reads raw waveforms from it, and both raw_* metrics detect spikes in
+# it. Run them later on the Neuropixels PC and each session costs a ~250 GB download and
+# then fights the recording rig for memory and disk. Run them here and they cost the
+# minutes the data is already sitting there.
+#
+# Build it on the cluster (no docker client on the submission host or on the rig):
+#   bash scripts/ris_build_postks_image.sh
+#
+# RIS requirements this image satisfies:
+#   - /bin/sh is present (LSF's Docker integration requires it)
+#   - no ENTRYPOINT (the command comes from bsub)
+#
+# The lab's own code is NOT baked in -- it is mounted from
+# /storage2/fs1/akepecs/Active/Gil_Zur/code at run time, exactly as the Kilosort image
+# does it. That keeps the image free of lab code so it can live in a public Docker Hub
+# repository, and makes editing a script cost nothing instead of a rebuild and a push.
+
+FROM python:3.11-slim-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    MPLBACKEND=Agg \
+    PYTHONIOENCODING=utf-8
+
+# procps: without ps, a job that is stuck cannot be diagnosed from inside the container.
+# libgomp1: numba and scipy's threaded kernels want it and the slim image has no compiler
+# toolchain to supply it.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends procps libgomp1 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Pinned to EXACTLY what D:\conda_envs\bombcell holds on the Neuropixels PC, read off
+# that env on 2026-11-12. Not "a recent bombcell" -- the quality metrics are thresholded
+# downstream by corrected_classification_session.py against values calibrated on
+# 20260901_085606, and a bombcell that computes a metric differently moves every verdict
+# without announcing it.
+RUN pip install --no-cache-dir \
+        numpy==2.4.6 \
+        scipy==1.17.1 \
+        pandas==3.0.5 \
+        matplotlib==3.11.1 \
+        numba==0.67.0 \
+        joblib==1.5.3 \
+        tqdm==4.70.0 \
+        bombcell==0.89
+
+# Assert the pins AT BUILD TIME, so a job cannot discover a wrong bombcell four hours in.
+# This is the same guarantee Dockerfile.kilosort4 gives for the sorter: a green build
+# means the versions are right, not merely that nothing errored.
+RUN python -c "\
+import numpy, scipy, pandas, matplotlib, bombcell, sys;\
+v = lambda m: getattr(m, '__version__', '?');\
+assert sys.version_info[:2] == (3, 11), sys.version;\
+assert v(numpy) == '2.4.6', v(numpy);\
+assert v(scipy) == '1.17.1', v(scipy);\
+assert v(pandas) == '3.0.5', v(pandas);\
+assert v(matplotlib) == '3.11.1', v(matplotlib);\
+print('pins OK:', sys.version.split()[0], v(numpy), v(scipy), v(pandas), v(matplotlib))"
+
+# bombcell prints a unicode checkmark on import. On Windows that is a hard crash unless
+# PYTHONIOENCODING is set in the SHELL before the interpreter starts (see
+# run_bombcell_session.py's docstring); here PYTHONIOENCODING is set above and the Linux
+# default is UTF-8 anyway, so the import is exercised at build time to prove it.
+RUN python -c "import bombcell; print('bombcell imports clean')"
+
+WORKDIR /data

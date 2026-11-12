@@ -18,12 +18,22 @@ import pandas as pd
 SESSION_ID = sys.argv[1]
 REC_ROOT = sys.argv[2]
 
-TRODESCONF_STANDALONE_GUESS = rf"{REC_ROOT}\{SESSION_ID}.trodesconf"  # rarely present
-REC_FILE = rf"{REC_ROOT}\{SESSION_ID}.rec"
-CHANMAP_JSON = rf"{REC_ROOT}\{SESSION_ID}.kilosort\{SESSION_ID}_custom_neuropixels_map.json"
-TEMPLATES = rf"{REC_ROOT}\{SESSION_ID}.kilosort\kilosort4\kilosort_original\templates.npy"
-SPIKE_CLUSTERS = rf"{REC_ROOT}\{SESSION_ID}.kilosort\kilosort4\kilosort_original\spike_clusters.npy"
-OUT_CSV = rf"D:\Gil\spike_sorting_agent\outputs\unit_trodes_channel_lookup_{SESSION_ID}.csv"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from striatal_agent.paths import out_path
+
+# A standalone .trodesconf is "rarely present" on this PC, where the .rec is always at
+# hand to read the header out of. On the cluster it is the ONLY route: scratch holds
+# probe1.dat and the map json, never the 300 GB .rec. stage_session_to_ris.ps1 therefore
+# extracts this file here and ships it with the data, for the same reason it generates
+# the probe map here -- the thing needed to make it cannot exist on a compute node.
+TRODESCONF_STANDALONE_GUESS = os.path.join(REC_ROOT, f"{SESSION_ID}.trodesconf")
+REC_FILE = os.path.join(REC_ROOT, f"{SESSION_ID}.rec")
+CHANMAP_JSON = os.path.join(REC_ROOT, f"{SESSION_ID}.kilosort",
+                            f"{SESSION_ID}_custom_neuropixels_map.json")
+_KSO = os.path.join(REC_ROOT, f"{SESSION_ID}.kilosort", "kilosort4", "kilosort_original")
+TEMPLATES = os.path.join(_KSO, "templates.npy")
+SPIKE_CLUSTERS = os.path.join(_KSO, "spike_clusters.npy")
+OUT_CSV = out_path(f"unit_trodes_channel_lookup_{SESSION_ID}.csv")
 
 
 def get_conf_text():

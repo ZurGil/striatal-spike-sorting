@@ -139,6 +139,38 @@ if ($LASTEXITCODE -ge 8) { throw "robocopy failed with exit code $LASTEXITCODE (
 # The map JSON, wherever it was built
 Copy-Item $mapJson -Destination (Join-Path $dst (Split-Path $mapJson -Leaf)) -Force
 
+# The Trodes config, extracted from the .rec's own header.
+#
+# build_trodes_channel_lookup_session.py maps each unit's peak channel to the Trodes
+# channel number, and reads the SpikeNTrode XML out of the first few hundred KB of the
+# .rec file to do it. On this PC the .rec is always at hand; on a compute node it never
+# is -- scratch holds probe1.dat, not the 300 GiB .rec. So extract it here and ship it,
+# for the same reason the probe map is built here: the input it needs cannot exist on
+# the node. A few hundred KB against a 300 GiB copy.
+$recFile = Join-Path $srcSession "$SessionId.rec"
+$conf = Join-Path $dst "$SessionId.trodesconf"
+if (Test-Path $recFile) {
+    $fs = [System.IO.File]::OpenRead($recFile)
+    try {
+        $buf = New-Object byte[] 5000000
+        $n = $fs.Read($buf, 0, $buf.Length)
+        $text = [System.Text.Encoding]::ASCII.GetString($buf, 0, $n)
+    } finally { $fs.Close() }
+    $end = $text.IndexOf("</Configuration>")
+    if ($end -lt 0) { $end = $text.IndexOf("</SpikeConfiguration>") }
+    if ($end -lt 0) {
+        Write-Host "      WARNING: no </Configuration> in the first 5 MB of $SessionId.rec --"
+        Write-Host "               the Trodes channel lookup will have to run on this PC."
+    } else {
+        $tag = if ($text.IndexOf("</Configuration>") -ge 0) { "</Configuration>" } else { "</SpikeConfiguration>" }
+        [System.IO.File]::WriteAllText($conf, $text.Substring(0, $end + $tag.Length))
+        Write-Host "      trodesconf extracted ($([math]::Round((Get-Item $conf).Length/1KB,1)) KB)"
+    }
+} else {
+    Write-Host "      no $SessionId.rec beside the sort -- no trodesconf to extract."
+    Write-Host "      (a CONCATENATED session has none by design; use either part's)"
+}
+
 # The DIO files, for the sync step
 if (Test-Path $srcDio) {
     $dstDio = Join-Path $dst "DIO"

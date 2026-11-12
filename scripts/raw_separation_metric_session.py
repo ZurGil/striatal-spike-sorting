@@ -12,16 +12,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from striatal_agent.config import AgentConfig
 from striatal_agent.session import discover_session
 from striatal_agent.raw_io import RawReader, highpass_filter
+from striatal_agent.paths import out_path
 
 SESSION_ID = sys.argv[1]
 REC_ROOT = sys.argv[2]
 SESSION_ROOT = rf"{REC_ROOT}"
 
-OUT = r"D:\Gil\spike_sorting_agent\outputs"
-CLASSIFICATION_JSON = rf"{OUT}\corrected_classification_{SESSION_ID}_with_waveforms.json"
-TRODES_LUT = rf"{OUT}\unit_trodes_channel_lookup_{SESSION_ID}.csv"
-OUT_PATH = rf"{OUT}\raw_separation_full_{SESSION_ID}.npy"
-PROGRESS_PATH = rf"{OUT}\raw_separation_full_{SESSION_ID}_progress.txt"
+CLASSIFICATION_JSON = out_path(f"corrected_classification_{SESSION_ID}_with_waveforms.json")
+TRODES_LUT = out_path(f"unit_trodes_channel_lookup_{SESSION_ID}.csv")
+OUT_PATH = out_path(f"raw_separation_full_{SESSION_ID}.npy")
+PROGRESS_PATH = out_path(f"raw_separation_full_{SESSION_ID}_progress.txt")
 
 FS = 30000
 N_CHUNKS = 10

@@ -29,9 +29,12 @@ SESSION_ID = sys.argv[1]
 REC_ROOT = sys.argv[2]          # e.g. F:\Gil\Shamir\20260911_100049.rec
 GAIN_TO_UV = float(sys.argv[3])
 
-KS_DIR = rf"{REC_ROOT}\{SESSION_ID}.kilosort\kilosort4\kilosort_original"
-RAW_FILE = rf"{REC_ROOT}\{SESSION_ID}.kilosort\{SESSION_ID}.probe1.dat"
-SAVE_PATH = rf"D:\Gil\spike_sorting_agent\outputs\bombcell_results_{SESSION_ID}"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from striatal_agent.paths import out_path
+
+KS_DIR = os.path.join(REC_ROOT, f"{SESSION_ID}.kilosort", "kilosort4", "kilosort_original")
+RAW_FILE = os.path.join(REC_ROOT, f"{SESSION_ID}.kilosort", f"{SESSION_ID}.probe1.dat")
+SAVE_PATH = out_path(f"bombcell_results_{SESSION_ID}")
 
 param = bombcell.get_default_parameters(
     kilosort_path=KS_DIR,

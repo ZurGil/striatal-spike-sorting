@@ -15,19 +15,21 @@ import sys
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, r"D:\Gil\spike_sorting_agent")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from striatal_agent.acg_tools import violation_ratio
 from striatal_agent.raw_io import ChannelGeometry, footprint_channels
 from striatal_agent.structural_score import footprint_concentration_ratio, footprint_flatness_ratio, peak_trough_width_ms
 from striatal_agent.config import AgentConfig
+from striatal_agent.paths import out_path
 
 SESSION_ID = sys.argv[1]
 REC_ROOT = sys.argv[2]
 
-KS_DIR = rf"{REC_ROOT}\{SESSION_ID}.kilosort\kilosort4\kilosort_original"
-QM_PATH = rf"D:\Gil\spike_sorting_agent\outputs\bombcell_results_{SESSION_ID}\templates._bc_qMetrics.csv"
-CHANNEL_MAP_JSON = rf"{REC_ROOT}\{SESSION_ID}.kilosort\{SESSION_ID}_custom_neuropixels_map.json"
-OUT_CSV = rf"D:\Gil\spike_sorting_agent\outputs\corrected_classification_{SESSION_ID}.csv"
+KS_DIR = os.path.join(REC_ROOT, f"{SESSION_ID}.kilosort", "kilosort4", "kilosort_original")
+QM_PATH = out_path(f"bombcell_results_{SESSION_ID}", "templates._bc_qMetrics.csv")
+CHANNEL_MAP_JSON = os.path.join(REC_ROOT, f"{SESSION_ID}.kilosort",
+                                f"{SESSION_ID}_custom_neuropixels_map.json")
+OUT_CSV = out_path(f"corrected_classification_{SESSION_ID}.csv")
 
 NOISE_PARAMS = dict(
     maxNPeaks=2, maxNTroughs=1, maxScndPeakToTroughRatio_noise=0.8,
