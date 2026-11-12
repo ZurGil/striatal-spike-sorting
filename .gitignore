@@ -31,3 +31,7 @@ outputs/*_cache_*.pkl
 outputs/verdicts/
 *.dat
 *.bin
+# Per-batch stdout from the parallel agent-pipeline workers. One file per batch per
+# session, useful only while a run is live or immediately after a failure; the facts
+# that matter end up in agent_report.json and the consolidated report.
+outputs/worker_logs/

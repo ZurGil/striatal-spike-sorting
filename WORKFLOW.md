@@ -239,12 +239,41 @@ invocation.
   spatial logic) is simpler and correct once you accept the merge-list caveat
   above.
 
-Scripts used for this (scratchpad, not in the repo — recreate from this
-description if needed): `plan_batches_v2.py` (simple sequential split by
-`BATCH_SIZE`), `run_batch.py` (imports `run_pipeline` directly, runs one batch,
-copies `agent_report.json` + `cluster_*.tsv` to a batch-specific output folder
-before the next batch overwrites them), `run_all_batches.sh` (loops batches
-sequentially, logs start/done per batch to a status file for polling).
+**The three scripts that actually do this, all in the repo** (an earlier generation
+of them lived only in a scratchpad and was lost — don't recreate, use these):
+
+```
+# 1. four worker roots. The raw .probe1.dat is HARDLINKED into each (one copy on
+#    disk, link count N+1); kilosort4/ is copied per root so nothing a batch
+#    writes can reach across roots. Session id is required, no default.
+powershell scripts\setup_pipeline_workers.ps1 -Session <sid> -N 4
+
+# 2. one worker per shell, in the background. 47 batches over 4 workers:
+bash scripts/run_pipeline_workers.sh 1  0 11 <sid>
+bash scripts/run_pipeline_workers.sh 2 12 23 <sid>
+bash scripts/run_pipeline_workers.sh 3 24 35 <sid>
+bash scripts/run_pipeline_workers.sh 4 36 46 <sid>
+#    ~1m45s per 10-unit batch, plus a one-time ~4.3 GB kilosort_original build
+#    per root on its first batch. Per-batch logs land in
+#    outputs/worker_logs/<sid>/.
+
+# 3. bring the per-worker archives together, THEN consolidate:
+python scripts/gather_worker_batches.py <sid> F:\Gil\Shamir\<sid>.rec [--dry_run]
+python scripts/consolidate_batches_session.py <sid> F:\Gil\Shamir\<sid>.rec
+```
+
+Step 3 is a separate script because `consolidate_batches_session.py` globs **one**
+root's `batch_reports/`, and the archives are spread across four. It refuses to
+gather an incomplete or overlapping set, and checks three things the by-hand
+version did not: that every batch number appears exactly once across the workers
+(a missing batch is ten units silently absent — the consolidated report is simply
+short, and nobody counts), that the union of units the reports cover is *exactly*
+the session's unit ids (the same question from the other end, which is what
+catches an off-by-one in the ranges rather than a missing file), and that every
+worker's `spike_clusters.npy` is byte-identical to the session root's (a worker
+set up from a different sort would score different units under the same ids, and
+nothing downstream would ever notice). `--dry_run` reports without copying, which
+is also how you poll a run in progress.
 
 **Open question, not yet resolved**: is the crash a property of this specific
 environment (a resource ceiling on background-task processes) or something that
