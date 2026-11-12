@@ -7891,3 +7891,109 @@ not over-read later.
 Also: the localhost:8765 server for the archived review tool was stopped, along with the
 leftover verdict-comparison task. Bringing the review tool back is one command, recorded
 in the bundle's README.
+
+### 5bd.40 — 20260915 sorted on the cluster and reviewed end-to-end, and the waveforms rescued off scratch before it was cleaned
+
+The first session taken through the whole pipeline with Kilosort running on the RIS
+cluster and the post-sort half running here. 447 units, published review tool,
+everything on Z. Details worth keeping, in the order they bit.
+
+**The orphaned upload.** The scp that had been running since 15:10 was not dead. Killing
+the background task killed only the PowerShell wrapper; `scp.exe` kept going as an orphan
+and had crawled to 4 MB/s — about four more hours for the remaining 61 GB. scp has no
+resume, so the obvious fix throws away 23 GB. Instead: kill the orphan, truncate the
+destination back to a clean 1 MiB boundary 16 MiB below where it stopped (in case the kill
+left a torn block), and append the remainder with `dd bs=1M skip=N | ssh compute1 "cat >> dst"`.
+71 MB/s, 14 minutes. The pipeline was proved on a 10 MiB chunk first — md5 equal on both
+ends — before 57 GiB went through it. Verified afterwards three ways: exact size, the size
+divides evenly into 110,207,963 samples of 384 channels, and md5 on three 10 MiB chunks
+including one straddling the splice.
+
+Lesson for the next upload: `[killed]` in a task log says the wrapper died, not that the
+work stopped. Check for the real process.
+
+**The sort.** LSF 741761, exec-357, container `zurgil/kilosort4:4.0.24-cu121`, one GPU,
+41m58s for 1.02 h of data — realtime factor 0.686. Stock thresholds 9.0/8.0 per the
+batch-wide decision. 447 units, 222 with good refractory periods. The job's own log printed
+`yc 920.0..4740.0` before starting, which is the check that earns its keep: that is map A,
+the correct frame for September, and map B would have read 1740–5560.
+
+**What was nearly thrown away.** Scratch still held the 290 GB raw copy of 20260916 from the
+night before, and that session had never had split-half waveforms extracted because the
+extractor was only written today. Cleaning scratch as routine housekeeping would have turned
+minutes of compute into a 290 GB re-upload, on the single worst session to lose it on: the
+curated one, the anchor for everything cross-session. So `ris_submit_waveforms.sh` now runs
+the extractor alone against a sort that already exists, taking the Kilosort directory as an
+explicit argument rather than deriving it from the session id.
+
+That argument is not pedantry. 20260916 has two sorts: the curated 4.1.7 one from September
+that Gil's verdicts are keyed to, and the cluster's own 4.0.24 one from 2026-11-10. They
+differ by about 118,000 spikes, so their unit numbering does not correspond, and pointing the
+extractor at the wrong one yields a file that describes different units without saying so.
+Three checks tied the September sort to the file on scratch: same byte count
+(290,370,270,720), same gain in the `.rec` header, and its last spike lands **13 samples from
+the end of the file**. The last one is what actually settles it — a sort run against a
+different export would not sit flush against this file's end.
+
+Result: 20260916 has waveforms for all 472 units keyed to the curated numbering, and
+20260915 has them for all 447, both with no unit below the spike floor. The one-day pair the
+matcher needs now exists on both sides.
+
+**Why the local half ran from F and not Z.** The first pipeline batch, run straight off Z,
+took 8 minutes — 45 batches would be six hours. It is not compute: the recovery sweep scans
+thousands of small windows per unit (7,741 candidates for a single unit in batch 0), and
+small random reads over SMB are latency-bound. The same batch from F took **1m15s**, 6.4x
+faster. Staging the `.kilosort` folder plus DIO and timestampoffset is 85 GB and 14 minutes,
+which pays for itself in the first three batches.
+
+**Parallelism, and the race that makes it non-trivial.** `run_pipeline` writes
+`agent_report.json` and `cluster_<label>.tsv` at FIXED names, and `run_pipeline_batch_session.py`
+archives them immediately afterwards. Two batches sharing a session root therefore race, and
+the loser files the other batch's units under its own batch number — silently, no error, a
+report that looks complete and describes the wrong units. The fix is one session root per
+worker. The 79 GB raw file is hardlinked rather than copied (same NTFS volume, read-only to
+the pipeline, verified: link count 5 on one inode), so four roots cost 2.1 GB each instead of
+79 GB. Consolidation needed no change at all because it globs `batch_*_report.json`, so the
+per-worker archives gather back together by copying them into one place.
+
+Four workers, 60–90 s per batch each — the same as one batch alone, so the speedup is real
+and not divided throughput. 43 batches in about 11 minutes, 29 GB RAM still free.
+
+**The heredoc bit again.** The first launch of all four workers failed instantly. The runner
+had been written through a bash heredoc, which halved the doubled backslashes, turning
+`\\${SESSION}` into `\${SESSION}` — an *escaped dollar* — so every batch was handed a root
+path containing the literal text `${SESSION}`. This is the hazard already recorded in memory,
+and it still got me, because the script looked right in the editor. Two changes: the runner is
+written with the Write tool and uses forward slashes throughout (Windows Python accepts them),
+and per-batch stdout goes to a log file instead of `/dev/null`. The `/dev/null` was the worse
+mistake — it hid the real error behind a bare exit code and cost a round trip to diagnose
+something the first line of output would have shown.
+
+**Results.** 447 units, consolidated 447 records with 0 duplicates, 434 tier2 / 10 tier3 /
+3 tier1. The `cluster_*.tsv` files carry 437 rows rather than 447 because the 10 tier3 units
+get per-unit records and no score columns; that matched 20260911 (8 of 466 the same way)
+before it was accepted as normal, which is the only reason it did not look like data loss.
+
+bombcell raw: 18 GOOD / 105 MUA / 107 NOISE / 217 NON-SOMA. After the project's calibrated
+thresholds: 72 GOOD, 157 GOOD+NON-SOMA, 85 MUA, 126 MUA+NON-SOMA, 7 NOISE. The raw 18 is not
+a number to quote anywhere; it is what uncalibrated bombcell says about striatal data.
+
+Session: 3691 s, 314 trials from DIO code 1, no dropped-packet gaps anywhere between first
+and last sample, median unit mean rate 2.62 Hz. 150 merge candidates within 60 µm.
+
+**Published** at https://claude.ai/artifact/QreYaMjGtujiE17m2k9zXf with
+`capabilities = {"db": {}, "downloads": true}` and `data/merge_candidates.json` alongside —
+both confirmed present on the live version after publishing, because a page published without
+the db capability looks fine and cannot save a single verdict.
+
+**On Z.** The sort, the waveforms, the full `agent_processed` and `kilosort_original`, and a
+`review/` bundle in the same layout as 20260916's: the page, its data file, and every input
+needed to rebuild it. `verdicts/` is deliberately empty and the README says so in its first
+line, because this session has not been reviewed yet — an archive that looks finished and
+contains no decisions is worse than one that admits what is missing.
+
+**Still open.** Nothing has been deleted from RIS. Scratch holds 330 GB across the two
+sessions and is 87% full; both sessions' waveforms are now safely on storage2 and Z, so the
+raw copies are finally free to go — but that is Gil's call to make, and the list goes to him
+first. The `kilosort4/` outputs on storage2 stay regardless: 6.5 GB a session, and they are
+the result.
