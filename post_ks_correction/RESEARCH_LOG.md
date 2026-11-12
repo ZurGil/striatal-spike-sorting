@@ -8474,3 +8474,117 @@ not evidence the image runs, and step 3 of the build recipe is not optional. And
 build job exits 101 even when the push succeeded, because `docker_build(docker.io)` makes
 the builder tag and push a bogus `docker.io/library/docker.io` first; judge it by a
 `digest:` line in the log, never by `bjobs`.
+
+## 5bd.46 — Popper 20261112: the first session put through the whole cluster pipeline from the day it was recorded, and the map check that nearly passed for the wrong reason  (2026-11-12)
+
+Gil asked for today's session to be copied to Z and, if the export was finished, taken
+through the whole route in one go: upload, Kilosort, review tool, results back to Z. This
+is the first time the pipeline has been run on a session the same day it was recorded
+rather than on a backlog session, which is what §5bd.20's unit-of-work principle was
+written for.
+
+**The session.** Popper `20261112_082028`, recorded 08:20:28 to 13:03, 4 h 43 m. Trodes
+finished exporting at 15:21. Complete and self-consistent before anything was moved:
+`probe1.dat` is 391,485,372,672 bytes = exactly 509,746,579 samples of 384-channel int16,
+and `timestamps.dat` agrees on that same count. Only `Trodes.exe` itself was running, no
+exporter, and the sizes had been stable for minutes.
+
+**THE MAP CHECK, AND WHY THE FIRST VERSION OF IT WAS NOT GOOD ENOUGH.** Gil's standing
+rule is to compare the resulting channels against the map already used for the session
+before committing a sort to them. The first check compared the exported
+`channelmap_probe1.dat` — and found today's 4,608-byte pad-location body byte-identical
+to 20261110's and 20261111's, which looked like a clean pass.
+
+It was the right answer from the wrong evidence. That file carries only COORDINATES. A
+change in which *hardware channel* feeds which ntrode would not necessarily move a single
+byte of it, and that is precisely the change that sorts a session on the wrong sites while
+every number still looks plausible. Gil then said the thing that forced the better check:
+*"notice that this session should have different channel map from the other sessions."*
+
+Redone against the fingerprint `channel_map_history.py` uses — per ntrode, the nested
+`SpikeChannel`'s `hwChan` **plus** `coord_ml`/`coord_ap`/`coord_dv` — read out of each
+recording's own header:
+
+| session | fingerprint | `coord_dv` span |
+|---|---|---|
+| Popper 20261112 (today) | `2e360c196cae03cc` | 620..4440 um |
+| Popper 20261111 | `2e360c196cae03cc` | 620..4440 |
+| Popper 20261110 | `2e360c196cae03cc` | 620..4440 |
+| Popper 20261109 | `2e360c196cae03cc` | 620..4440 |
+| Popper trodesconf on Z (20261026) | `2e360c196cae03cc` | 620..4440 |
+| Shamir 20260915 / 20261023 ("map A") | `ad898e43216224a6` | 920..4740 |
+| Shamir 20261028 ("map B") | `c4f75a4452027f93` | 100..3920 |
+
+So Gil was right and the labels in `channel_map_history.md` are Shamir-only: **Popper has
+a third map**, 300 um off map A and 520 um off map B. Both are the silent-depth-shift kind
+of error. Within Popper the map has been stable since the Oct 26 config — all four Popper
+days share one fingerprint — which is what cross-session comparison of these sessions
+needs. The map that went to the sort was built from TODAY's own channel file (384 channels,
+yc 620..4440, matching today's header exactly) and verified md5-identical on the cluster,
+`470c05375ea263b449c292a17fc94b62`.
+
+Lesson worth keeping: **the exported pad-location file is not sufficient evidence of a
+channel map.** Fingerprint the `.rec` header, hwChan included. `channel_map_history.py` is
+hardcoded to Shamir, which is why no written record existed for Popper to check against.
+
+**Two transfers at once, which is why this took 38 minutes and not three hours.** The
+archive (F to Z) and the upload (F to scratch) both read from F but bottleneck on different
+things — SMB write versus the WashU link — so they were pointed at DIFFERENT files: the
+436 GB `.rec`, which the cluster does not need, went to Z while the 391 GB `probe1.dat`
+went to the cluster. Measured: the upload ran at **173 MB/s** sustained, 2,267 s for
+391 GB, far better than the 98 MB/s of §5bd's earlier `dd | ssh` run; robocopy dropped to
+~40 MB/s while sharing F's read bandwidth and recovered to ~118 MB/s once the upload
+finished. F's read ceiling is therefore around 210 MB/s and it was the real constraint.
+
+Verified before anything was queued on it: both sides exactly 391,485,372,672 bytes,
+`dd` exit 0, and **nine spread 1 MiB blocks identical**, including the last MiB, which is
+the one that catches a truncated transfer.
+
+**A sizing bug caught before it cost a GPU.** `ris_submit_postks.sh` asked for a fixed
+112 GB, from a measurement on `20260915_084812_103710_concat`: 10 units per worker,
+2.17 h, 16-20 GB RSS each. That number is not a constant — a batch process holds the raw
+snippets for its units' spikes, so it scales with session DURATION as well as units. At
+4.72 h, 10 units per worker wants ~40 GB each, 160 GB for four, against a request of 112.
+The job would have been reaped hours in, *after* the GPU half had already been paid for.
+
+Both knobs now derive from the session's own length, the raw file serving as the clock
+(384ch x int16 x 30 kHz). The invariant is **unit-hours per worker**: 10 x 2.17 = 21.7 is
+the product that measured 16-20 GB, so `BATCH = 22 / hours`, clamped to [2, 10]. The
+property to preserve when editing this: it returns BATCH=10 for the session it was
+measured on, and gives 4 for today. `PER_PROC_GB` is deliberately 32 and not 20 because
+above 2.2 h the linear scaling is INFERRED, not measured, so the headroom covers being
+wrong by half. Memory is not scarce here — 37 of 41 exec hosts carry >=502 GB (`lshosts`),
+so 144 GB costs nothing in queue time while an OOM costs the whole job.
+
+**Queued 16:16.** Job **769960** (sort + split-half waveforms, GPU, stock thresholds
+Th_universal=9.0 / Th_learned=8.0 for batch uniformity) RUN on compute1-exec-358; job
+**769961** (post-KS, 5 cores, 144 GB, no GPU, 4 workers x 4 units) PEND on
+`done(769960)`, which is the correct state and not a stuck job.
+
+**Two gaps found while looking around, neither blocking today.**
+
+1. `20261109_092303` is on F only — 238 GB, raw `.rec`, never exported and never archived
+   to Z. It is the one hole in the recent run, and it shares Popper's map.
+2. `Z:\Gil\Popper\bpod\` is **empty**. The sort and the review tool do not need it —
+   `build_session_timeline_data.py` takes trial markers straight from the DIO, by design,
+   "no Bpod, no sync" — but the sync stage does, for today and for every Popper session.
+
+**The map history now exists for Popper too, which is why the gap above was invisible.**
+`channel_map_history.py` was hardcoded to Shamir, so "map A" and "map B" in
+`channel_map_history.md` had always meant Shamir's maps with nothing saying so — and that
+is exactly the ambiguity that made the first check here look like a pass. The script now
+takes `--rat` (Shamir / Popper / Begin, the same explicit F-vs-Z folder mapping
+`archive_session_when_exported.py` uses, because the two drives spell the animals
+differently), and the written record says in its own first lines that **labels are per
+rat**: Popper's map A is not Shamir's map A.
+
+Written to `Z:\Gil\Popper\channel_map_history.{json,md}`: **one map across all four Popper
+sessions**, `coord_dv` 620..4440 um in 192 steps, fingerprint `55698a66f4e9`. Shamir
+re-runs unchanged — 2 maps over 31 sessions, 28 + 3, same spans as the existing record.
+
+One fix the run itself forced: a session being archived at that moment holds an exclusive
+write lock on its destination, so reading Z's copy of `20261112_082028.rec` failed with
+`PermissionError` while robocopy had it open. `find_recs()` now keeps BOTH copies of a
+session and tries them in turn, archive first; F's copy read fine and the header is
+identical either way. Worth having permanently — the natural time to run this script is
+right after a session lands, which is exactly when its archive copy is locked.

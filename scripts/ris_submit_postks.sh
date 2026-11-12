@@ -22,12 +22,30 @@
 # the scarce resource and CPU slots are not. Two jobs also means a post-KS failure costs
 # only the post-KS job, with the sort already safe on storage2.
 #
-# SIZING, MEASURED ON THE RIG
-# ---------------------------
+# SIZING, MEASURED ON THE RIG AND THEN SCALED BY SESSION LENGTH
+# -------------------------------------------------------------
 # Each agent-pipeline batch process peaks at 16-20 GB RSS (measured 2026-11-12 on
-# 20260915_084812_103710_concat, a 180 GB / 2.17 h joint session). PARALLEL x 24 GB is
-# therefore the memory the job actually needs, and asking for it here is the whole
-# difference from running it on the 64 GB rig, where four at once got reaped.
+# 20260915_084812_103710_concat, a 180 GB / 2.17 h joint session, at 10 units per
+# process). PARALLEL x 24 GB is therefore the memory that session actually needed, and
+# asking for it is the whole difference from running it on the 64 GB rig, where four at
+# once got reaped.
+#
+# But that number is not a constant: what a batch process holds is the raw snippets for
+# its units' spikes, so it grows with the session's DURATION as well as with the units
+# per process. A 4.7 h session has roughly twice the spikes per unit of a 2.2 h one, and
+# 10 units per process there would want ~40 GB each -- 160 GB for four, against a request
+# of 112. The job would be reaped hours in, after the GPU half had already been paid for.
+#
+# So the two knobs are derived from the session's own length instead of hardcoded. The
+# invariant is UNIT-HOURS PER PROCESS: 10 units x 2.17 h = 21.7 is the product that
+# measured 16-20 GB, so BATCH is set to keep that product roughly constant. Note what
+# this gives for the session it was measured on -- 22/2.17 = 10 units, the batch size
+# that was actually proven there -- which is the property to preserve when editing this.
+#
+# PER_PROC_GB is deliberately 32 and not 20: above 2.2 h the linear scaling is INFERRED,
+# not measured, so the headroom covers being wrong by half. Memory is not the scarce
+# resource here -- 37 of the 41 exec hosts carry 502 GB or more (lshosts, 2026-11-12), so
+# a 144 GB request costs nothing in queue time, while an OOM costs the whole job.
 
 set -euo pipefail
 
@@ -41,8 +59,11 @@ QUEUE="general"
 
 PARALLEL=4                     # concurrent batch processes
 CORES=$(( PARALLEL + 1 ))      # one spare for bombcell's threads and the shell itself
-MEM="112GB"                    # PARALLEL x 24 GB + headroom; see SIZING above
+PER_PROC_GB=32                 # peak RSS allowed per batch process; see SIZING above
+UNIT_HOURS=22                  # units x session-hours per process -- the measured invariant
 WALLTIME=2880                  # minutes
+
+MEM="$(( PARALLEL * PER_PROC_GB + 16 ))GB"
 
 SCRATCH="/scratch1/fs1/akepecs/zur"
 STORAGE="/storage2/fs1/akepecs/Active/Gil_Zur"
@@ -98,6 +119,16 @@ if [ $(( BYTES % (2 * 384) )) -ne 0 ]; then
     exit 1
 fi
 
+# Units per batch process, from the session's own duration -- see SIZING at the top.
+# The raw file IS the clock here: 384 channels x int16 at 30 kHz, so its length gives the
+# recorded hours without needing the .rec or the timestamps file.
+SAMPLES=$(( BYTES / (2 * 384) ))
+HOURS_X10=$(( SAMPLES * 10 / (30000 * 3600) ))      # tenths of an hour, integer shell only
+[ "${HOURS_X10}" -lt 1 ] && HOURS_X10=1
+BATCH=$(( UNIT_HOURS * 10 / HOURS_X10 ))
+[ "${BATCH}" -gt 10 ] && BATCH=10                   # 10 is the largest batch ever measured
+[ "${BATCH}" -lt 2 ] && BATCH=2                     # below 2, per-process startup dominates
+
 export LSF_DOCKER_VOLUMES="${STORAGE}:${STORAGE} /scratch1/fs1/akepecs:/scratch1/fs1/akepecs"
 
 DEPEND=()
@@ -111,7 +142,8 @@ echo "  queue      ${QUEUE}  cores ${CORES}  mem ${MEM}  walltime ${WALLTIME} mi
 echo "  data       ${DATA}  (${BYTES} bytes)"
 echo "  session    ${SDIR}"
 echo "  gain_to_uV ${GAIN}"
-echo "  parallel   ${PARALLEL} batch processes"
+echo "  length     ${SAMPLES} samples = $(( HOURS_X10 / 10 )).$(( HOURS_X10 % 10 )) h"
+echo "  parallel   ${PARALLEL} batch processes x ${BATCH} units each (${PER_PROC_GB} GB budget apiece)"
 [ -n "${AFTER}" ] && echo "  chained    waits for done(${AFTER})"
 echo "  steps      1) agent pipeline  2) consolidate  3) bombcell"
 echo "             4) corrected classification  5) trodes lookup  6) raw_* metrics"
@@ -130,7 +162,7 @@ bsub \
     -e "${LOGDIR}/postks_${SESSION}_%J.err" \
     -a "docker(${IMAGE})" \
     bash "${CODE}/ris_run_postks.sh" \
-        "${SESSION}" "${DATA}" "${PROBE}" "${SDIR}" "${GAIN}" "${PARALLEL}"
+        "${SESSION}" "${DATA}" "${PROBE}" "${SDIR}" "${GAIN}" "${PARALLEL}" "${BATCH}"
 
 echo
 echo "queued. watch it with:"

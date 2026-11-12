@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Which channel map did each session use? Answered from the recordings, not from memory.
 
-    python scripts/channel_map_history.py [--write]
+    python scripts/channel_map_history.py [--rat Shamir|Popper|Begin] [--write]
 
 Every Trodes `.rec` carries its whole configuration in its text header, including the
 384 `<SpikeChannel>` entries that ARE the channel map: each one's `hwChan` (which
@@ -27,8 +27,36 @@ import re
 import sys
 
 B = chr(92)
-Z_RAT = "Z:" + B + "Gil" + B + "Shamir_1"
-F_RAT = "F:" + B + "Gil" + B + "Shamir"
+
+# F: and Z: do NOT use the same folder name for the same animal -- Shamir records to
+# F:\Gil\Shamir but archives to Z:\Gil\Shamir_1, while Popper uses "Popper" on both. Same
+# explicit mapping as archive_session_when_exported.py, and for the same reason: getting
+# it wrong finds no recordings, or worse, finds the wrong animal's, rather than failing.
+RAT_DIRS = {
+    "Shamir": ("Shamir_1", "Shamir"),      # (Z folder, F folder)
+    "Popper": ("Popper",   "Popper"),
+    "Begin":  ("Begin_1",  "Begin"),
+}
+
+# The labels A, B, C... are PER RAT and assigned in order of first appearance, so "map A"
+# only ever means something within one animal's history. Each rat has its own implant and
+# its own geometry: Popper's map is not Shamir's map A under another name. This is why the
+# written record lives next to the rat's own metadata and not in one shared file.
+RAT = "Shamir"
+args = sys.argv[1:]
+i = 0
+while i < len(args):
+    if args[i] == "--rat":
+        RAT = args[i + 1]
+        i += 2
+    else:
+        i += 1
+if RAT not in RAT_DIRS:
+    raise SystemExit("unknown --rat %r; known: %s" % (RAT, ", ".join(sorted(RAT_DIRS))))
+
+Z_DIR, F_DIR = RAT_DIRS[RAT]
+Z_RAT = "Z:" + B + "Gil" + B + Z_DIR
+F_RAT = "F:" + B + "Gil" + B + F_DIR
 OUT_JSON = os.path.join(Z_RAT, "channel_map_history.json")
 OUT_MD = os.path.join(Z_RAT, "channel_map_history.md")
 MARKER = b"</Configuration>"
@@ -74,7 +102,14 @@ def fingerprint(ids, chans):
 
 
 def find_recs():
-    """Every session .rec reachable, archive first then F, de-duplicated by session id."""
+    """Every session .rec reachable, as (sid, [candidate paths]) with the archive first.
+
+    Both copies are kept rather than just the archive's, because a session being archived
+    RIGHT NOW holds an exclusive write lock on its destination: robocopy had Z's copy of
+    20261112_082028 open when this was first run for Popper, and the archive-only version
+    of this function died with PermissionError on it. F's copy of the same recording reads
+    fine, and the header is identical either way -- so try the alternatives in turn.
+    """
     found = {}
     for root in (Z_RAT, F_RAT):
         if not os.path.isdir(root):
@@ -84,8 +119,8 @@ def find_recs():
                 continue
             sid = name[:-4]
             rec = os.path.join(root, name, sid + ".rec")
-            if os.path.isfile(rec) and sid not in found:
-                found[sid] = rec
+            if os.path.isfile(rec):
+                found.setdefault(sid, []).append(rec)
     return [(sid, found[sid]) for sid in sorted(found)]
 
 
@@ -100,10 +135,23 @@ rows = []
 maps = {}            # fingerprint -> {"label", "ids", "chans", "sessions"}
 labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-for sid, rec in recs:
-    hdr = header_text(rec)
+for sid, candidates in recs:
+    hdr, rec, why = None, None, []
+    for cand in candidates:
+        try:
+            hdr = header_text(cand)
+        except OSError as exc:            # locked by an in-flight archive, or unreadable
+            why.append("%s: %s" % (cand, exc.strerror or exc))
+            continue
+        if hdr is not None:
+            rec = cand
+            break
+        why.append("%s: no %s marker in the first %d bytes"
+                   % (cand, MARKER.decode(), PROBE))
     if hdr is None:
-        log("  %s  NO HEADER FOUND -- skipped (%s)" % (sid, rec))
+        log("  %s  NO HEADER READ -- skipped" % sid)
+        for w in why:
+            log("      %s" % w)
         continue
     ids, chans = channel_map(hdr)
     if len(chans) != 384 or len(ids) != 384:
@@ -218,7 +266,9 @@ if WRITE:
     }
     with open(OUT_JSON, "w") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
-    lines = ["# Channel maps used, by session", "",
+    lines = ["# Channel maps used, by session -- %s" % RAT, "",
+             "Map labels are PER RAT, in order of first appearance. %s's map A is not" % RAT,
+             "any other animal's map A -- each rat has its own implant and geometry.", "",
              "Derived from the `<SpikeChannel>` entries in each session's own `.rec`",
              "header by `scripts/channel_map_history.py` -- not from anyone's notes, so",
              "it can be regenerated and cannot drift out of date.", "",
