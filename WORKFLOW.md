@@ -1473,3 +1473,23 @@ Update `outputs/session_registry.json` with the new `synced_data_path` and
   812 KB of that is the new timeline. Gil has said more panels are coming, so
   the next one that adds real bulk should go into a published supporting file
   or the artifact db (like `raw_traces` already does) rather than be embedded.
+
+#### How many workers — it depends on the session's length, and 4 is not always safe
+
+Each batch process peaks at **16–20 GB RSS**, and the machine has **64 GB**. Four
+concurrent workers are fine for the ~84 GB / 1 h sessions this harness was built on.
+They are **not** fine for a long one: on the 2026-09-15 joint session (180 GB raw,
+2.17 h, 16.7 M spikes) four at once drove the machine into memory pressure and the
+harness reaped all four worker shells at batch 8 of 47.
+
+- **Ordinary session (≤ ~1.5 h): 4 workers.**
+- **Joint or long session (> ~1.5 h): 2 workers.** Barely slower in practice — four
+  were already contending for one disk.
+
+Two things worth knowing when a run is interrupted. The `bash` loops **survive** the
+harness killing their task wrappers and keep spawning batches, so check
+`tasklist | grep python` and the worker logs before concluding anything stopped (the
+2026-09-15 run went from 5 to 8 of 47 batches *after* every task reported `killed`).
+And a reaped run is resumable per batch, not from the start:
+`gather_worker_batches.py --dry_run` names exactly which batch numbers are missing,
+and the ranges can be handed to a fresh worker as-is.
