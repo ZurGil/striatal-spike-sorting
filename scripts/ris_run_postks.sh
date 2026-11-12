@@ -59,7 +59,11 @@ PY=python3
 # instead. striatal_agent/paths.py reads this; unset, the scripts behave exactly as they
 # always have on the PC.
 export SPIKE_AGENT_OUTPUTS="${SDIR}/outputs"
-export PYTHONPATH="${REPO}:${PYTHONPATH:-}"
+# On the PC the scripts find striatal_agent by walking one directory up from
+# scripts/. On the cluster there is no repo -- code/ is flat and striatal_agent/ sits
+# INSIDE it (see ris_build_postks_image.sh step 0) -- so that walk lands one level too
+# high. Both roots go on PYTHONPATH and the import works either way.
+export PYTHONPATH="${CODE}:${REPO}:${PYTHONPATH:-}"
 export PYTHONIOENCODING=utf-8
 export MPLBACKEND=Agg
 mkdir -p "${SPIKE_AGENT_OUTPUTS}"

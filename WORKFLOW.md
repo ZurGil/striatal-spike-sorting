@@ -127,6 +127,62 @@ part 2 with the seam subtracted), then run the existing per-recording sync twice
 
 ## STAGE 1 — Kilosort4 output -> agent pipeline -> review tool
 
+### 1-cluster. WHERE THIS RUNS: the raw-bound half belongs on RIS, with the sort
+
+**Default for any session going to the cluster: `ris_submit_all.sh <session-id>`.**
+It submits two chained LSF jobs and the second does most of STAGE 1 for you.
+
+```
+ssh compute1
+bash /storage2/fs1/akepecs/Active/Gil_Zur/code/ris_submit_all.sh 20260915_103710
+```
+
+| job | host | script | steps |
+|---|---|---|---|
+| 1 `ks4wf_<sid>` | GPU | `ris_run_session.sh` | kilosort4; raw split-half waveforms |
+| 2 `postks_<sid>` | CPU | `ris_run_postks.sh` | agent pipeline (batched, parallel roots); gather + consolidate; bombcell; corrected classification; trodes channel lookup; `raw_cluster_points`; `raw_separation_metric` |
+
+Job 2 is held with `-w "done(<job1>)"`, so it sits in PEND with a DEPEND reason
+until the sort finishes — **that is correct, not a stuck job.** If job 1 exits,
+LSF removes job 2.
+
+**Why it is split that way.** Everything in job 2 reads the raw `.dat`, which is
+on scratch for a few days and then purged — the agent pipeline memory-maps it,
+bombcell reads raw waveforms, both `raw_*` metrics detect spikes in it. Deferring
+them to this PC costs a ~250 GB download per session and then runs on a 64 GB
+machine that is usually also recording. (That is not hypothetical: the 2026-09-15
+joint session was done that way, four workers got reaped for memory pressure, and
+the rest of it ended up queued behind a live Popper recording.) The two jobs are
+separate because the sort needs a GPU host and nothing in job 2 touches a GPU —
+folding them together would hold a V100 idle for hours on the cluster's scarce
+resource.
+
+**Two images, on purpose.** `zurgil/kilosort4:4.0.24-cu121` is python 3.9 /
+numpy 1.26.4 because kilosort 4.0.24 is; `zurgil/spike-postks:bc0.89-py311` is
+python 3.11 / numpy 2.4.6 / bombcell 0.89, matching `D:\conda_envs\bombcell`
+exactly. Both pins are load-bearing for comparability across sessions, so neither
+can move to accommodate the other. Build with
+`scripts/ris_build_postks_image.sh`, which prints the commands.
+
+**What still runs here, and why.** The session timeline, merge candidates and the
+review HTML stay on this PC: they need the DIO and the Bpod file, they are seconds
+of CPU, and they end in a published artifact. So the sequence is
+**stage → sort → build review data → copy back → purge → (here) timeline, merges,
+review tool.** Bring the outputs home *before* purging scratch.
+
+**Portability, in one place.** `striatal_agent/paths.py` resolves the outputs
+directory from `SPIKE_AGENT_OUTPUTS`, falling back to
+`D:\Gil\spike_sorting_agent\outputs`. Only the scripts that run cluster-side were
+converted to it; the rest still spell the Windows path out, deliberately. One
+input genuinely cannot be made portable — `build_trodes_channel_lookup_session.py`
+reads the Trodes XML out of the `.rec` header and scratch never holds the `.rec` —
+so `stage_session_to_ris.ps1` extracts the `.trodesconf` here and ships it, the
+same way it generates the probe map here.
+
+The rest of STAGE 1 below describes running these steps **locally**, which is
+still what happens for a session that was sorted on this PC, and still what the
+scripts do when you call them by hand.
+
 ### 1a. Prerequisites
 
 - Standard Kilosort4 output at `<session_id>.rec\<session_id>.kilosort\kilosort4\`

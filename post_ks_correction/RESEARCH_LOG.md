@@ -8354,3 +8354,77 @@ averages per unit. The costs are recorded in the flag's own help and in the outp
 metadata: the halves are deliberately unequal (55/45 at this seam), and a unit that fell
 silent on one side gets an empty half, reported in `units_below_min_spikes` like any other
 thin half. That run is queued behind the local raw-file rebuild, which is what it needs.
+
+### 5bd.44 — The review pipeline moves to the cluster, where it was supposed to be all along (2026-11-12)
+
+Gil, on seeing that 20260915's post-KS half was running here: *"didnt we agree that
+you'll run the review tool pipline also on the cluster right after the kilosort? this
+should be part of the same pipline"*. He is right, and 5bd.20 says it in our own words:
+**the unit of work is stage -> sort -> build review data -> copy back -> purge**, not
+"sort everything then review everything". Only the first two steps were ever built.
+
+**What that cost, concretely.** The joint 2026-09-15 session came home as a rebuilt
+180 GB raw file, four agent-pipeline workers were started on a 64 GB machine, all four
+were reaped for system memory pressure, and the remaining raw-bound step (bombcell) then
+had to wait behind a live Popper recording writing to the same disk. None of that is a
+bug in anything -- it is the consequence of running raw-bound work on the acquisition
+rig when a free cluster was holding the same bytes.
+
+**Which steps actually had to move, and the test for it: does it read the raw .dat?**
+
+    agent pipeline              memory-maps probe1.dat
+    bombcell                    reads raw waveforms
+    raw_cluster_points          detects spikes in the raw
+    raw_separation_metric       detects spikes in the raw
+
+plus the two cheap steps that sit between them in the dependency chain (corrected
+classification, which bombcell feeds and the raw_* metrics consume, and the Trodes
+channel lookup). The display half -- session timeline, merge candidates, review HTML --
+stays on this PC: it needs the DIO and the Bpod file, it is seconds of CPU, and it ends
+in a published artifact.
+
+**Two images, because they cannot share an interpreter.** kilosort 4.0.24 pins
+python 3.9 / numpy 1.26.4; bombcell 0.89 and pandas 3.0.5 need python 3.11 / numpy 2.4.6.
+Both pins are load-bearing -- every session already processed used them, and a bombcell
+that computes a metric differently moves every verdict downstream without announcing it,
+because `corrected_classification_session.py` thresholds those metrics against values
+calibrated on 20260901_085606. So `docker/Dockerfile.postks` pins exactly what
+`D:\conda_envs\bombcell` holds, read off it today, and asserts those pins at build time
+the same way the Kilosort image does.
+
+Two jobs rather than two steps in one job, for a second reason: the sort needs a GPU host
+and nothing in the post-KS half touches a GPU. One job would hold a V100 idle through
+bombcell, on the resource the cluster is actually short of. So `ris_submit_all.sh`
+submits both and chains the second with `-w "done(<job1>)"`.
+
+**The portability this needed, and what was deliberately NOT touched.** 77 scripts under
+`scripts/` spell out `D:\Gil\spike_sorting_agent\outputs`. Five of them have to run on
+Linux; the other ~70 are display-side and were left exactly as they are rather than
+swept through for a portability they do not need. `striatal_agent/paths.py` reads
+`SPIKE_AGENT_OUTPUTS` and falls back to the old path, so nothing on this PC changes.
+Proof rather than assertion: `build_trodes_channel_lookup_session.py` re-run after the
+refactor writes a **byte-identical** CSV to the one from before it.
+
+**One input could not be made portable.** That same channel-lookup script reads the
+Trodes SpikeNTrode XML out of the `.rec` file's header, and scratch holds `probe1.dat`,
+never the 300 GB `.rec`. Same shape of problem as the probe map in 5bd.20, and the same
+answer: `stage_session_to_ris.ps1` extracts the `.trodesconf` here and ships it, because
+what the step needs cannot exist on a compute node.
+
+**Status.** Code written, syntax-checked, pushed to `code/` on storage2 together with
+`striatal_agent/`. The image build is submitted-but-blocked: pushing to Docker Hub is a
+public publication and needs Gil's go-ahead, exactly as `ris_build_image.sh` says for
+the Kilosort image. The one command, for when he gives it:
+
+    ssh compute1
+    bsub -G compute-akepecs -q general -n 4 -R 'rusage[mem=16GB] span[hosts=1]' \
+         -o /storage2/fs1/akepecs/Active/Gil_Zur/build_postks/build.%J.log \
+         -a 'docker_build(docker.io)' \
+         -- --tag zurgil/spike-postks:bc0.89-py311 \
+            /storage2/fs1/akepecs/Active/Gil_Zur/build_postks
+
+**First real use, when the image exists.** 20260915_084812_103710_concat's raw file is
+STILL on scratch (168 GiB, confirmed today), so its post-KS half can run there instead of
+waiting for the rig -- and since the same session was just scored locally, its cluster
+result is a free end-to-end correctness check: same inputs, same code, same unit scores
+expected.
