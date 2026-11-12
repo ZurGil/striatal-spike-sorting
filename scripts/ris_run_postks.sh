@@ -68,6 +68,15 @@ export PYTHONIOENCODING=utf-8
 export MPLBACKEND=Agg
 mkdir -p "${SPIKE_AGENT_OUTPUTS}"
 
+# Two caches that both want a writable home, and neither fails loudly without one:
+# numba (bombcell's @njit(cache=True)) and bombcell's own cachecache, which prints
+# "Path '/home/<user>/.bombcell' not writable - caching ... will be skipped" and then
+# recomputes everything every run. The job's home is not writable from inside the
+# container, so both are pointed at the session's work tree.
+export HOME="${SDIR}/.home"
+export NUMBA_CACHE_DIR="${SDIR}/.numba_cache"
+mkdir -p "${HOME}" "${NUMBA_CACHE_DIR}"
+
 # ---------------------------------------------------------------------------
 # The session-shaped work tree.
 #

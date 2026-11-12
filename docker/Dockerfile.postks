@@ -44,7 +44,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     MPLBACKEND=Agg \
-    PYTHONIOENCODING=utf-8
+    PYTHONIOENCODING=utf-8 \
+    NUMBA_CACHE_DIR=/tmp/numba_cache
+
 
 # procps: without ps, a job that is stuck cannot be diagnosed from inside the container.
 # libgomp1: numba and scipy's threaded kernels want it and the slim image has no compiler
@@ -80,6 +82,16 @@ assert v(scipy) == '1.17.1', v(scipy);\
 assert v(pandas) == '3.0.5', v(pandas);\
 assert v(matplotlib) == '3.11.1', v(matplotlib);\
 print('pins OK:', sys.version.split()[0], v(numpy), v(scipy), v(pandas), v(matplotlib))"
+
+# NUMBA_CACHE_DIR, set above, is not optional and the reason is only visible at RUN time.
+# bombcell decorates functions with @njit(cache=True), and numba writes that cache beside
+# the module it came from. At build time site-packages is writable and `import bombcell`
+# succeeds; inside a job the container runs as the LSF user against a read-only layer and
+# the same import dies with
+#     RuntimeError: cannot cache function 'remove_duplicates': no locator available
+# -- i.e. a green build proves nothing here, which is why the image is also RUN against a
+# real node before any session is submitted to it. Pointing the cache at /tmp fixes it.
+RUN mkdir -p /tmp/numba_cache && chmod 1777 /tmp/numba_cache
 
 # bombcell prints a unicode checkmark on import. On Windows that is a hard crash unless
 # PYTHONIOENCODING is set in the SHELL before the interpreter starts (see

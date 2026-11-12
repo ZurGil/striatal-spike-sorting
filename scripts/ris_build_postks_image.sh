@@ -72,6 +72,19 @@ The bare '--' matters: without it bsub parses the docker build arguments as its 
 Watch it:     ssh compute1 bjobs
 Read the log: ssh compute1 cat ${BUILD_DIR}/build.<jobid>.log
 
+THE JOB EXITS 101 EVEN WHEN THE PUSH SUCCEEDED. Measured twice, 2026-11-12. The
+'docker_build(docker.io)' argument makes the builder tag the image a second time
+as docker.io/library/docker.io and try to push THAT, which is denied -- and that
+denial sets the job's exit code. The real push happens right afterwards. So judge
+it by the log, not by bjobs:
+
+    grep -E 'pins OK|digest:' ${BUILD_DIR}/build.<jobid>.log
+
+A line like "bc0.89-py311: digest: sha256:... size: 2413" means the image is live.
+"denied: requested access to the resource is denied" ALONE, with no digest line
+after it, is a real failure -- most likely the Docker Hub login has expired, which
+step 1 restores.
+
 The build asserts its own pins (python 3.11, numpy 2.4.6, scipy 1.17.1, pandas 3.0.5,
 matplotlib 3.11.1) and imports bombcell, so a green build is a guarantee rather than
 just an absence of errors. These are exactly the versions in D:\\conda_envs\\bombcell on
@@ -80,8 +93,18 @@ downstream against values calibrated on 20260901_085606, so a different bombcell
 every verdict without saying so.
 
 -----------------------------------------------------------------------------
-STEP 3 -- prove the image runs
+STEP 3 -- prove the image RUNS, which the build does not prove
 -----------------------------------------------------------------------------
+Do not skip this. A green build means the packages resolve; it does not mean the
+image works in a job, because the build layer is writable and a job's is not.
+The first build of this image passed every build-time check and then died on a
+real node with
+
+    RuntimeError: cannot cache function 'remove_duplicates': no locator available
+
+-- numba trying to write bombcell's @njit cache into read-only site-packages.
+NUMBA_CACHE_DIR in the Dockerfile fixes it, and this is the step that found it.
+
     ssh compute1
     bsub -Is -G ${GROUP} -q general-interactive -R 'rusage[mem=8GB]' \\
          -a "docker(${IMAGE})" \\
