@@ -33,6 +33,17 @@ both halves then span the same drift. Splitting by time lets within-session drif
 the within-neuron distribution, which is the conservative choice and matches what the
 across-session comparison will actually face. (UnitMatch splits the same way.)
 
+`--split-at-sample N` cuts at a fixed sample index instead of at each unit's median
+spike time. It exists for CONCATENATED sessions: pass the seam and the two halves
+become "before the break" and "after the break", which is a same-neuron pair across a
+real time gap -- the calibration point between a within-session split-half pair and a
+one-day-apart pair. Without it the default split lands at each unit's own median, which
+for 20260915_084812_103710_concat falls inside part 1 for 64 % of units, so half 2
+mixes the tail of part 1 with all of part 2 and is NOT "the other side of the seam".
+Note what this costs: the halves then have unequal spike counts (55/45 at that seam),
+and a unit that stopped firing before the cut gets an empty half, reported in
+`units_below_min_spikes` like any other thin half.
+
 WHAT IS AND IS NOT DONE TO THE SNIPPETS
 ---------------------------------------
 Per snippet, per channel: the baseline (mean of the first `--baseline` samples) is
@@ -83,6 +94,12 @@ def main():
                     help="units with fewer spikes in a half are flagged, not dropped")
     ap.add_argument("--no-car", action="store_true",
                     help="skip the median-across-channels subtraction")
+    ap.add_argument("--split-at-sample", type=int, default=None,
+                    help="cut the two halves at this fixed sample index instead of at "
+                         "each unit's median spike time. For a concatenated session, pass "
+                         "the seam: the halves then really are before and after the break. "
+                         "Halves will have unequal counts, and a unit silent on one side "
+                         "gets an empty half, reported like any other thin half.")
     args = ap.parse_args()
 
     nt, pre, nchan = args.window, args.pre, args.n_chan
@@ -131,7 +148,11 @@ def main():
             thin.append((int(uid), 0, 0))
             continue
         t.sort()
-        halves = np.array_split(t, 2)
+        if args.split_at_sample is None:
+            halves = np.array_split(t, 2)
+        else:
+            cut = int(np.searchsorted(t, args.split_at_sample))
+            halves = [t[:cut], t[cut:]]
 
         for h, th in enumerate(halves):
             if th.size == 0:
@@ -190,7 +211,11 @@ def main():
         "pre_samples": pre,
         "baseline_samples": args.baseline,
         "max_spikes_per_half": args.n_spikes,
-        "split": "by time: first half of each unit's spikes vs second half",
+        "split": ("by time: first half of each unit's spikes vs second half"
+                  if args.split_at_sample is None else
+                  "by time at a FIXED sample index: spikes before %d vs spikes at or after "
+                  "it. Halves are deliberately unequal in count." % args.split_at_sample),
+        "split_at_sample": args.split_at_sample,
         "car_applied": not args.no_car,
         "highpass_applied": False,
         "units_in_uV": True,

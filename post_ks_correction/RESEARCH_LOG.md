@@ -8169,11 +8169,22 @@ thing that will be needed weeks from now.
 **Submitted** as LSF 759350, RUN on compute1-exec-360, stock 9.0/8.0, and the job's own log
 printed `yc 920.0..4740.0` — map A, correct for September.
 
-A side benefit worth noticing: the waveform extractor splits each unit's spikes into two
-halves by time, and for this session the halves fall either side of the seam. So a unit's
-two half-waveforms are a same-neuron pair across a 38-minute gap **by construction** —
-exactly the calibration point between a within-session split-half and the 1-day 15/16 pair
-that the matcher had nothing for.
+~~A side benefit worth noticing: the waveform extractor splits each unit's spikes into
+two halves by time, and for this session the halves fall either side of the seam. So a
+unit's two half-waveforms are a same-neuron pair across a 38-minute gap **by
+construction** — exactly the calibration point between a within-session split-half and
+the 1-day 15/16 pair that the matcher had nothing for.~~
+
+**CORRECTED 2026-11-12, see 5bd.43.** The claim above is wrong and was checked rather
+than left standing. The extractor splits each unit's spikes into two EQUAL-COUNT halves
+(`np.array_split`), so the cut is at that unit's own median spike time, which has nothing
+to do with the seam. Measured on the finished sort: median split point 3871.6 s against a
+seam at 4145.0 s, the split falls inside part 1 for 296 of 465 units (64 %), and **zero**
+units have half 1 entirely in part 1 with half 2 entirely in part 2 — for a typical unit
+half 2 is the last 7 % of part 1 plus all of part 2. The pair is still worth having, and
+is now obtainable rather than imagined: `extract_unit_waveforms.py` gained
+`--split-at-sample`, so re-running it with the seam as a fixed cut gives
+before-the-break against after-the-break per unit.
 
 **Gil's standing rule, now mechanical.** He asked that from now on every date with
 multiple recordings be examined first, and noted there might be more than two on a day.
@@ -8319,3 +8330,27 @@ both still read `trodes_absolute_seconds` and still pass.
 Nothing in `sync_pipeline` was touched. The split-at-the-seam work Gil flagged is still
 open and still deferred until after the verdicts; what changed is that the deferral is
 now enforced by a check instead of remembered by whoever reads the registry.
+
+**A claim of mine from yesterday was wrong, and the check is the entry.** I wrote in
+5bd.42, and told Gil, that the waveform extractor's two halves fall either side of the
+seam for this session, so every unit would be a same-neuron pair across the 38-minute gap
+by construction. It does not work that way. The extractor splits each unit's spikes into
+two EQUAL-COUNT halves, so the cut is at that unit's own median spike time, not at the
+seam. On the finished sort: median split point 3871.6 s against a seam at 4145.0 s, the
+split falls inside part 1 for 296 of the 465 units (64 %), and **zero** units have half 1
+entirely in part 1 with half 2 entirely in part 2. For a typical unit, half 2 is the last
+7 % of part 1 plus all of part 2. So `waveforms/unit_waveforms.npz` from this job is an
+ordinary within-session split-half pair and must be read as one. 5bd.42's paragraph is
+struck through in place, the registry carries the correction, and the README on Z now
+leads with it, because "the halves straddle the seam" is exactly the kind of thing that
+would be believed six months from now without being re-derived.
+
+The pair is still worth having — it is the calibration point between a within-session
+split-half and the 1-day 15/16 pair the matcher has nothing for — and it is now one flag
+away instead of imagined. `extract_unit_waveforms.py` gained `--split-at-sample N`, which
+cuts at a fixed sample index instead of each unit's median, so `--split-at-sample
+124350000` against the joint raw file gives before-the-break against after-the-break
+averages per unit. The costs are recorded in the flag's own help and in the output
+metadata: the halves are deliberately unequal (55/45 at this seam), and a unit that fell
+silent on one side gets an empty half, reported in `units_below_min_spikes` like any other
+thin half. That run is queued behind the local raw-file rebuild, which is what it needs.
