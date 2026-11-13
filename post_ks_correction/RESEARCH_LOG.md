@@ -8695,3 +8695,127 @@ collections exported into `review/verdicts/` and applied. Sync needs
 `Z:\Gil\Popper\bpod\`, which is still empty. And `/scratch1/fs1/akepecs/zur/20261112_082028`
 (391 GB) can now be purged — every step that needs the raw file has run — but that is
 Gil's call, not mine.
+
+---
+
+## 5bd.49 The merge panel was showing 150 of 2728 pairs, and the cap cost sixteen seconds
+
+Gil asked how far apart units 55 and 70 are in 20261112_082028. They are 80 um — same
+column on the probe (`xc` 2474 um for both), peak channels 317 and 309, `yc` 1280 and
+1360 um, so four site-rows along the shank. Outside the 60 um pairing radius, so they
+were never merge candidates. That part was fine. What the question exposed was not.
+
+**Neither unit appeared in ANY of the 150 analysed pairs, and geometry was not the
+reason.** 2728 pairs in this session are genuinely within 60 um of one another. The
+analysis looked at 150, because `--max_pairs` truncates the shortlist after ranking by
+template similarity. The cut lands at similarity 0.826. Unit 55 has twelve partners
+inside 60 um and unit 70 has twelve, including units on the *same peak channel* — 0 um
+— and not one of those pairs had been computed. 55+57 ranked 243rd at similarity 0.749;
+68+70 ranked 298th at 0.700. Of the 317 pairs in this session that share a peak
+channel, only 101 had been analysed.
+
+**The metadata hid it.** `n_pairs_in_range` was recorded as `len(cands)` *after* the
+truncation, so the archived JSON claimed 150 pairs were in range when the true number
+was 2728. A unit absent from the merge panel reads as "checked, nothing found"; it
+actually meant "never compared". Fixed in efa33f8: keep the true count before
+truncating, report `n_pairs_in_range` and `n_pairs_analysed` separately, record
+`max_pairs` beside them, and log a warning naming how many pairs are being dropped and
+what their absence does and does not mean.
+
+**The cap was obsolete, and measuring it took a minute.** Estimates were given before
+measuring — "20x, overnight", then "a few hours" — and both were wrong by orders of
+magnitude. Measured:
+
+| work | measured |
+|---|---|
+| CCG for all 2728 co-located pairs | **15.9 s** (5.8 ms/pair; median 63k spikes/pair, max 1.38M) |
+| raw waveform reads, all 439 non-noise units | **~31 s** (0.07 s/unit, 6 units sampled across the probe) |
+| the real rebuild, end to end | **171 s** |
+
+`correlogram()` does two `searchsorted` calls and a ragged gather rather than an outer
+difference. Its own docstring says it: *"a unit here can have 400k spikes and this runs
+150 times, so the loop version is the difference between seconds and an hour."* Someone
+hit the slow version, vectorised it, and the cap from the slow days was never lifted.
+It had been discarding 94% of the co-located pairs to save sixteen seconds.
+
+The payload estimate was wrong too — 44 MB predicted, 9.6 MB actual. A pair is 1.2 KB;
+the file's bulk is the per-*unit* waveform and rate timeline, 15 KB each. 2728 pairs and
+439 units fit inside the 16 MB artifact limit with room to spare. **Lesson, the same one
+as §5bd.47 in a different costume: measure before quoting a number. Every one of the
+four estimates here was wrong, and the measurement cost less than the explanation.**
+
+### What full coverage actually found
+
+Re-ranked with the live panel's own statistics (`dipStats` from
+`patch_review_tool_merge_v2.py`: refractory count against what the 2-5 ms shoulders
+predict, tested against Poisson chance, `DIP_P = 0.01`):
+
+- **907 pairs pass p < 0.01**, of which **865 have similarity below 0.826** — invisible
+  under the old cut.
+- 118 pairs have shoulders predicting under one count, so no test is possible at all.
+- The strongest, backed by real counts: **129+136** (0 um, 111 observed vs 296.5
+  expected, p < 1e-5, sim 0.951, wf_r 0.884), **195+196** (899 vs 2510, p < 1e-5),
+  **381+383** (101 vs 221, p < 1e-5), **131+135** (14 vs 33, p = 0.00016), **129+133**
+  (4 vs 12, p = 0.0076). The 129/133/136 triplet wants looking at as a group.
+
+**Two claims in §5bd.48 were wrong and are corrected here.** 133+136 was reported as the
+headline merge — "CCG dip of exactly zero, the one piece of real evidence that two
+clusters are one neuron". Against its own shoulders it is 0 observed against 4.00
+expected, **p = 0.0183, which does not pass the panel's own bar**. Suggestive, not
+decided. 232+234, listed as a runner-up, is 2 against 2.5 expected, p = 0.54 — nothing.
+Both readings came from the far-flank `ccg.dip_ratio` field, which v2 exists to
+deprecate: it is the same construction as the contamination metrics that misbehave, and
+any CCG with broad structure invalidates it. **Do not read `ccg.dip_ratio` out of the
+JSON. The number that counts is computed in the page.**
+
+### And the answer to Gil's actual question
+
+None of units 55's or 70's co-located pairs show a significant dip:
+
+| pair | dist | refractory count | expected | dip | p | reading |
+|---|---|---|---|---|---|---|
+| 55+57 | 0 um | 8 | 10.00 | 0.800 | 0.333 | flat — two neurons |
+| 68+70 | 0 um | 21 | 19.00 | 1.105 | 0.726 | flat — two neurons |
+| 55+60 | 0 um | 11 | 3.50 | 3.143 | 0.9997 | a *peak*: synchrony, not identity |
+| 55+59 | 0 um | 0 | 0.00 | n/a | n/a | no test possible, ever |
+
+So they are not fragments of their neighbours, and that is a real answer that could not
+be obtained before. 55+60's zero-lag peak is the textbook case the panel warns about —
+common input or one spike detected twice, never a merge.
+
+Gil's proposal — compute the CCG whenever both units have a clear autocorrelogram —
+is sound in spirit but would have excluded exactly these pairs. 55 and 70 both have
+*perfectly* clean ACGs (dip 0.000, measurable). It is their partners that fail: 57 at
+0.538, 68 at 0.522, 60 at 0.994 (flat — contaminated), and 59 unmeasurable on 266
+spikes. The pairs most worth testing are often one clean fragment beside one messy blob,
+so requiring both to be clean throws them away. With full coverage costing a minute the
+question is moot: compute every co-located pair, and let ACG quality be context shown
+beside the pair rather than an admission test.
+
+### Done to the live session, mid-review, without losing anything
+
+Gil was already reviewing when this landed, so order mattered:
+
+1. **Verdicts dumped first**, before any change: 72 unit verdicts, 7 merge verdicts, 6
+   trial selections, saved locally and to
+   `Z:\...\review\verdicts\snapshot_2026-11-13_1017_mid_review\` (85 files).
+2. **Checked that regeneration cannot orphan them.** `pair_id` is `"%d_%d" % (a, b)`,
+   built from the unit numbers, not a list index — so growing 150 to 2728 leaves every
+   key pointing at the same pair. All 7 of his merge-verdict pairs are present in the
+   new set. Unit verdicts are keyed by unit id and untouched.
+3. Rebuilt with `--max_pairs 3000`, rebuilt the page through all five patches
+   (14,832,172 bytes, 14.15 MiB), published to the **same URL** as Version 2 so the
+   database carried over; capabilities `db` + `downloads` carried forward.
+4. **Verified after publishing:** verdict 255_260 still reads back at version 2, and the
+   new build's `clustering.spike_clusters_sha1` is
+   `5bc217d99f3e8c29e72eb21c23420d70f56556e6` — identical to the sha pinned inside his
+   merge verdicts, so none of them went stale.
+
+A republish reloads the page in the reviewer's browser. The database survives it, but
+the view resets, so this is worth saying out loud before doing it to someone mid-review.
+
+**Still open.** Gil's review continues on the 442 units with 907 significant pairs now
+visible. `Z:\Gil\Popper\bpod\` is still empty, blocking sync. The archived
+`merge_candidates` JSON on Z still carries the old 150-pair build and the misleading
+metadata field; it should be refreshed when the review settles. And
+`/scratch1/fs1/akepecs/zur/20261112_082028` (391 GB) remains purgeable on Gil's word.
