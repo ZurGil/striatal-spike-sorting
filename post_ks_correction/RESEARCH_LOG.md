@@ -9026,3 +9026,34 @@ candidate list built from per-session output files will quietly offer the halves
 standing instruction already said it -- "every time you see multiple sessions of the same
 day, examine first what happened" -- and the code now encodes it instead of relying on
 whoever is reading the list.
+
+### 5bd.54 Today's Popper session archived to Z, verified against F and then against the device
+
+Trodes finished exporting `20261113_091828` and `scripts/archive_session_when_exported.py`
+carried it to `Z:\Gil\Popper\20261113_091828.rec`. 683 GiB over the link; robocopy
+returned 1, which is success.
+
+The verification ran twice on purpose. The first pass compared F against Z file by file:
+full sha256 on the eight small files, exact sizes on the three giants, and 33 spread
+1 MiB blocks on each giant including the last block, which is the one that catches a
+truncated tail. The second pass repeated the block reads with the Windows file cache
+bypassed, so a block that "matched" only because both sides were served from the same
+cached page could not pass unnoticed; 54 x 1 MiB blocks came off the device and were
+identical.
+
+Then the archived `.rec` was asked whether it is internally complete on its own terms,
+reading only from Z:
+
+| quantity | value |
+| --- | --- |
+| `.rec` size | 385,393,046,450 bytes |
+| header, marker measured not assumed | 254,706 (marker at 254,689) |
+| whole 856-byte packets | 450,225,224 |
+| trailing bytes | 0 |
+| packets x 384 x 2 | 345,772,972,032 |
+| archived `probe1.dat` | 345,772,972,032 |
+| duration | 4.17 h at 30 kHz |
+
+No remainder, and the two independent counts agree exactly, so the export and the archive
+describe the same recording. Nothing was deleted from F -- that stays Gil's call, and the
+copy on Z is now the one that matters.
