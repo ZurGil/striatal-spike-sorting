@@ -1,11 +1,22 @@
 # Shamir sessions to sort, in order. The pipeline takes the first one that is not
-# already on scratch and not already sorted-and-home on Z.
+# already on scratch and not already sorted-and-home on Z, and never stages more than
+# two at once.
 #
 # Chosen so each block is uniform in Kilosort thresholds (9.0 / 8.0):
-#   Sept 14-18 -- completes five consecutive days with 20260915_103710 and
-#                 20260916_110311, which were sorted at those same thresholds
-#   Sept 22-25 -- four consecutive days, no prior sort to be inconsistent with
-# NOT here: 20260902/03/04, because 20260901_085606 was sorted at 9.2 / 7.0 and
+#
+#   Sept 14-18  20260914, 20260917, 20260918.  2026-09-15 and 2026-09-16 are already
+#               sorted -- 15 Sept as the JOINT session 20260915_084812_103710_concat,
+#               which is the sort of record for that day, and 20260916_110311 on its
+#               own. Both at 9.0 / 8.0, so this block gives five consecutive uniform
+#               recording days.
+#   Sept 22-25  four consecutive days, no prior sort to be inconsistent with.
+#
+# DO NOT add 20260915_084812 or 20260915_103710. They are the two halves of 15 Sept and
+# are already sorted inside the joint session; a standalone sort would duplicate it, and
+# for part 1 would re-introduce the 112 s channel fault the joint sort deliberately
+# trims. scripts/ris_preflight_batch.py now refuses both by name.
+#
+# Also not here: 20260902/03/04, because 20260901_085606 was sorted at 9.2 / 7.0 and
 # would be the odd day out; and 20261026/27/28, which are map B.
 20260914_122553
 20260917_100043

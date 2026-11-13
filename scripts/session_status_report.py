@@ -87,11 +87,41 @@ def thresholds(k4):
         return None
 
 
+def concat_map(root):
+    """(session -> joint session that supersedes it, joint session -> its parts).
+
+    A standalone sort of a part is not a session awaiting review; it is a superseded
+    result that must never have its unit ids mixed with the joint sort's. Without this
+    the register listed 20260915_103710 as an ordinary unreviewed session and
+    20260915_084812 as a sorting candidate, and the second of those got a GPU job
+    queued for it on 2026-11-13 before Gil caught it.
+    """
+    sup, parts = {}, {}
+    if not os.path.isdir(root):
+        return sup, parts
+    for name in os.listdir(root):
+        if not name.endswith(".rec"):
+            continue
+        ks = os.path.join(root, name, name[:-4] + ".kilosort")
+        if not os.path.isdir(ks):
+            continue
+        for f in os.listdir(ks):
+            if f.startswith("concat_") and f.endswith(".json"):
+                d = jload(os.path.join(ks, f)) or {}
+                cid = d.get("concat_session_id") or name[:-4]
+                ps = [p.get("session") for p in d.get("parts", []) if p.get("session")]
+                parts[cid] = ps
+                for p in ps:
+                    sup[p] = cid
+    return sup, parts
+
+
 def scan():
     out = []
     for rat, root in RATS:
         if not os.path.isdir(root):
             continue
+        sup, parts = concat_map(root)
         for name in sorted(os.listdir(root)):
             if not name.endswith(".rec"):
                 continue
@@ -111,6 +141,8 @@ def scan():
                 "tools": EXTRA_TOOLS.get(sid, []),
                 "verdicts_dir": vd if os.path.isdir(vd) else None,
                 "cluster_info": os.path.exists(os.path.join(k4, "cluster_info.tsv")),
+                "superseded_by": sup.get(sid),
+                "joins": parts.get(sid),
             }
             v = jload(os.path.join(vd, "verdicts.json")) or {}
             m = jload(os.path.join(vd, "merge_verdicts.json")) or {}
@@ -133,6 +165,10 @@ def scan():
 def state_of(r, live):
     """One word for where this session's decisions stand."""
     lv = live.get(r["session"], {}).get("verdicts") if live else None
+    if r.get("superseded_by") and not r["z_verdicts"] and not lv:
+        return "SUPERSEDED", ("part of %s, which is the sort of record for this day. "
+                              "Not for review, and its unit ids do not correspond to "
+                              "the joint sort's." % r["superseded_by"])
     if lv is None and r["z_verdicts"] == 0:
         return "NOT REVIEWED", "no verdicts anywhere"
     if lv is None:
@@ -205,6 +241,13 @@ def main():
         md.append("")
         md.append("- %s -- %s" % (r["state"], r["state_why"]))
         md.append("- %s units, Kilosort thresholds %s" % (r["n_units"], r["thresholds"]))
+        if r.get("joins"):
+            md.append("- **the sort of record for %s-%s-%s**, joining %s"
+                      % (r["date"][:4], r["date"][4:6], r["date"][6:],
+                         " + ".join("`%s`" % p for p in r["joins"])))
+        if r.get("superseded_by"):
+            md.append("- **superseded by** `%s` -- do not mix unit ids between them"
+                      % r["superseded_by"])
         if r["artifact"]:
             md.append("- review page: %s" % r["artifact"])
         else:

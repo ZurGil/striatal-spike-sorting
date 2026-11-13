@@ -14,7 +14,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 | Shamir | `20260901_085606` | 155 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
 | Shamir | `20260911_100049` | 466 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
 | Shamir | `20260915_084812_103710_concat` | 465 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
-| Shamir | `20260915_103710` | 447 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
+| Shamir | `20260915_103710` | 447 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **SUPERSEDED** |
 | Shamir | `20260916_110311` | 472 | 9.0 / 8.0 | 240 | 114 | 113 | 13 | 10 | 20 | yes | yes | **SAVED, PARTIAL** |
 | Begin | `20260805_103305` | 73 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
 | Begin | `20260807_125640` | 95 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
@@ -54,14 +54,16 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 - NOT REVIEWED -- the page is open and empty
 - 465 units, Kilosort thresholds 9.0 / 8.0
+- **the sort of record for 2026-09-15**, joining `20260915_084812` + `20260915_103710`
 - review page: https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
 
 ### 20260915_103710  (Shamir)
 
-- NOT REVIEWED -- no verdicts anywhere
+- SUPERSEDED -- part of 20260915_084812_103710_concat, which is the sort of record for this day. Not for review, and its unit ids do not correspond to the joint sort's.
 - 447 units, Kilosort thresholds 9.0 / 8.0
+- **superseded by** `20260915_084812_103710_concat` -- do not mix unit ids between them
 - review page: **none built yet**
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**

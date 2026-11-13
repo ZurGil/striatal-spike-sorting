@@ -8977,3 +8977,52 @@ verdict, with no unit decided differently in the two copies.
 
 Published as a page at https://claude.ai/artifact/BXw9umwQGFsBuVwfbUPJzJ so it can be read
 without a terminal.
+
+## 5bd.53 A GPU job queued for a session that was already sorted, because nothing in the preflight knew what a joint session is  (2026-11-13)
+
+Gil, reading the register: "Why September 15 sessions are still on the list? Didn't you
+already sort them with Kilosort? I remember that we discussed it about merging those two
+sessions of this date to one session and sort them. Didn't you already done it?"
+
+He was right. 2026-09-15 was joined and sorted ONCE on 2026-11-11 as
+`20260915_084812_103710_concat`, and `README_THIS_IS_A_JOINT_SESSION.txt` on Z says in so
+many words that it is the sort of record for that day. I nevertheless put
+`20260915_084812` in the weekend batch and submitted LSF 816608 / 816609 for it.
+
+WHY THE PREFLIGHT MISSED IT. `ris_preflight_batch.py` asked one question per session --
+"does this session have its own kilosort4/spike_clusters.npy?" -- which is false for each
+half of a joined day, so both halves read as unsorted candidates. The joint sort lives
+under a THIRD session id that shares no name with either part, so nothing connected them.
+
+WHY IT WAS WORSE THAN DUPLICATED WORK. `concat_20260915_084812_103710.json` records that
+part 1 is deliberately TRIMMED at 4145 s: at 4150 s, 82 of the 384 channels jump above
+three times the spike-band noise and stay there for the remaining 112 s, in an
+alternating pattern (10, 12, 14 .. 32, then 59, 61, 63 .. 105) that is a connector or
+ground fault and not anything biological -- very probably what forced Trodes to be
+restarted that day. A standalone sort of part 1 feeds Kilosort that fault, and because it
+estimates whitening and drift over the whole file, 112 s of 82 bad channels degrades the
+other 2.16 h rather than only itself. So the job would have produced a WORSE result than
+the one that already exists, under a unit numbering that corresponds to nothing.
+
+DONE
+  * LSF 816608 and 816609 killed. Both were still PEND, so no GPU time was spent.
+  * `20260915_084812` purged from scratch after confirming Z holds its probe1.dat at the
+    98,188,818,432 bytes the manifest records. 92 GB freed, scratch back to two sessions.
+  * `ris_preflight_batch.py` grew `concat_coverage()`, which reads every
+    `concat_*.json` on the rat's archive root and maps each part to the joint session
+    that already sorts it. A part is now refused by name and is excluded from `--all`.
+    Verified: both halves of 15 Sept come back NO with the reason stated, and
+    `20260915_084812` no longer appears among the 23 ready sessions.
+  * `session_status_report.py` grew the same notion, so the register reports
+    `20260915_103710` as SUPERSEDED rather than as an ordinary session awaiting review,
+    and labels the concat as the sort of record for the day. The published page carries
+    the seam, the trim and the reason for both.
+  * `outputs/ris_queue.txt` now says in a comment why neither half may be added.
+
+The lesson is narrower than "check before submitting". It is that a session id is not a
+day. For any rat where Trodes was ever restarted mid-session, the unit of sorting is the
+day, the sort of record can live under an id that matches no folder on disk, and any
+candidate list built from per-session output files will quietly offer the halves. The
+standing instruction already said it -- "every time you see multiple sessions of the same
+day, examine first what happened" -- and the code now encodes it instead of relying on
+whoever is reading the list.

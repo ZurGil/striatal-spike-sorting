@@ -80,7 +80,41 @@ def size(p):
         return -1
 
 
-def check(sid, root, era_map, ref_pad, expect_era):
+def concat_coverage(root):
+    """session id -> the joint session that already sorts it.
+
+    A day on which Trodes was stopped and restarted lands on disk as two .rec folders
+    and is sorted ONCE, joined, with a `concat_*.json` recording exactly how. Asking
+    only "does this session have its own kilosort4 output?" says no for each part and
+    happily queues it, which is how 20260915_084812 came to be submitted on 2026-11-13
+    for a sort that already exists. Worse than duplicated work: the joint sort TRIMS
+    that part at 4145 s because 82 channels fault for the last 112 s, so a standalone
+    sort would feed Kilosort the fault -- and it estimates whitening and drift over the
+    whole file, degrading the good 69 minutes with it.
+    """
+    out = {}
+    for name in os.listdir(root):
+        if not name.endswith(".rec"):
+            continue
+        ks = os.path.join(root, name, name[:-4] + ".kilosort")
+        if not os.path.isdir(ks):
+            continue
+        for f in os.listdir(ks):
+            if not (f.startswith("concat_") and f.endswith(".json")):
+                continue
+            try:
+                with open(os.path.join(ks, f), encoding="utf-8") as fh:
+                    d = json.load(fh)
+            except Exception:
+                continue
+            cid = d.get("concat_session_id") or name[:-4]
+            for p in d.get("parts", []):
+                if p.get("session"):
+                    out[p["session"]] = cid
+    return out
+
+
+def check(sid, root, era_map, ref_pad, expect_era, covered=None):
     sdir = os.path.join(root, sid + ".rec")
     ks = os.path.join(sdir, sid + ".kilosort")
     dio = os.path.join(sdir, sid + ".DIO")
@@ -91,6 +125,13 @@ def check(sid, root, era_map, ref_pad, expect_era):
         "rec": os.path.join(sdir, sid + ".rec"),
     }
     r = {"sid": sid, "problems": [], "notes": []}
+
+    if covered and sid in covered:
+        r["problems"].append("already sorted as part of the joint session %s -- that is "
+                             "the sort of record for this day. Sorting it alone would "
+                             "duplicate the work and would not match it." % covered[sid])
+        r["era"] = era_map.get(sid)
+        return r
 
     for k, path in f.items():
         if size(path) <= 0:
@@ -175,6 +216,11 @@ def main():
         print("WARNING: no channel_map_history.json for %s -- map era cannot be checked"
               % args.rat)
 
+    covered = concat_coverage(root)
+    if covered:
+        for k, v in sorted(covered.items()):
+            print("joint session: %s is already sorted inside %s" % (k, v))
+        print()
     all_sids = sorted(d[:-4] for d in os.listdir(root)
                       if d.endswith(".rec") and os.path.isdir(os.path.join(root, d)))
     sorted_sids = [s for s in all_sids
@@ -194,12 +240,13 @@ def main():
         print("already sorted: %s" % ", ".join(sorted_sids))
         print()
 
-    todo = args.sessions or ([s for s in all_sids if s not in sorted_sids]
+    todo = args.sessions or ([s for s in all_sids
+                              if s not in sorted_sids and s not in covered]
                              if args.all else [])
     if not todo:
         raise SystemExit("name some sessions, or pass --all")
 
-    rows = [check(s, root, era_map, ref_pad, args.expect_era) for s in todo]
+    rows = [check(s, root, era_map, ref_pad, args.expect_era, covered) for s in todo]
     print("%-32s %7s %7s %6s %4s %-14s %s"
           % ("session", "rec_GiB", "dat_GiB", "hours", "map", "pad_md5", "verdict"))
     ok, bad = [], []
