@@ -41,6 +41,7 @@ earlier (outputs/pipeline_review_data_<session>.json) and the session timeline
 import argparse
 import base64
 import json
+import math
 import os
 import sys
 import time
@@ -452,9 +453,30 @@ def main():
     with open(os.path.join(ks, "spike_clusters.npy"), "rb") as f:
         doc["clustering"]["spike_clusters_sha1"] = hashlib.sha1(f.read()).hexdigest()
 
+    # JSON has no spelling for inf or nan. Python writes them as the bare tokens
+    # Infinity / NaN, which every strict parser rejects -- including the browser's
+    # JSON.parse, which fails on the WHOLE file. One such value anywhere therefore
+    # takes the entire merge panel down with "could not load
+    # data/merge_candidates.json", pointing at the file rather than at the one
+    # number inside it. That happened on 2026-11-13: unit 137 (MUA, 496 spikes) has
+    # violation_ratio = inf, and it reached the payload only once full coverage
+    # pulled in all 439 units instead of 171, so the 150-pair builds never showed
+    # it. Non-finite values become null here, and allow_nan=False makes a missed
+    # one a loud failure at write time instead of a dead panel after publishing.
+    def finite(o):
+        if isinstance(o, float):
+            return o if math.isfinite(o) else None
+        if isinstance(o, dict):
+            return {k: finite(v) for k, v in o.items()}
+        if isinstance(o, (list, tuple)):
+            return [finite(v) for v in o]
+        return o
+
+    doc = finite(doc)
+
     out = os.path.join(OUT_DIR, "merge_candidates_%s.json" % sid)
     with open(out, "w") as f:
-        json.dump(doc, f, separators=(",", ":"))
+        json.dump(doc, f, separators=(",", ":"), allow_nan=False)
     log("wrote %s (%.1f MB)" % (out, os.path.getsize(out) / 1e6))
 
     # A short printed summary, so a run is self-checking rather than something you
