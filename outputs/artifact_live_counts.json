@@ -1,0 +1,23 @@
+{
+  "_what": "Document counts read live from each review page's own database on claude.ai, using the Artifact data tooling. Python cannot reach those databases, so this file is how the counts get into scripts/session_status_report.py. Re-read the pages and rewrite this file whenever Gil says he has done more reviewing.",
+  "_checked": "2026-11-13 15:20",
+  "_collections": ["verdicts", "merge_verdicts", "trial_selections"],
+  "20261112_082028": {
+    "url": "https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG",
+    "verdicts": 260,
+    "merge_verdicts": 31,
+    "trial_selections": 18
+  },
+  "20260916_110311": {
+    "url": "https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap",
+    "verdicts": 240,
+    "merge_verdicts": 10,
+    "trial_selections": 20
+  },
+  "20260915_084812_103710_concat": {
+    "url": "https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb",
+    "verdicts": 0,
+    "merge_verdicts": 0,
+    "trial_selections": 0
+  }
+}

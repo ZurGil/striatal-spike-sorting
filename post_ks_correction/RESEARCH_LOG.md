@@ -8884,3 +8884,96 @@ claimed on the day it was written.
 NOT APPLIED. `scripts/sync_session.py 20261112_082028` is the only thing that should
 write these into cluster_info.tsv, and it should run when the review is finished --
 or knowingly, with 182 units unlabelled.
+
+## 5bd.51 RIS is a workbench, not a second archive -- and the near-miss that proves why a purge must verify first  (2026-11-13)
+
+Gil, on finding that a seven-session batch was being uploaded at once: "You don't
+delete anything from Z. You first copy the files to scratch, do the kilosort, all the
+results, and then delete from scratch -- because those files are supposed to be saved
+only at Z. I don't want you to copy 5 or 6 at the same time. If it's not running right
+now, there's no need for it to be there." Later: "there is really no reason to have more
+than two sessions on ris at a time. If we will decide to speed up the process in the
+future I'll let you know."
+
+So the unit of work is one session at a time, two on scratch at most -- one being worked
+on, one staged behind it -- and the cycle is stage, sort, bring EVERY result home to Z,
+verify, purge RIS. The bulk upload was stopped mid-flight (the `dd` feeding it killed,
+resumable at a 1 MiB boundary, nothing corrupted) and five of the seven were never sent.
+
+WHAT WAS ON RIS WHEN HE ASKED
+
+    scratch   20261112_082028                 367 GB   sorted, results fetched
+              20260915_084812_103710_concat   168 GB   sorted
+              20260915_084812                  92 GB   sort submitted 14:45
+              20260914_122553                  76 GB   uploading
+    storage2  kilosort4/20261112_082028         24 GB
+              kilosort4/..._concat              14 GB
+
+THE NEAR-MISS, which is the reason a purge compares file lists instead of trusting a
+directory to exist. Both sorted sessions looked equally safe to delete. They were not:
+
+    20261112_082028                 RIS 1545 files   Z 1545   not on Z:   0
+    20260915_084812_103710_concat   RIS  713 files   Z   26   not on Z: 687
+
+Z held that session's 26 Kilosort arrays and nothing else. The whole `agent_processed/`
+tree (642 files -- the per-batch reports and the consolidated agent report) and
+`kilosort_original/` (45 files, the pristine pre-curation arrays that every before/after
+comparison is measured against) existed ONLY on RIS, 8.42 GiB of it. A purge on the
+strength of "the results are on Z" would have destroyed all of it.
+
+Root cause: that session was fetched by hand before the fetch was scripted. The Popper
+fetch log mentions `agent_processed` 1476 times and `kilosort_original` 46 times, so the
+scripted path does bring them home; the hand-run path did not.
+
+DONE: 20261112_082028 purged from both scratch and storage2 after the 1545/1545
+comparison -- 391 GB freed. The concat's 687 missing files are being pulled to Z with
+`tar --skip-old-files`, which fills in what is missing and cannot overwrite a byte Z
+already holds; its 182 GB goes only once that verifies.
+
+MEASURED, so the two-session rule can be reasoned about rather than argued:
+
+    upload Z -> scratch, link shared    88 MB/s     (measured live, 3 transfers at once)
+    upload Z -> scratch, link to itself 109 MB/s    (Z's own read ceiling, measured)
+    upload F -> scratch, 2026-11-12     173 MB/s
+    a 280 GiB session                   ~45-55 min to stage
+    job 1 (sort + waveforms)            0.043 h per GiB -> ~3.2 h for 280 GiB
+    job 2 (post-KS)                     ~1.6 h
+
+Staging is never the bottleneck, which is the whole argument for the rule: a third
+staged session would sit idle for hours as the only copy of nothing useful.
+
+`scripts/ris_serial_pipeline.sh` now enforces it without a human in the loop. It refuses
+to purge unless every file under a session's RIS result tree is on Z at the same path and
+size AND there are at least 200 of them, it refuses to purge anything with a live LSF
+job, and on any doubt it stalls and says so rather than deleting. A stalled pipeline is a
+cheap problem; a wrong purge is not.
+
+## 5bd.52 A register of what is sorted, what is judged, and whether the judgements exist anywhere but a browser  (2026-11-13)
+
+Gil asked for documentation of which sessions are sorted and which carry his verdicts, to
+be updated as he finishes reviewing. `scripts/session_status_report.py` builds it from Z
+and from the review pages, never from a hand-kept list, and writes
+`post_ks_correction/SESSION_STATUS.md` plus `outputs/session_status.json`.
+
+The comparison that matters is live page against file on Z. Verdicts live in a browser
+database; a session where the page is ahead of Z has decisions in exactly one place, one
+cleared cache from gone. That state is reported as DRIFTED. Python cannot read those
+databases, so the live counts arrive through `outputs/artifact_live_counts.json`, which
+Claude rewrites from the Artifact tooling each time it checks.
+
+Ten sorted sessions, 2,723 units, 500 judged, and nothing drifted today:
+
+    Popper 20261112_082028   442 units   260 judged (140 good, 120 mua, 0 noise)   on Z, not applied
+    Shamir 20260916_110311   472 units   240 judged (114 good, 113 mua, 13 noise)  on Z, applied
+    Shamir ..._concat        465 units     0 judged   page built and empty
+    Shamir 20260915_103710   447 units     0 judged   no review page
+    Shamir 20260911_100049   466 units     0 judged   sorted at 9.2 / 7.0
+    Shamir 20260901_085606   155 units     0 judged   sorted at 9.2 / 7.0
+    Begin  four sessions     276 units     0 judged   no review pages
+
+20260916_110311 was checked collection by collection against its live page: 240 verdicts,
+10 merge verdicts, 20 trial selections, agreeing document for document and verdict for
+verdict, with no unit decided differently in the two copies.
+
+Published as a page at https://claude.ai/artifact/BXw9umwQGFsBuVwfbUPJzJ so it can be read
+without a terminal.

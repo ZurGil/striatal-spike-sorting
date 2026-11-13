@@ -1,0 +1,16 @@
+# Shamir sessions to sort, in order. The pipeline takes the first one that is not
+# already on scratch and not already sorted-and-home on Z.
+#
+# Chosen so each block is uniform in Kilosort thresholds (9.0 / 8.0):
+#   Sept 14-18 -- completes five consecutive days with 20260915_103710 and
+#                 20260916_110311, which were sorted at those same thresholds
+#   Sept 22-25 -- four consecutive days, no prior sort to be inconsistent with
+# NOT here: 20260902/03/04, because 20260901_085606 was sorted at 9.2 / 7.0 and
+# would be the odd day out; and 20261026/27/28, which are map B.
+20260914_122553
+20260917_100043
+20260918_100248
+20260922_144404
+20260923_105129
+20260924_121751
+20260925_103539
