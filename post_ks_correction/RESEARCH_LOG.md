@@ -9057,3 +9057,38 @@ reading only from Z:
 No remainder, and the two independent counts agree exactly, so the export and the archive
 describe the same recording. Nothing was deleted from F -- that stays Gil's call, and the
 copy on Z is now the one that matters.
+
+### 5bd.55 The 15 September review tool rebuilt with full merge coverage
+
+Gil asked for the joined session's review tool to be in front of him with today's
+merge-tool changes in it. It is, at the same URL it had before
+(`claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb`, Version 2), so the verdict database
+carries over untouched.
+
+What changed, beyond the six patches:
+
+| | old build | this build |
+| --- | --- | --- |
+| pairs within 60 µm | 2,999 | 2,999 |
+| pairs actually analysed | 150 (the cap) | **2,999** |
+| units with a merge view | ~120 | **461** |
+| waveforms read from | nothing -- the raw file was gone | the two parts on Z |
+
+The old build was capped at 150 pairs, which meant most of the probe had no merge
+evidence at all; a reviewer looking at unit 300 would see an empty panel and could
+reasonably read that as "no candidate", when the truth was "never computed". Now
+every pair inside the distance window is scored.
+
+The waveform pass took 7,200 s, and the second half of it ran three times slower
+than the first (24 s per ten units, then ~230 s) because the Popper archive copy was
+writing to Z at the same time. Worth remembering before scheduling two Z-heavy jobs
+together: the link, not the CPU, is the constraint.
+
+Built page is 15,716,113 bytes, 14.99 MiB of the 16 MiB artifact limit -- 10 KiB of
+headroom. The merge data no longer travels inside the page; it rides as a supporting
+file (`data/merge_candidates.json`, 9.20 MiB) with its own limit, which is the only
+reason a 2,999-pair payload fits at all.
+
+The payload is pinned to `spike_clusters` sha1 `dc16fc5bee4df606b05ab52036a93aa6fa486bfd`,
+so if the clustering is ever re-run the page will refuse to pretend the old merge
+evidence still applies.
