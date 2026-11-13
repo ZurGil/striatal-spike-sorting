@@ -149,6 +149,62 @@ def refractory_violations(t_s, refractory_ms=REFRACTORY_MS):
             "violation_pct": round(100.0 * float((isi < refractory_ms / 1000.0).mean()), 3)}
 
 
+class ConcatReader(object):
+    """The parts of a joined session presented as one array, without copying them.
+
+    A day on which Trodes was restarted is sorted as one concatenated file, but that
+    file is a build artefact: it is 180 GB, it is not on Z, and after the sort it only
+    ever existed on cluster scratch. The two PARTS are on Z permanently. Since
+    `mean_waveforms` touches a memmap in exactly two ways -- `.shape[0]` and
+    `[a:b, channels]` -- the parts can stand in for the join directly, reading only
+    the 60-sample windows actually wanted instead of reconstituting 180 GB to read
+    3 GB of it.
+
+    Part 1 may be TRIMMED (20260915_084812 is cut at 4145 s, five seconds before 82
+    channels fault), so `used_samples` is what counts, never the file's own length.
+    A window straddling the seam is stitched from both parts; it is a real
+    discontinuity of 37 min 56 s, so such a mean waveform is nonsense either way --
+    but there are only ~60 samples where it can happen and dropping them silently
+    would be worse than stitching them.
+    """
+
+    def __init__(self, manifest, n_channels):
+        self.n_channels = n_channels
+        self.parts = []
+        for p in manifest["parts"]:
+            src = p["source"]
+            if not os.path.exists(src):
+                raise SystemExit("concat part %s is missing: %s" % (p["session"], src))
+            mm = np.memmap(src, dtype=np.int16, mode="r").reshape(-1, n_channels)
+            used = int(p["used_samples"])
+            if used > mm.shape[0]:
+                raise SystemExit("%s: manifest says %d samples used but the file holds %d"
+                                 % (p["session"], used, mm.shape[0]))
+            off = int(p["offset_in_concat_samples"])
+            self.parts.append((off, off + used, mm))
+        self.parts.sort()
+        total = sum(e - s for s, e, _ in self.parts)
+        declared = int(manifest.get("total", {}).get("samples", total))
+        if declared != total:
+            raise SystemExit("concat parts sum to %d samples, manifest total says %d"
+                             % (total, declared))
+        self.shape = (total, n_channels)
+
+    def __getitem__(self, key):
+        rows, cols = key
+        a, b = int(rows.start), int(rows.stop)
+        out = None
+        for s, e, mm in self.parts:
+            lo, hi = max(a, s), min(b, e)
+            if lo >= hi:
+                continue
+            chunk = mm[lo - s:hi - s, cols]
+            out = chunk if out is None else np.concatenate((out, chunk), axis=0)
+        if out is None:
+            return np.zeros((0, len(cols)), dtype=np.int16)
+        return out
+
+
 # ----------------------------------------------------------------- raw waveforms
 def mean_waveforms(memmap, n_channels, spike_rows, channels, n_spikes):
     """Mean raw waveform on `channels`, from up to `n_spikes` spikes spread evenly.
@@ -181,6 +237,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("session_id")
     ap.add_argument("--rec_root", default="F:/Gil/Shamir")
+    ap.add_argument("--concat_manifest", default=None,
+                    help="concat_*.json for a JOINED session. Its parts are then read "
+                         "in place from the archive instead of memmapping a single "
+                         "probe1.dat, which for a joined day does not exist outside "
+                         "cluster scratch.")
     ap.add_argument("--ks_subdir", default="kilosort4")
     ap.add_argument("--max_dist_um", type=float, default=60.0,
                     help="peak channels further apart than this are not candidates; "
@@ -276,9 +337,22 @@ def main():
     dat = os.path.join(args.rec_root, sid + ".rec", sid + ".kilosort",
                        sid + ".probe1.dat")
     n_channels = chan_pos.shape[0]
-    mm = np.memmap(dat, dtype=np.int16, mode="r")
-    mm = mm.reshape(-1, n_channels)
-    log("probe1.dat memmapped: %s samples x %d channels" % (mm.shape[0], n_channels))
+    if args.concat_manifest:
+        with open(args.concat_manifest, encoding="utf-8") as f:
+            man = json.load(f)
+        mm = ConcatReader(man, n_channels)
+        log("joined session: %d parts read in place from the archive, %s samples x %d"
+            % (len(man["parts"]), mm.shape[0], n_channels))
+        for p in man["parts"]:
+            log("    part %d  %s  %d samples at offset %d%s"
+                % (p["order"], p["session"], p["used_samples"],
+                   p["offset_in_concat_samples"],
+                   "  (TRIMMED from %d)" % p["source_samples"]
+                   if p["used_samples"] != p["source_samples"] else ""))
+    else:
+        mm = np.memmap(dat, dtype=np.int16, mode="r")
+        mm = mm.reshape(-1, n_channels)
+        log("probe1.dat memmapped: %s samples x %d channels" % (mm.shape[0], n_channels))
 
     # Channels near each unit's peak, by actual distance on the probe.
     near = {}

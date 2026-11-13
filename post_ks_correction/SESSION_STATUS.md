@@ -8,18 +8,22 @@ cannot drift out of date without the script saying so.
 on Z, which means they exist only in a browser database. Fix it by dumping the
 three collections to `<session>.kilosort/review/verdicts/` on Z.
 
-| rat | session | units | Th u/l | decided | good | mua | noise | merges | windows | on Z | applied | state |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Popper | `20261112_082028` | 442 | 9.0 / 8.0 | 260 | 140 | 120 | 0 | 31 | 18 | yes | no | **SAVED, PARTIAL** |
-| Shamir | `20260901_085606` | 155 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
-| Shamir | `20260911_100049` | 466 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
-| Shamir | `20260915_084812_103710_concat` | 465 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
-| Shamir | `20260915_103710` | 447 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **SUPERSEDED** |
-| Shamir | `20260916_110311` | 472 | 9.0 / 8.0 | 240 | 114 | 113 | 13 | 10 | 20 | yes | yes | **SAVED, PARTIAL** |
-| Begin | `20260805_103305` | 73 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
-| Begin | `20260807_125640` | 95 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
-| Begin | `20260814_122755` | 94 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
-| Begin | `20260818_110509` | 14 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | **NOT REVIEWED** |
+| rat | session | units | Th u/l | decided | good | mua | noise | merges | windows | on Z | verdicts applied | Bpod synced | joined | state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Popper | `20261112_082028` | 442 | 9.0 / 8.0 | 260 | 140 | 120 | 0 | 31 | 18 | yes | no | **blocked** -- no Bpod files for this rat | no | **SAVED, PARTIAL** |
+| Shamir | `20260901_085606` | 155 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | no | **NOT REVIEWED** |
+| Shamir | `20260911_100049` | 466 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | no | **NOT REVIEWED** |
+| Shamir | `20260915_084812_103710_concat` | 465 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | yes | **NOT REVIEWED** |
+| Shamir | `20260915_103710` | 447 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | part of a join | **SUPERSEDED** |
+| Shamir | `20260916_110311` | 472 | 9.0 / 8.0 | 240 | 114 | 113 | 13 | 10 | 20 | yes | yes | yes (`synced`, `synced_20261002`, `synced_20261015`, `synced_NEWFIX`) | no | **SAVED, PARTIAL** |
+| Begin | `20260805_103305` | 73 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+| Begin | `20260807_125640` | 95 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+| Begin | `20260814_122755` | 94 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+| Begin | `20260818_110509` | 14 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+
+`Bpod synced` is a different question from `verdicts applied`: the first is
+a `synced/` directory written by `scripts/sync_session.py`, the second is the
+group column in `cluster_info.tsv`. A session can have one without the other.
 
 ## Per session
 
@@ -27,6 +31,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 - SAVED, PARTIAL -- 260 of 442 units decided, all of them on Z
 - 442 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: **blocked** -- `Z:\Gil\Popper\bpod\` holds no files, so no session of this rat can be synced yet
 - review page: https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG
 - Correlogram Atlas: https://claude.ai/artifact/69cKEsVzCAXDxrAz1KVtD5
 - on Z: 260 unit verdicts (good 140, mua 120), 31 merge verdicts (merge 27, separate 3, unsure 1), 18 trial selections
@@ -38,6 +43,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 - NOT REVIEWED -- no verdicts anywhere
 - 155 units, Kilosort thresholds 9.2 / 7.0
+- Bpod sync: **done** -- `synced`
 - review page: **none built yet**
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
@@ -46,6 +52,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 - NOT REVIEWED -- no verdicts anywhere
 - 466 units, Kilosort thresholds 9.2 / 7.0
+- Bpod sync: **done** -- `synced`
 - review page: **none built yet**
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
@@ -55,6 +62,19 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 - NOT REVIEWED -- the page is open and empty
 - 465 units, Kilosort thresholds 9.0 / 8.0
 - **the sort of record for 2026-09-15**, joining `20260915_084812` + `20260915_103710`
+- Bpod sync: not done (22 Bpod files available for this rat)
+
+  **What this session actually is**
+
+  - JOINED SESSION -- 2026-09-15 was recorded as 2 separate files and sorted ONCE. This is the sort of record for that day; neither part is sorted on its own.
+  - Gap between the parts: 37 min 56 s between 09:59:14 and 10:37:10. The seam at sample 124,350,000 is a break in TIME, not in the array -- nothing that bins over time, computes a rate or looks for drift may interpolate across it.
+  - part 1  20260915_084812  ->  concat samples 0 to 124,350,000  (4145.0 s of recording)
+  -     TRIMMED: the last 116.667 s of this part were dropped before sorting, cut at t = 4145.0 s. Any Bpod trial that started after that has NO ephys behind it. Reason: At t = 4150 s (69.17 min) 82 of the 384 channels jump above three times the healthy spike-band noise level and stay there for the remaining 112 s. The affected channels alternate -- 10, 12, 14 .. 32, then 59, 61, 63 .. 105 -- which is a connector/ground signature rather than anything biological, and is very probably what forced Trodes to be restarted. The cut is at 4145 s, five seconds before the fault, so no part of it reaches the sorter: Kilosort estimates whitening and drift over the whole file, so 112 s of 82 bad channels would degrade the other 2.16 h rather than just itself.
+  -     Bpod: Shamir01_Dual2AFC_nat_Sep15_2026_Session1.mat
+  - part 2  20260915_103710  ->  concat samples 124,350,000 to 234,557,963  (3673.599 s of recording)
+  -     Bpod: Shamir01_Dual2AFC_nat_Sep15_2026_Session2.mat
+  - FOR THE BPOD SYNC: split spike_times at sample 124,350,000 and sync each part against its own Bpod file. A spike at concat sample s belongs to part 1 at sample s when s < the seam, otherwise to part 2 at s minus the seam. Total 234,557,963 samples, 2.172 h.
+  - SUPERSEDES: The standalone sort of 20260915_103710 (LSF 741761, 447 units, review tool https://claude.ai/artifact/QreYaMjGtujiE17m2k9zXf) covers only part 2 and has no verdicts in it, so nothing hand-made is lost by replacing it. It stays on Z as a second opinion; the joint sort's unit ids do not correspond to its.
 - review page: https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
@@ -64,6 +84,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 - SUPERSEDED -- part of 20260915_084812_103710_concat, which is the sort of record for this day. Not for review, and its unit ids do not correspond to the joint sort's.
 - 447 units, Kilosort thresholds 9.0 / 8.0
 - **superseded by** `20260915_084812_103710_concat` -- do not mix unit ids between them
+- Bpod sync: not done (22 Bpod files available for this rat)
 - review page: **none built yet**
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
@@ -72,6 +93,8 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 - SAVED, PARTIAL -- 240 of 472 units decided, all of them on Z
 - 472 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: **done** -- `synced`, `synced_20261002`, `synced_20261015`, `synced_NEWFIX`
+  - **4 sync directories exist**, so this session was synced more than once and which one is current is not recorded in their names. Settle that before anything downstream reads one.
 - review page: https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap
 - Merge Adjudicator: https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW
 - on Z: 240 unit verdicts (good 114, mua 113, noise 13), 10 merge verdicts (merge 8, separate 2), 20 trial selections
@@ -82,6 +105,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 - NOT REVIEWED -- no verdicts anywhere
 - 73 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (106 Bpod files available for this rat)
 - review page: **none built yet**
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
@@ -90,6 +114,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 - NOT REVIEWED -- no verdicts anywhere
 - 95 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (106 Bpod files available for this rat)
 - review page: **none built yet**
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
@@ -98,6 +123,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 - NOT REVIEWED -- no verdicts anywhere
 - 94 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (106 Bpod files available for this rat)
 - review page: **none built yet**
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
@@ -106,6 +132,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 - NOT REVIEWED -- no verdicts anywhere
 - 14 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (106 Bpod files available for this rat)
 - review page: **none built yet**
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**

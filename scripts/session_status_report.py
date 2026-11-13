@@ -87,6 +87,69 @@ def thresholds(k4):
         return None
 
 
+def provenance_lines(root, sid):
+    """Report-ready notes for a session that is not what its name suggests.
+
+    Gil, 2026-11-13: "if specific session is actually a combination of two sessions,
+    you should have also comment for it ... what exactly happened, if something was
+    trimmed or not. Those comments will be very important when we come to sync it with
+    bpod."
+
+    Everything here is read out of the session's own concat_*.json, so the note cannot
+    disagree with what was actually sorted.
+    """
+    ks = os.path.join(root, sid + ".rec", sid + ".kilosort")
+    if not os.path.isdir(ks):
+        return []
+    man = None
+    for f in sorted(os.listdir(ks)):
+        if f.startswith("concat_") and f.endswith(".json"):
+            man = jload(os.path.join(ks, f))
+            break
+    if not man:
+        return []
+    out = []
+    seam = man.get("seam", {})
+    tot = man.get("total", {})
+    out.append("JOINED SESSION -- %s was recorded as %d separate files and sorted ONCE. "
+               "This is the sort of record for that day; neither part is sorted on its "
+               "own." % (man.get("date", "?"), len(man.get("parts", []))))
+    if seam.get("real_time_gap_text"):
+        out.append("Gap between the parts: %s. The seam at sample %s is a break in TIME, "
+                   "not in the array -- nothing that bins over time, computes a rate or "
+                   "looks for drift may interpolate across it."
+                   % (seam["real_time_gap_text"], "{:,}".format(seam.get("sample_index", 0))))
+    for p in man.get("parts", []):
+        a = int(p.get("offset_in_concat_samples", 0))
+        b = a + int(p.get("used_samples", 0))
+        line = ("part %s  %s  ->  concat samples %s to %s  (%s s of recording)"
+                % (p.get("order"), p.get("session"), "{:,}".format(a), "{:,}".format(b),
+                   p.get("used_seconds")))
+        out.append(line)
+        tr = p.get("trimmed")
+        if tr:
+            out.append("    TRIMMED: the last %s s of this part were dropped before "
+                       "sorting, cut at t = %s s. Any Bpod trial that started after "
+                       "that has NO ephys behind it. Reason: %s"
+                       % (tr.get("dropped_seconds"), tr.get("cut_at_second"),
+                          " ".join(tr.get("why", []))))
+        if p.get("bpod"):
+            have = os.path.exists(p["bpod"])
+            out.append("    Bpod: %s%s" % (os.path.basename(p["bpod"]),
+                                           "" if have else "   ** NOT FOUND **"))
+    out.append("FOR THE BPOD SYNC: split spike_times at sample %s and sync each part "
+               "against its own Bpod file. A spike at concat sample s belongs to part 1 "
+               "at sample s when s < the seam, otherwise to part 2 at s minus the seam. "
+               "Total %s samples, %s h."
+               % ("{:,}".format(seam.get("sample_index", 0)),
+                  "{:,}".format(tot.get("samples", 0)), tot.get("hours")))
+    sup_txt = man.get("supersedes") or []
+    if sup_txt:
+        # The manifest stores this as an array of source lines, not as separate facts.
+        out.append("SUPERSEDES: %s" % " ".join(s.strip() for s in sup_txt))
+    return out
+
+
 def concat_map(root):
     """(session -> joint session that supersedes it, joint session -> its parts).
 
@@ -143,6 +206,15 @@ def scan():
                 "cluster_info": os.path.exists(os.path.join(k4, "cluster_info.tsv")),
                 "superseded_by": sup.get(sid),
                 "joins": parts.get(sid),
+                "provenance": provenance_lines(root, sid),
+                # Bpod sync is a different thing from applying verdicts. sync_session.py
+                # writes a `synced/` directory; the verdicts go into cluster_info.tsv.
+                # A session can have one without the other, and conflating them is how
+                # "is it synced?" gets answered wrongly.
+                "bpod_synced": sorted(d for d in (os.listdir(ks) if os.path.isdir(ks) else [])
+                                      if d == "synced" or d.startswith("synced_")),
+                "bpod_files": len(os.listdir(os.path.join(root, "bpod")))
+                              if os.path.isdir(os.path.join(root, "bpod")) else 0,
             }
             v = jload(os.path.join(vd, "verdicts.json")) or {}
             m = jload(os.path.join(vd, "merge_verdicts.json")) or {}
@@ -221,18 +293,30 @@ def main():
     md.append("three collections to `<session>.kilosort/review/verdicts/` on Z.")
     md.append("")
     hdr = ("| rat | session | units | Th u/l | decided | good | mua | noise | merges | "
-           "windows | on Z | applied | state |")
+           "windows | on Z | verdicts applied | Bpod synced | joined | state |")
     md.append(hdr)
-    md.append("|" + "---|" * 13)
+    md.append("|" + "---|" * 15)
     for r in rows:
         t = r["z_tally"]
         dec = r["live_verdicts"] if r["live_verdicts"] is not None else r["z_verdicts"]
-        md.append("| %s | `%s` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | **%s** |" % (
+        if r["bpod_synced"]:
+            sy = "yes (`%s`)" % "`, `".join(r["bpod_synced"])
+        elif not r["bpod_files"]:
+            sy = "**blocked** -- no Bpod files for this rat"
+        else:
+            sy = "no"
+        md.append("| %s | `%s` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | **%s** |" % (
             r["rat"], r["session"], r["n_units"] or "?", r["thresholds"] or "?",
             dec, t.get("good", 0), t.get("mua", 0), t.get("noise", 0),
             r["z_merges"], r["z_trials"],
             "yes" if r["z_verdicts"] else "no",
-            "yes" if r["synced"] else "no", r["state"]))
+            "yes" if r["synced"] else "no", sy,
+            "yes" if r["provenance"] else ("part of a join" if r["superseded_by"] else "no"),
+            r["state"]))
+    md.append("")
+    md.append("`Bpod synced` is a different question from `verdicts applied`: the first is")
+    md.append("a `synced/` directory written by `scripts/sync_session.py`, the second is the")
+    md.append("group column in `cluster_info.tsv`. A session can have one without the other.")
     md.append("")
     md.append("## Per session")
     md.append("")
@@ -248,6 +332,26 @@ def main():
         if r.get("superseded_by"):
             md.append("- **superseded by** `%s` -- do not mix unit ids between them"
                       % r["superseded_by"])
+        if r["bpod_synced"]:
+            md.append("- Bpod sync: **done** -- `%s`" % "`, `".join(r["bpod_synced"]))
+            if len(r["bpod_synced"]) > 1:
+                md.append("  - **%d sync directories exist**, so this session was synced more "
+                          "than once and which one is current is not recorded in their names. "
+                          "Settle that before anything downstream reads one."
+                          % len(r["bpod_synced"]))
+        elif not r["bpod_files"]:
+            md.append("- Bpod sync: **blocked** -- `Z:\\Gil\\%s\\bpod\\` holds no files, so no "
+                      "session of this rat can be synced yet"
+                      % {"Popper": "Popper", "Shamir": "Shamir_1", "Begin": "Begin_1"}[r["rat"]])
+        else:
+            md.append("- Bpod sync: not done (%d Bpod files available for this rat)"
+                      % r["bpod_files"])
+        if r["provenance"]:
+            md.append("")
+            md.append("  **What this session actually is**")
+            md.append("")
+            for line in r["provenance"]:
+                md.append("  - %s" % line)
         if r["artifact"]:
             md.append("- review page: %s" % r["artifact"])
         else:
