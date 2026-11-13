@@ -8819,3 +8819,68 @@ visible. `Z:\Gil\Popper\bpod\` is still empty, blocking sync. The archived
 `merge_candidates` JSON on Z still carries the old 150-pair build and the misleading
 metadata field; it should be refreshed when the review settles. And
 `/scratch1/fs1/akepecs/zur/20261112_082028` (391 GB) remains purgeable on Gil's word.
+
+## 5bd.50 Gil's 20261112 decisions taken out of the browser and put on Z, with the four units a merge leaves unlabelled  (2026-11-13)
+
+Verdicts live in the review page's own database on claude.ai. A database is not an
+archive: it has no copy, no history anyone else can read, and no relationship to the
+sort it describes except the sha1 stamped inside each merge verdict. So Gil asked for
+everything he had decided to be written somewhere durable, ready for the Bpod sync and
+the analysis after it. This is what came out and what it was checked against.
+
+Pulled from https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG, all three decision
+collections:
+
+    verdicts            260 documents    good 140, mua 120, noise 0
+    merge_verdicts       31 documents    merge 27, separate 3, unsure 1
+    trial_selections     18 documents    16 with windows, 2 recorded empty
+
+The page writes a fourth collection name, `raw_traces`, but only ever reads it
+(`db.collection('raw_traces').doc(...).get()` at one site, no write anywhere) -- it is
+the raw-snippet payload, not a decision. Three collections is the whole decision state.
+
+CHECKED AGAINST THE SORT, not just counted:
+
+  * every unit id named by a verdict is one of the 442 clusters in
+    kilosort4/spike_clusters.npy. No orphans.
+  * all 31 merge verdicts carry spike_clusters_sha1
+    5bc217d99f3e8c29e72eb21c23420d70f56556e6, which is that file's actual sha1. Every
+    pair was judged against the clustering still on disk, so the frozen unions still
+    mean what they meant when Gil clicked.
+  * every selection window lies inside the recording. The first check said eleven
+    windows ran past the end, which was the check being wrong, not the data: the
+    windows are in ABSOLUTE Trodes seconds, and this session's clock starts at
+    first_timestamp 312134 = 10.4045 s, not at zero. 17001.957 - 10.404 = 16991.553 s,
+    and 16991.553 x 30000 = 509,746,578 samples against a last spike at 509,746,562.
+    They fit exactly. A window check that assumes a zero origin will condemn every
+    correct selection in this project.
+
+WHAT IS NOT DECIDED, said plainly because a saved file reads as finished:
+
+  * 182 of the 442 clusters have no verdict. 260 do.
+  * Four units sit in a pair Gil marked MERGE but carry no verdict of their own: 32
+    (in 32+33), 185 (in 184+185), and 402 and 403 (in 402+403, where NEITHER unit is
+    labelled). Whatever a merged unit inherits, it should not be inheriting silence,
+    so these four want a verdict before the sync writes cluster_info.tsv.
+  * Units 185 and 403 have a trial selection with zero windows, which the page records
+    as "the whole session" rather than as nothing. Harmless, worth knowing.
+  * No cluster was called `noise`. The page offers good / mua / noise (`data-v=`), so
+    the vocabulary was there and unused -- Gil is putting the bad ones in `mua`.
+
+Written to Z, beside the sort, every file hashed on both sides:
+
+    Z:\Gil\Popper\20261112_082028.rec\20261112_082028.kilosort\review\verdicts\
+        verdicts.json  merge_verdicts.json  trial_selections.json
+        manual_verdicts.csv          the unit verdicts flat, for reading by eye
+        MANIFEST.txt                 counts, the checks above, sha256 of each file
+        snapshot_2026-11-13_1346_260_units\   309 files, one JSON per decision
+        snapshot_2026-11-13_1017_mid_review\  this morning's 85, left untouched
+        NOTE_superseded_2026-11-12.txt        the old "NO VERDICTS YET" note
+
+The old NOTE.txt said this session had never been reviewed, which stopped being true
+at 10:17. It is renamed rather than deleted: it is the only record of what the bundle
+claimed on the day it was written.
+
+NOT APPLIED. `scripts/sync_session.py 20261112_082028` is the only thing that should
+write these into cluster_info.tsv, and it should run when the review is finished --
+or knowingly, with 182 units unlabelled.
