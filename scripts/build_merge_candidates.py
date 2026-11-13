@@ -254,7 +254,8 @@ def main():
                 continue
             s = float(sim[a, b]) if a < sim.shape[0] and b < sim.shape[1] else 0.0
             cands.append((a, b, d, s))
-    log("%d pairs within range" % len(cands))
+    n_in_range = len(cands)
+    log("%d pairs within range" % n_in_range)
 
     # Rank by template similarity before the expensive work: the CCG is the decider,
     # but it costs real time per pair, and similarity is a cheap way to decide which
@@ -262,6 +263,10 @@ def main():
     # module docstring.)
     cands.sort(key=lambda c: -c[3])
     cands = cands[:args.max_pairs]
+    if n_in_range > len(cands):
+        log("WARNING: %d co-located pairs will NOT be analysed (--max_pairs %d). A unit "
+            "absent from the merge panel has not been cleared, it was never examined."
+            % (n_in_range - len(cands), args.max_pairs))
     log("keeping top %d by template similarity for full analysis" % len(cands))
 
     # ------------------------------------------------------- per-unit raw waveforms
@@ -422,7 +427,14 @@ def main():
         "max_dist_um": args.max_dist_um,
         "n_units_total": len(review),
         "n_units_non_noise": len(unit_ids),
-        "n_pairs_in_range": len(cands),
+        # These two were one field until 2026-11-13, recorded AFTER the --max_pairs
+        # truncation and named "in_range" -- so it read as though only max_pairs
+        # pairs had ever been co-located (150 in 20261112_082028, where the real
+        # number was 2728). A pair that is in range but not analysed is UNEXAMINED,
+        # not cleared, and the old field hid 2578 of them.
+        "n_pairs_in_range": n_in_range,
+        "n_pairs_analysed": len(cands),
+        "max_pairs": args.max_pairs,
         "timeline": {"bin_s": timeline["bin_s"], "n_bins": timeline["n_bins"],
                      "t0_s": timeline["ephys_t0_s"], "t1_s": timeline["ephys_t1_s"]},
         # Everything needed to turn a decision into unit_merges.json, so the tool can
