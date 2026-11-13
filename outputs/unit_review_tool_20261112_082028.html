@@ -169,6 +169,23 @@ h1{font-size:16px;font-weight:700;margin:0 0 8px;}
   background:var(--accent-soft);border-radius:8px;padding:1px 5px;flex-shrink:0;line-height:1.4;}
 .mc-legend{font-size:10px;color:var(--text-3);font-family:'IBM Plex Mono',monospace;margin-top:6px;}
 .mc-a{stroke:var(--accent);fill:none;stroke-width:2;}
+.msec{font-size:10.5px;color:var(--text-2);background:var(--surface-2);
+  border-left:2px solid var(--accent);padding:6px 9px;margin:14px 0 8px;line-height:1.5;}
+.msec b{color:var(--text);}
+.msel{border:1px solid var(--border);border-radius:5px;padding:8px 10px;margin:0 0 10px;
+  background:var(--surface);}
+.msel-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:5px;}
+.msel-lab{font-size:10.5px;color:var(--text-2);}
+.msel-note{font-size:10px;color:var(--text-3);}
+.msel-in{width:68px;font:inherit;font-size:11px;padding:2px 5px;border-radius:4px;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text);}
+.msel-tot{font-size:10.5px;color:var(--text-2);border-top:1px solid var(--border);
+  padding-top:6px;margin-top:3px;}
+.msel-tot b{color:var(--text);}
+.msel-reset{font:inherit;font-size:10px;padding:1px 7px;border-radius:4px;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);}
+.tag.rej{background:var(--surface-2);color:var(--text-3);}
+.mrej{font-size:10px;color:var(--text-3);padding:0 9px 7px;line-height:1.45;}
 .tag.twin{background:var(--warn-soft);color:var(--warn);}
 .mc-goto{font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--accent);
   background:transparent;border:1px solid var(--accent);border-radius:8px;
@@ -1120,7 +1137,7 @@ function mergeCount(uid){ return (mergeByUnit[uid] || []).length; }
    drift-pair signature the correlogram cannot see. That is what the list marker counts
    and what this panel puts first; the rest stay one click away rather than crowding
    the real ones out. */
-function isWorthLook(p){ return dipClass(p)[0] === 'one' || isDrift(p) || isTwin(p); }
+function isWorthLook(p){ return tierOf(p) !== null; }
 function mergeStrongCount(uid){ return (mergeByUnit[uid] || []).filter(isWorthLook).length; }
 let mergeShowAll = {};   /* unit_id -> show the unconvincing neighbours too */
 
@@ -1282,6 +1299,150 @@ function isDrift(p){
    the footprint and the session timelines have to decide, so they belong in front of
    you rather than behind "show the other neighbours". */
 const SIM_TWIN = 0.95, WFR_TWIN = 0.85;
+
+/* --- the footprint ---------------------------------------------------------
+   One neuron has ONE footprint: the same centre on the probe and the same
+   fall-off in both directions. Both numbers below come from the mean waveform
+   already in the payload -- 10 channels per unit at their real micron positions
+   -- so nothing is recomputed from raw data.
+
+     offset_um   distance between the two amplitude-weighted centroids
+     profile_r   correlation of the per-channel amplitude profiles, each
+                 normalised to its own maximum, over the shared channels
+
+   Measured on this session: profile_r runs at median -0.12 across all pairs and
+   +0.61 across the pairs with a real dip, so it separates. It is deliberately
+   built from AMPLITUDE per channel, not from waveform shape, so a pair whose
+   mean waveforms are inverted still scores high if it occupies the same place --
+   which is what the four inverted pairs here do. */
+const _fpCache = {};
+function _ampProfile(w){
+  const out = [];
+  for(let i = 0; i < w.uv.length; i++){
+    const tr = w.uv[i];
+    let lo = tr[0], hi = tr[0];
+    for(let k = 1; k < tr.length; k++){
+      if(tr[k] < lo) lo = tr[k];
+      if(tr[k] > hi) hi = tr[k];
+    }
+    out.push(hi - lo);
+  }
+  return out;
+}
+function _pearson(a, b){
+  const n = a.length;
+  if(n < 3) return null;
+  let ma = 0, mb = 0;
+  for(let i = 0; i < n; i++){ ma += a[i]; mb += b[i]; }
+  ma /= n; mb /= n;
+  let sa = 0, sb = 0, sab = 0;
+  for(let i = 0; i < n; i++){
+    const da = a[i] - ma, db = b[i] - mb;
+    sa += da * da; sb += db * db; sab += da * db;
+  }
+  if(!(sa > 0) || !(sb > 0)) return null;
+  return sab / Math.sqrt(sa * sb);
+}
+function footprintStats(p){
+  if(_fpCache[p.pair_id]) return _fpCache[p.pair_id];
+  const res = {offset: null, profile_r: null};
+  const ua = MERGE.units[String(p.unit_a)], ub = MERGE.units[String(p.unit_b)];
+  if(ua && ub && ua.waveform && ub.waveform){
+    const wa = ua.waveform, wb = ub.waveform;
+    const aa = _ampProfile(wa), ab = _ampProfile(wb);
+    let sa = 0, sb = 0;
+    for(let i = 0; i < aa.length; i++) sa += aa[i];
+    for(let i = 0; i < ab.length; i++) sb += ab[i];
+    if(sa > 0 && sb > 0){
+      let ax = 0, ay = 0, bx = 0, by = 0;
+      for(let i = 0; i < aa.length; i++){
+        ax += wa.channel_um[i][0] * aa[i]; ay += wa.channel_um[i][1] * aa[i];
+      }
+      for(let i = 0; i < ab.length; i++){
+        bx += wb.channel_um[i][0] * ab[i]; by += wb.channel_um[i][1] * ab[i];
+      }
+      res.offset = Math.hypot(ax / sa - bx / sb, ay / sa - by / sb);
+      const shared = wa.channels.filter(c => wb.channels.indexOf(c) >= 0);
+      if(shared.length >= 4){
+        const va = shared.map(c => aa[wa.channels.indexOf(c)]);
+        const vb = shared.map(c => ab[wb.channels.indexOf(c)]);
+        const mxa = Math.max.apply(null, va), mxb = Math.max.apply(null, vb);
+        if(mxa > 0 && mxb > 0)
+          res.profile_r = _pearson(va.map(v => v / mxa), vb.map(v => v / mxb));
+      }
+    }
+  }
+  _fpCache[p.pair_id] = res;
+  return res;
+}
+
+/* --- the selection rule, and it is tunable --------------------------------
+   Template similarity REJECTS, it never selects: a high value proves nothing
+   (this session's most similar pair, 0.993 with waveform r 0.976, has a flat
+   correlogram), but a low value does reject, because two clusters of one neuron
+   have to look alike unless the probe moved. Drift is not an entry route -- it is
+   the EXCUSE for evidence that cannot be gathered, so it only waives the
+   footprint test. Waveform r is shown and never gated on.
+
+   Every threshold was measured rather than guessed, and none is settled, so all
+   five are inputs on the panel with live counts beside them. */
+const SEL_DEFAULT = {sim: 0.50, fpr: 0.30, fpoff: 35, driftR: -0.20, driftOv: 0.15};
+let SEL = Object.assign({}, SEL_DEFAULT);
+try {
+  const raw = localStorage.getItem('mergeSel');
+  if(raw){
+    const o = JSON.parse(raw);
+    ['sim','fpr','fpoff','driftR','driftOv'].forEach(function(k){
+      if(typeof o[k] === 'number' && isFinite(o[k])) SEL[k] = o[k];
+    });
+  }
+} catch(e) {}
+function selSave(){
+  try { localStorage.setItem('mergeSel', JSON.stringify(SEL)); } catch(e) {}
+}
+
+function simAgrees(p){ return (p.template_similarity || 0) >= SEL.sim; }
+function isDriftStrict(p){
+  return p.rate_corr !== null && p.rate_corr <= SEL.driftR &&
+         p.active_overlap !== null && p.active_overlap <= SEL.driftOv;
+}
+function fpAgrees(p){
+  const f = footprintStats(p);
+  return f.profile_r !== null && f.profile_r >= SEL.fpr &&
+         f.offset !== null && f.offset <= SEL.fpoff;
+}
+function shapeAgrees(p){ return simAgrees(p) && (fpAgrees(p) || isDriftStrict(p)); }
+
+/* Tier A: the shape matches AND the correlogram shows a real dip.
+   Tier B: the shape matches and the correlogram cannot settle it. */
+function tierOf(p){
+  if(!shapeAgrees(p)) return null;
+  const c = dipClass(p)[0];
+  if(c === 'one') return 'A';
+  if(c === 'thin' || c === 'partial') return 'B';
+  return null;                       /* flat or peaked: the correlogram said no */
+}
+function rejectReason(p){
+  const c = dipClass(p)[0];
+  if(!simAgrees(p))
+    return 'template similarity ' + mFmt(p.template_similarity) + ' below ' + SEL.sim;
+  if(!fpAgrees(p) && !isDriftStrict(p)){
+    const f = footprintStats(p);
+    return 'footprint mismatch (profile r ' + mFmt(f.profile_r) + ', centres ' +
+           mFmt(f.offset, 0) + ' &micro;m apart) with no drift to explain it';
+  }
+  if(c === 'peak') return 'a peak at zero lag: synchrony, not one neuron';
+  if(c === 'flat') return 'correlogram flat through the refractory window: two neurons';
+  return 'does not meet the rule';
+}
+/* Rank Tier A by how much the dip rests on real counts, not by its depth alone:
+   a dip of 0.43 measured against 27992 expected spikes is far better evidence
+   than 0.125 measured against 8. */
+function dipConfidence(p){
+  const d = dipStats(p);
+  if(d.ratio === null || !(d.expNear > 0)) return -1;
+  return (1 - Math.min(d.ratio, 1)) * Math.log10(Math.max(d.expNear, 1.0001));
+}
 function isTwin(p){
   const c = dipClass(p)[0];
   return (p.template_similarity || 0) >= SIM_TWIN &&
@@ -1571,24 +1732,70 @@ function renderMergePanel(container, uid){
       'scripts/build_merge_candidates.py and republish.</div>';
     return;
   }
-  const all = (mergeByUnit[uid] || []).slice().sort((x, y) => {
-    const dx = x.ccg.dip_ratio === null ? 9 : x.ccg.dip_ratio;
-    const dy = y.ccg.dip_ratio === null ? 9 : y.ccg.dip_ratio;
-    return dx - dy;
-  });
-  const strong = all.filter(isWorthLook);
-  const weak = all.filter(p => !isWorthLook(p) && !mergeVerdicts[p.pair_id]);
-  const decidedWeak = all.filter(p => !isWorthLook(p) && mergeVerdicts[p.pair_id]);
+  const all = (mergeByUnit[uid] || []).slice();
+  /* Tier A ranked by how much the dip rests on real counts; Tier B has no dip to
+     rank by, so it falls back to template similarity. */
+  const tierA = all.filter(p => tierOf(p) === 'A')
+                   .sort((x, y) => dipConfidence(y) - dipConfidence(x));
+  const tierB = all.filter(p => tierOf(p) === 'B')
+                   .sort((x, y) => (y.template_similarity || 0) - (x.template_similarity || 0));
+  const strong = tierA.concat(tierB);
+  const weak = all.filter(p => tierOf(p) === null && !mergeVerdicts[p.pair_id])
+                  .sort((x, y) => (y.template_similarity || 0) - (x.template_similarity || 0));
+  const decidedWeak = all.filter(p => tierOf(p) === null && mergeVerdicts[p.pair_id]);
   const showAll = mergeShowAll[uid];
   /* decided pairs always stay visible, however weak -- a decision you made is not
      something the page should hide from you */
-  const list = showAll ? all : strong.concat(decidedWeak);
+  const list = showAll ? tierA.concat(tierB, decidedWeak, weak)
+                       : tierA.concat(tierB, decidedWeak);
+  /* section headers, emitted before the first row of each group */
+  const sectionOf = {};
+  if(tierA.length) sectionOf[tierA[0].pair_id] =
+    '<div class="msec"><b>Confirmed</b> &mdash; shape agrees and the correlogram shows a ' +
+    'real refractory dip. ' + tierA.length + ' pair' + (tierA.length === 1 ? '' : 's') +
+    ', strongest counts first.</div>';
+  if(tierB.length) sectionOf[tierB[0].pair_id] =
+    '<div class="msec"><b>Shape agrees, correlogram cannot settle it</b> &mdash; too few ' +
+    'coincident spikes for a verdict, so these need your eye. ' + tierB.length +
+    ' pair' + (tierB.length === 1 ? '' : 's') + ', most similar templates first.</div>';
+  if(decidedWeak.length) sectionOf[decidedWeak[0].pair_id] =
+    '<div class="msec"><b>Decided by you</b> &mdash; kept visible whatever the rule says ' +
+    'about them.</div>';
+  if(showAll && weak.length) sectionOf[weak[0].pair_id] =
+    '<div class="msec"><b>Rejected</b> &mdash; each row says which test it failed.</div>';
   const nDecided = Object.keys(mergeVerdicts).filter(id => mergeVerdicts[id].verdict === 'merge').length;
   let h = '<div class="merge-head"><div class="panel-label">Possible merges &middot; ' +
-    (strong.length ? strong.length + ' worth a look' : 'none convincing') +
+    (tierA.length ? tierA.length + ' confirmed' : 'none confirmed') +
+    (tierB.length ? ', ' + tierB.length + ' undecided' : '') +
     ' of ' + all.length + ' neighbour' + (all.length === 1 ? '' : 's') + ' for unit #' + uid + '</div>' +
     '<button class="merge-export" id="mergeExportBtn">export ' + nDecided + ' merge' +
     (nDecided === 1 ? '' : 's') + '</button></div>';
+
+  /* the rule itself, open to the hand. Counts are over every co-located pair in
+     the session, not just this unit's, so moving a threshold shows its real cost. */
+  let gA = 0, gB = 0, gRej = 0;
+  MERGE.pairs.forEach(function(q){
+    const t = tierOf(q);
+    if(t === 'A') gA++; else if(t === 'B') gB++; else gRej++;
+  });
+  h += '<div class="msel">' +
+    '<div class="msel-row"><span class="msel-lab">template similarity &ge;</span>' +
+    '<input class="msel-in" id="selSim" type="number" step="0.05" min="0" max="1" value="' + SEL.sim + '">' +
+    '<span class="msel-note">rejects a pair outright &mdash; it never promotes one</span></div>' +
+    '<div class="msel-row"><span class="msel-lab">footprint profile r &ge;</span>' +
+    '<input class="msel-in" id="selFpr" type="number" step="0.05" min="-1" max="1" value="' + SEL.fpr + '">' +
+    '<span class="msel-lab">centres &le;</span>' +
+    '<input class="msel-in" id="selFpoff" type="number" step="5" min="0" max="60" value="' + SEL.fpoff + '">' +
+    '<span class="msel-note">&micro;m apart</span></div>' +
+    '<div class="msel-row"><span class="msel-lab">drift: rate r &le;</span>' +
+    '<input class="msel-in" id="selDriftR" type="number" step="0.05" min="-1" max="0" value="' + SEL.driftR + '">' +
+    '<span class="msel-lab">overlap &le;</span>' +
+    '<input class="msel-in" id="selDriftOv" type="number" step="0.05" min="0" max="1" value="' + SEL.driftOv + '">' +
+    '<span class="msel-note">waives the footprint test only, never the similarity floor</span></div>' +
+    '<div class="msel-tot">across all ' + MERGE.pairs.length + ' co-located pairs in this session: ' +
+    '<b>' + gA + '</b> confirmed &middot; <b>' + gB + '</b> undecided &middot; ' +
+    gRej + ' rejected &nbsp;<button class="msel-reset" id="selReset">reset</button></div>' +
+    '</div>';
 
   if(!all.length){
     h += '<div class="merge-why">No other cluster has its peak channel within ' +
@@ -1602,11 +1809,9 @@ function renderMergePanel(container, uid){
 
   if(!list.length){
     h += '<div class="merge-why">' + all.length + ' cluster' + (all.length === 1 ? ' is' : 's are') +
-      ' within ' + MERGE.max_dist_um + ' &micro;m of this one, but none of them shows the ' +
-      'evidence a merge needs: no refractory dip that survives its own shoulders and a ' +
-      'Poisson test, no drift-pair signature. ' +
-      'That is a result, not an empty list &mdash; on a dense probe most neighbours are ' +
-      'simply other neurons.</div>';
+      ' within ' + MERGE.max_dist_um + ' &micro;m of this one, and every one of them fails ' +
+      'the rule &mdash; the reasons are on each row below the button. That is a result, not an ' +
+      'empty list: on a dense probe most neighbours are simply other neurons.</div>';
   }
 
   h += '<div class="merge-why">Clusters within ' + MERGE.max_dist_um + ' &micro;m of this unit ' +
@@ -1626,9 +1831,26 @@ function renderMergePanel(container, uid){
     'showing a one-neuron dip, the 0.90&ndash;0.95 band runs at 6.7%, which is <b>13&times; chance</b>. ' +
     'Everything else stays one click away rather than crowding those out. ' +
     'Deciding here changes nothing by itself: export, run write_unit_merges.py, then re-run the ' +
-    'pipeline.</div>';
+    'pipeline.</div>' +
+    '<div class="merge-why"><b>How a pair gets here.</b> The shape has to agree first: ' +
+    'KS template similarity &ge;<b>' + SEL.sim + '</b> and a matching footprint &mdash; one ' +
+    'neuron has one footprint, so the two amplitude centroids must sit within <b>' + SEL.fpoff +
+    ' &micro;m</b> and the per-channel amplitude profiles must correlate at &ge;<b>' + SEL.fpr +
+    '</b>. Then the correlogram decides: a dip confirms, flat or peaked rejects, too few ' +
+    'coincidences leaves it to you. Similarity is a <b>rejector only</b> &mdash; the most ' +
+    'similar pair in this session (0.993, waveform r 0.976) has a flat correlogram and is ' +
+    'certainly two neurons &mdash; but a low value does reject, since two clusters of one neuron ' +
+    'must look alike unless the probe moved. <b>Drift is not a route in.</b> It explains away ' +
+    'evidence that could not be gathered: units that never fire in the same period cannot ' +
+    'produce coincidences, and a probe that moved leaves one neuron with two different ' +
+    'footprints. So it waives the footprint test, never the similarity floor. Measured here, ' +
+    'not one of the pairs with a readable dip has a drift signature at all. Waveform r is ' +
+    'shown on every row and gated on nowhere: near zero it is the crossing point between ' +
+    'high positive and high negative and carries no information, and where similarity is high ' +
+    'it agrees anyway.</div>';
 
   list.forEach(p => {
+    if(sectionOf[p.pair_id]) h += sectionOf[p.pair_id];
     const other = partnerOf(p, uid);
     const ou = byId[other] || {};
     const [cls, say] = dipClass(p);
@@ -1642,8 +1864,8 @@ function renderMergePanel(container, uid){
       '<button class="mc-goto" data-goto="' + other + '" title="open unit #' + other +
       ' (a back button appears at the top)">open &#8599;</button>' +
       '<span class="tag ' + cls + '">' + (dsRow.ratio === null ? 'no dip' : 'dip ' + mFmt(dsRow.ratio)) + '</span>' +
-      (isDrift(p) ? '<span class="tag drift">drift pair?</span>' : '') +
-      (isTwin(p) ? '<span class="tag twin">twin templates</span>' : '') +
+      (isDriftStrict(p) ? '<span class="tag drift">drift pair</span>' : '') +
+      (tierOf(p) === null ? '<span class="tag rej">rejected</span>' : '') +
       (v ? '<span class="tag decided">' + v.verdict.toUpperCase() + (v.quality_label ? ' / ' + v.quality_label : '') + '</span>' : '') +
       '<span class="spacer"></span>' +
       '<span class="nums">' +
@@ -1653,17 +1875,32 @@ function renderMergePanel(container, uid){
       '<span><b>' + mFmt(p.distance_um, 0) + '</b>&micro;m</span>' +
       '<span>merged viol <b>' + mFmt(cost, 3) + '%</b></span>' +
       '<span>' + (open ? 'hide' : 'inspect') + '</span></span></div>' +
-      '<div class="mc-body">' + (open ? mergeBody(p, uid, other, say) : '') + '</div></div>';
+      '<div class="mc-body">' + (open ? mergeBody(p, uid, other, say) : '') + '</div>' +
+      (tierOf(p) === null ? '<div class="mrej">rejected &mdash; ' + rejectReason(p) +
+        '</div>' : '') + '</div>';
   });
 
   if(weak.length){
     h += '<button class="merge-export" id="mergeShowAllBtn" style="border-color:var(--border);' +
       'background:var(--surface);color:var(--text-3);">' +
-      (showAll ? 'hide the ' + weak.length + ' unconvincing neighbour' + (weak.length === 1 ? '' : 's')
-               : 'show the other ' + weak.length + ' neighbour' + (weak.length === 1 ? '' : 's') +
-                 ' (flat correlograms)') + '</button>';
+      (showAll ? 'hide the ' + weak.length + ' rejected neighbour' + (weak.length === 1 ? '' : 's')
+               : 'show the ' + weak.length + ' rejected neighbour' + (weak.length === 1 ? '' : 's') +
+                 ', with the reason each failed') + '</button>';
   }
   container.innerHTML = h;
+  [['selSim','sim'],['selFpr','fpr'],['selFpoff','fpoff'],
+   ['selDriftR','driftR'],['selDriftOv','driftOv']].forEach(function(kv){
+    const el = container.querySelector('#' + kv[0]);
+    if(!el) return;
+    el.addEventListener('change', function(){
+      const v = parseFloat(el.value);
+      if(isFinite(v)){ SEL[kv[1]] = v; selSave(); renderDetail(uid); }
+    });
+  });
+  const selRst = container.querySelector('#selReset');
+  if(selRst) selRst.addEventListener('click', function(){
+    SEL = Object.assign({}, SEL_DEFAULT); selSave(); renderDetail(uid);
+  });
   const allBtn = container.querySelector('#mergeShowAllBtn');
   if(allBtn) allBtn.addEventListener('click', () => { mergeShowAll[uid] = !mergeShowAll[uid]; renderDetail(uid); });
 
@@ -1780,7 +2017,13 @@ function mergeBody(p, uid, other, say){
     mTimelines(p.unit_a, p.unit_b) +
     '<div class="mc-legend">#' + p.unit_a + ' solid, #' + p.unit_b + ' dashed &middot; rate correlation ' +
     mFmt(p.rate_corr) + ' &middot; simultaneous-activity overlap ' + mFmt(p.active_overlap) +
-    (isDrift(p) ? ' &mdash; <b>they trade places: a drift pair, which the correlogram cannot see</b>' : '') +
+    (isDriftStrict(p)
+      ? ' &mdash; <b>they trade places: a drift pair, so neither the correlogram nor ' +
+        'the footprint can be held against them</b>'
+      : (isDrift(p)
+          ? ' &mdash; they lean apart, but not far enough to count as drift at rate r &le;' +
+            SEL.driftR + ' and overlap &le;' + SEL.driftOv
+          : '')) +
     '</div></div></div>';
 
   h += '<div class="mc-verdict">' +

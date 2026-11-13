@@ -15,6 +15,10 @@ chain, in order, failing loudly if any anchor has drifted:
                                             firing rates above the merged ACG
       -> patch_review_tool_export_all.py    one button that saves all three decision
                                             files for scripts/sync_session.py
+      -> patch_review_tool_merge_v4.py      the footprint score, and selection rebuilt:
+                                            template similarity rejects but never
+                                            selects, drift only excuses a test that
+                                            could not be run, two ranked tiers
       -> patch_review_tool_merge_v3.py      working verdict buttons; panel at the
                                             bottom; jump to the other unit; twins
 
@@ -55,6 +59,7 @@ PATCHES = [
     ("patch_review_tool_merge_panel.py", "possible-merges panel"),
     ("patch_review_tool_merge_v2.py", "shoulder dip, Poisson test, footprint, rates"),
     ("patch_review_tool_merge_v3.py", "verdict buttons, panel at bottom, unit jump, twins"),
+    ("patch_review_tool_merge_v4.py", "footprint score; similarity rejects; drift only excuses"),
     ("patch_review_tool_export_all.py", "export-all-for-sync button"),
     ("patch_review_tool_sync_command.py", "the sync command on the page, with a copy button"),
 ]
