@@ -8588,3 +8588,48 @@ write lock on its destination, so reading Z's copy of `20261112_082028.rec` fail
 session and tries them in turn, archive first; F's copy read fine and the header is
 identical either way. Worth having permanently — the natural time to run this script is
 right after a session lands, which is exactly when its archive copy is locked.
+
+### 5bd.47 — A job that reported DONE having done nothing, and the 2 GB file that caused it (2026-11-12)
+
+Job **769961** (post-KS for 20261112_082028) went DONE at 21:02:08 after running from
+02:57:34 to 02:59:13Z — under two minutes for a six-step pipeline whose fastest step
+alone takes forty. `bjobs` said `Successfully completed`. Nothing had been computed.
+
+**Root cause, and it is a staging mistake, not a cluster one.** `timestamps.dat` was never
+uploaded to scratch. I staged the session by hand-picking files instead of using
+`stage_session_to_ris.ps1`, whose `$files` list already contains it, and reasoned that
+the cluster would not need it because sync runs locally off Z. But `discover_session()`
+(striatal_agent/session.py:71) refuses to describe a session without it, and every one of
+the six steps starts by describing the session. So all 111 batch workers died on the same
+`FileNotFoundError` inside 45 s, `kilosort_original` was therefore never built, bombcell
+then found no `spike_templates.npy`, and the remaining steps fell behind it.
+
+**Why LSF still said DONE, which is the part worth remembering.** `run_step` in
+`ris_run_postks.sh` returns 0 on failure by design, so one broken step cannot strand the
+five that do not depend on it. The cost of that design is that a wholly-failed job is
+indistinguishable from a successful one in `bjobs`. **Never judge a post-KS job by its LSF
+state — read the log's last block.** The honest tell here was arithmetic: the job was far
+too fast.
+
+**Fixed where it can't recur.** `ris_submit_postks.sh` now REFUSES to submit without
+`<sid>.timestamps.dat` beside the raw file, accepting a `concat_*.json` instead for a
+joined session (which legitimately has no single timestamps file, and proves itself with
+its concatenation provenance). Refuse, not warn: the file is 2 GB against a 391 GB raw
+file, and its absence breaks all six steps at once. The message prints the `dd` command
+that ships it.
+
+**The recovery cost nothing but wall clock, because the raw file was still on scratch.**
+timestamps.dat uploaded (2,038,986,923 bytes, md5 `845b010fa8b2f10366c0048ea9d3fdfc`
+identical both sides), the 111 stale batch logs cleared so they could not be mistaken for
+fresh output, and the sort itself untouched — 442 units, 29,735,992 spikes, both steps
+including the split-half waveforms. Resubmitted unchained as **776207**.
+
+**776207, 93 minutes, all six steps.** 111 batches of 4 dispatched over 33 minutes (the
+health signal: the failed run dispatched all 111 in 45 s), 442 of 442 units covered with
+0 duplicates, median 3.35 % / mean 7.52 % spikes recovered, 117 red-flag units, tiers
+434 tier2 / 8 tier3, classes 342 tan-like / 70 bursty-MSN-like / 22 tonic-FSI-like.
+bombcell: 17 GOOD, 110 MUA, 52 NOISE, 263 NON-SOMA; the corrected classification turns
+that into 35 GOOD, 120 GOOD+NON-SOMA, 105 MUA, 179 MUA+NON-SOMA, 3 NOISE — promoting 11
+of bombcell's 52 NOISE calls to GOOD, the same pattern every session shows. 384/384
+channels matched to a Trodes ntrode. raw cluster points 442 units in 969 s, raw separation
+442 in 2100 s.

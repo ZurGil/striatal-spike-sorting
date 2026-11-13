@@ -95,6 +95,31 @@ if [ -z "${AFTER}" ] && [ ! -s "${SDIR}/kilosort4/spike_times.npy" ]; then
     exit 1
 fi
 
+# timestamps.dat, which EVERY step needs even though no step reads it directly.
+#
+# discover_session() refuses to describe a session without it, so its absence kills all
+# six steps at once rather than one of them -- and kills them in a way that still reports
+# DONE, because run_step deliberately returns 0 so one broken step cannot strand the
+# others. Measured 2026-11-12 on 20261112_082028: all 111 batch workers died on the same
+# line inside 45 seconds, `kilosort_original` was therefore never built, bombcell then
+# found no spike_templates.npy, and LSF called the job DONE. Nothing in `bjobs` suggests
+# anything went wrong.
+#
+# It is cheap to ship (2 GB against a 391 GB raw file) and the staging script already
+# copies it -- this check exists because that script's file list was bypassed and the file
+# hand-picked. So: refuse, do not warn. A concatenated session legitimately has none and
+# proves itself with its concat_*.json provenance file instead (striatal_agent/session.py).
+TS="$(dirname "${DATA}")/${SESSION}.timestamps.dat"
+if [ ! -s "${TS}" ] && ! ls "$(dirname "${DATA}")"/concat_*.json >/dev/null 2>&1; then
+    echo "REFUSING: no ${SESSION}.timestamps.dat beside the raw file, and no concat_*.json." >&2
+    echo "  expected  ${TS}" >&2
+    echo "  discover_session() needs one or the other, so ALL SIX steps would fail -- and" >&2
+    echo "  the job would still report DONE. Ship it (~2 GB) and resubmit:" >&2
+    echo "    dd if=<F or Z>/${SESSION}.kilosort/${SESSION}.timestamps.dat bs=1M |" >&2
+    echo "      ssh compute1 \"cat > ${TS}\"" >&2
+    exit 1
+fi
+
 # The Trodes config, needed by step 5 (the channel lookup) and therefore by step 6b,
 # which reads step 5's CSV. stage_session_to_ris.ps1 extracts it from the .rec header and
 # ships it -- but a CONCATENATED session has no .rec at all, so for those it has to be
