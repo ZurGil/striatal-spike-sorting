@@ -187,7 +187,16 @@ def main():
     ap.add_argument("--max_pairs", type=int, default=150)
     ap.add_argument("--n_waveform_spikes", type=int, default=150)
     ap.add_argument("--uv_per_bit", type=float, default=0.195,
-                    help="Neuropixels 1.0 at gain 500: 0.195 uV per LSB")
+                    help="PASS THE SESSION'S OWN GAIN, read from its .rec header -- for "
+                         "every Trodes export here that is 0.018311105685598315, which "
+                         "is what the cluster post-KS job and the corrected "
+                         "classification use. The 0.195 default is the SpikeGLX figure "
+                         "for Neuropixels 1.0 at gain 500 and is 10.6x too large for "
+                         "our files: it leaves the waveform SHAPES and every merge "
+                         "decision untouched (both units are scaled alike) but the uV "
+                         "axis then disagrees with the rest of the pipeline. "
+                         "20260916_110311's merge tool was built on the default; "
+                         "everything since passes the real gain.")
     args = ap.parse_args()
 
     sid = args.session_id

@@ -8633,3 +8633,65 @@ that into 35 GOOD, 120 GOOD+NON-SOMA, 105 MUA, 179 MUA+NON-SOMA, 3 NOISE — pro
 of bombcell's 52 NOISE calls to GOOD, the same pattern every session shows. 384/384
 channels matched to a Trodes ntrode. raw cluster points 442 units in 969 s, raw separation
 442 in 2100 s.
+
+### 5bd.48 — Popper 20261112 is reviewable, and the whole session is on Z (2026-11-12)
+
+**https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG** — 442 units. The full request Gil
+made this morning is now done: archived to Z, uploaded, sorted, scored, review tool
+built, results back on Z.
+
+**Brought home without scp, as the rule says.** The cluster `outputs/` (401 MB) came by
+streaming tar in 3 s; the sort itself — `kilosort4/` with `kilosort_original/` and
+`agent_processed/` inside it, plus `waveforms/` — in one tar of **1,547 files /
+24,309,341,086 bytes**, verified by inventory (every name and size equal, the apparent
+diff being only `sort` collation) and by md5 on the eight files the science rests on:
+spike_times, spike_clusters, amplitudes, templates, similar_templates,
+channel_positions, agent_report.json and unit_waveforms.npz.
+
+**One missing file stopped the local half, and it is the same class of mistake as
+yesterday's.** `compute_raw_trace_snippets_session.py` calls `discover_session()`, which
+also wants `<sid>_custom_neuropixels_map.json` — a file the stage script generates on
+the way up and which therefore existed only on scratch. Copied down with the
+`.trodesconf` beside it, md5 equal both sides. The lesson is the same one the
+timestamps.dat guard records: `discover_session()` is the gate every step passes
+through, so its whole file list has to travel with the session, both directions.
+
+**The local build, in order, all six steps:** review data (442 units, ACGs), session
+timeline (**850 bins of 20 s, 1087 trial markers from DIO code 1, no dropped-packet
+gaps**, 4.72 h, median unit rate 1.90 Hz), burst/ISI metrics (284 flat, 93 excluded as
+high-rate, 17 dip-then-rise, 17 facilitation, 11 decay, 8 rise-then-dip, 12 insufficient),
+the merge into `pipeline_review_data` reporting **cluster_points=0, separation=0, burst=0,
+trodes_channel=0 missing** — every field populated for all 442 — then 150 merge candidates
+and the page itself (14.15 MiB of the 16 MiB limit). 442 `raw_traces` documents pushed to
+the artifact database in 37 batches of 12.
+
+**The strongest merge candidate is 133+136:** 0 um apart, similarity 0.883, waveform
+r 0.887, and a **CCG dip of exactly 0.0** — not a shallow trough, an empty refractory
+window. 232+234 (dip 0.275, sim 0.944) and 381+383 (dip 0.304, sim 0.987, 40 um) follow.
+
+**A unit mismatch worth writing down before it bites a third time.**
+`build_merge_candidates.py` defaults `--uv_per_bit` to 0.195, which is the SpikeGLX
+figure for Neuropixels 1.0 at gain 500. Our Trodes exports are
+**0.018311105685598315 uV per LSB, read from each session's own .rec header** — the value
+the cluster job and the corrected classification use. The default is 10.6x too large.
+It changes no decision and no shape (both units of a pair scale alike) but it makes the
+merge panel's uV axis disagree with every other panel. 20260916_110311's merge tool was
+built on the default; the joint session and this one pass the real gain. The flag's help
+text now says all of this instead of naming a probe.
+
+**On Z, beside the sort, in the shape 20260916_110311 established.**
+`20261112_082028.kilosort/` now holds `kilosort4/` (22.543 GiB, 1545 files, copied at
+116 MB/s, 0 failed), `waveforms/`, `outputs/` (the bombcell result directory, the
+corrected classification, the raw metrics, the Trodes lookup and all five cluster job
+logs — 769960's sort, 769961's failure and 776207's rerun), and `review/` with the page,
+its `data/merge_candidates.json`, the seven `inputs/` files needed to rebuild it, and a
+`verdicts/` directory holding only a NOTE. **The verdicts do not exist yet** and the
+README says so in its second paragraph: they live in the page's database until Gil
+reviews, and `cluster_info.tsv` is where they then get applied, never
+`cluster_group.tsv`.
+
+**Still open on this session.** Gil's review of the 442 units, then the three verdict
+collections exported into `review/verdicts/` and applied. Sync needs
+`Z:\Gil\Popper\bpod\`, which is still empty. And `/scratch1/fs1/akepecs/zur/20261112_082028`
+(391 GB) can now be purged — every step that needs the raw file has run — but that is
+Gil's call, not mine.
