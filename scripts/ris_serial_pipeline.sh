@@ -74,6 +74,54 @@ LOG="$LOGDIR/ris_serial_pipeline.log"
 say() { echo "[$(date '+%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 rssh() { ssh -o BatchMode=yes compute1 "$@" 2>/dev/null | tr -d '\r'; }
 
+# --- one instance at a time, held by a lock directory with a heartbeat ---------
+# Two pipelines at once is the expensive failure: both would pick the same first
+# unstaged session and push the same 300 GB up twice, and both would race to purge.
+# Process counting cannot decide it -- MSYS bash forks inherit the parent's command
+# line, so one pipeline reads as four, and the same check has already reported an
+# empty count, which a guard reads as "nothing running" when it means "I cannot
+# tell". mkdir is atomic: it either creates the directory or fails, with no window
+# in between, so it can decide what a process list cannot.
+#
+# The heartbeat is what makes the lock survivable. A crashed pipeline leaves the
+# directory behind; without a heartbeat that lock is permanent and the queue stops
+# until someone notices. A background beater writes the time every 60 s, and a lock
+# whose heartbeat has gone quiet for STALE_AFTER is taken over. STALE_AFTER is
+# deliberately long -- a single cycle legitimately runs for an hour or more while a
+# session uploads -- because blocking a restart for an hour is a nuisance, and
+# running two pipelines over the same data is not.
+LOCK="$LOGDIR/.ris_serial_pipeline.lock"
+HEARTBEAT="$LOCK/heartbeat"
+STALE_AFTER=7200
+
+if ! mkdir "$LOCK" 2>/dev/null; then
+  last="$(cat "$HEARTBEAT" 2>/dev/null || echo 0)"
+  case "$last" in ''|*[!0-9]*) last=0 ;; esac
+  age=$(( $(date +%s) - last ))
+  if [ "$last" -gt 0 ] && [ "$age" -lt "$STALE_AFTER" ]; then
+    say "another pipeline already holds $LOCK (heartbeat ${age}s old)."
+    say "Nothing staged, nothing purged, exiting. This is the lock doing its job."
+    exit 0
+  fi
+  if [ "$last" -eq 0 ]; then
+    say "lock exists with no readable heartbeat -- taking it over"
+  else
+    say "lock heartbeat is ${age}s old, past the ${STALE_AFTER}s limit -- taking it over"
+  fi
+fi
+date +%s > "$HEARTBEAT" 2>/dev/null || true
+echo "$$" > "$LOCK/pid" 2>/dev/null || true
+
+# Beat from a child so the clock keeps ticking through a long upload, where the main
+# shell is blocked inside one cycle for the better part of an hour.
+( while kill -0 "$$" 2>/dev/null; do
+    date +%s > "$HEARTBEAT" 2>/dev/null || true
+    sleep 60
+  done ) &
+BEATER=$!
+cleanup() { kill "$BEATER" 2>/dev/null || true; rm -rf "$LOCK" 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+
 # --- is any LSF job alive for this session? ------------------------------------
 jobs_for() {
   local sid="$1"
@@ -233,5 +281,9 @@ while true; do
   cycle
   [ "$ONCE" = 1 ] && break
   say "sleeping ${SLEEP}s"
-  sleep "$SLEEP"
+  slept=0
+  while [ "$slept" -lt "$SLEEP" ]; do
+    date +%s > "$HEARTBEAT" 2>/dev/null || true
+    sleep 60; slept=$(( slept + 60 ))
+  done
 done

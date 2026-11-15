@@ -9092,3 +9092,74 @@ reason a 2,999-pair payload fits at all.
 The payload is pinned to `spike_clusters` sha1 `dc16fc5bee4df606b05ab52036a93aa6fa486bfd`,
 so if the clustering is ever re-run the page will refuse to pretend the old merge
 evidence still applies.
+
+### 5bd.56 The weekend queue, and two silent failures found in the session that did sort
+
+#### What actually ran, and what did not
+
+`20260914_122553` sorted overnight on 13-14 November: Kilosort 4 plus the whole
+post-KS half, 454 units, 765 result files. Nothing else ran. The reason was not the
+cluster -- `scripts/ris_serial_pipeline.sh` was written on 13 November and then never
+launched, so when job 2 finished there was nothing watching to bring the results home,
+free the scratch slot and stage the next session. Scratch sat at its two-session cap
+(188 GB + 168 GB) which is precisely the state that blocks anything new.
+
+Launched on 14 November at 19:42. The first pass did the whole cycle for both finished
+sessions:
+
+| session | RIS files | matched on Z | unmatched | freed |
+| --- | --- | --- | --- | --- |
+| 20260914_122553 | 765 | 765 | 0 | 188 G scratch + 15 G storage2 |
+| 20260915_084812_103710_concat | 713 | 713 | 0 | 168 G scratch + 14 G storage2 |
+
+371 GB freed, and RIS held nothing of ours for the first time in days. Then
+`20260917_100043` went up: 303 GiB at 97 MB/s in 3,192 s, verified by exact size and
+nine spread 1 MiB blocks including the last, and submitted as jobs 855808 (Kilosort)
+and 855809 (post-KS, chained on `done(855808)`).
+
+#### A lock, because a process count cannot answer the question it was asked
+
+The hand-off from the single pass to the looping one needed to know whether a pipeline
+was still alive. Counting processes by command line cannot tell: MSYS `bash` forks
+inherit the parent's command line, so one pipeline read as 1, then as 4, within a
+minute; and inside a PowerShell script the same check returned an **empty** count,
+which the guard `if ($n -eq 0)` did not catch because `$null -eq 0` is false. The
+script therefore concluded the pass had ended "after 0 min" while it was mid-upload.
+It then failed to start the loop for an unrelated reason, which is the only reason no
+second pipeline ever existed. That was luck, not design.
+
+Replaced with a lock directory, since `mkdir` is atomic -- it either creates or fails,
+with no window. A background child writes a heartbeat every 60 s so the lock survives
+a cycle that legitimately blocks for an hour inside a 300 GB upload, and a heartbeat
+older than `STALE_AFTER=7200` is taken over so a crash cannot wedge the queue forever.
+Tested rather than assumed: a second instance launched against a live lock printed
+*"another pipeline already holds ... (heartbeat 5s old). Nothing staged, nothing
+purged"* and exited 0.
+
+#### Two post-KS steps had been failing silently
+
+The submit script had warned, at submit time, that with no `.trodesconf` on the cluster
+steps 5 (trodes channel lookup) and 6b (raw separation metric, which reads step 5's
+CSV) would fail. For `20260914_122553` they did. The session otherwise looks complete,
+which is what makes this the dangerous kind of failure: 454 units, every other output
+present, and two missing files nobody would miss until an analysis wanted them.
+
+Two separate causes:
+
+1. **The configuration never reaches the cluster.** Only `probe1.dat` and the channel
+   map are uploaded; the `.rec` that carries the Trodes config stays on Z, 300+ GB of
+   it. So `scripts/extract_trodesconf_from_rec.py` now carves the header out locally.
+   It refuses to write a file with fewer than 300 `SpikeNTrode` entries, because a
+   truncated config still parses -- the lookup would then succeed on a subset of
+   channels and nothing downstream would notice. All six remaining queue sessions got
+   theirs (255 KB, 384 entries each) pushed to storage2 and size-verified **before**
+   their jobs run.
+2. **`20260914`'s channel map JSON was not on Z at all**, though the convention (see
+   20260916_110311) is that it lives in the session's `.kilosort` directory. Before
+   adding it, the local copy was checked against `channel_positions.npy` from the sort
+   that actually ran: 384 channels, `np.allclose` exact. Then added with `cp -n` for
+   seven sessions, so nothing on Z could be overwritten.
+
+Step 5 re-ran locally off Z afterwards and matched 384/384 channels, 0 unmatched,
+454 units. Step 6b needed the cluster's classification JSON, which only existed under
+the session's `cluster_outputs/` on Z; copied down and re-run.
