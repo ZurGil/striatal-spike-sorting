@@ -545,20 +545,49 @@ function renderTracePair(container, t, padMs, tIdx, nTotal, uid, otherColorMap){
   container.appendChild(row);
 }
 
+async function fetchRawTraces(uid, attempts){
+  /* The document store answers `unavailable` from time to time. That is a
+     passing server state, not a statement about this unit, so try again before
+     giving up -- and hand the caller enough to tell a failure apart from a
+     document that genuinely is not there. */
+  let lastErr = null;
+  for(let i = 0; i < attempts; i++){
+    try{
+      const snap = await db.collection('raw_traces').doc(String(uid)).get();
+      return { ok: true, data: snap.exists ? snap.data() : null };
+    }catch(e){
+      lastErr = e;
+      console.error('raw_traces fetch failed for unit ' + uid +
+                    ' (attempt ' + (i+1) + ' of ' + attempts + ')', e);
+      if(i < attempts - 1) await new Promise(r => setTimeout(r, 400 * Math.pow(2, i)));
+    }
+  }
+  return { ok: false, err: lastErr };
+}
+
 async function renderRawSpikesPanel(container, uid){
   container.innerHTML = '<div class="no-data">loading raw traces&hellip;</div>';
   if(!db){ container.innerHTML = '<div class="no-data">shared database unavailable in this view (claude.use("db") did not resolve)</div>'; return; }
   let data = rawSpikesCache[uid];
-  let fetchErr = null;
   if(data === undefined){
-    try{
-      const snap = await db.collection('raw_traces').doc(String(uid)).get();
-      data = snap.exists ? snap.data() : null;
-    }catch(e){ data = null; fetchErr = e; console.error('raw_traces fetch failed', e); }
+    const res = await fetchRawTraces(uid, 4);
+    if(!res.ok){
+      /* Deliberately NOT cached. A fetch that failed says nothing about whether
+         the document exists, and remembering it would turn one bad moment into a
+         permanent "no data" for this unit. */
+      const e = res.err || {};
+      const detail = ((e.code || '') + ' ' + (e.message || String(res.err))).trim();
+      container.innerHTML = `<div class="no-data">could not reach the document store for unit ${uid} &mdash; ${detail}<br>` +
+        `<span style="opacity:.75">The traces are stored; this is the store being unreachable, not a unit without data.</span></div>`;
+      const again = document.createElement('button');
+      again.textContent = 'Try again';
+      again.style.cssText='font-size:10px;padding:4px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer;font-weight:600;margin-top:6px;';
+      again.addEventListener('click', () => renderRawSpikesPanel(container, uid));
+      container.appendChild(again);
+      return;
+    }
+    data = res.data;          /* only a real answer, present or absent, is remembered */
     rawSpikesCache[uid] = data;
-  }
-  if(fetchErr){
-    container.innerHTML = `<div class="no-data">error fetching raw traces: ${(fetchErr.code||'')} ${(fetchErr.message||String(fetchErr))}</div>`; return;
   }
   if(!data || !data.traces || !data.traces.length){
     container.innerHTML = `<div class="no-data">no raw trace data for unit ${uid} (doc ${data===null?'does not exist':'has no traces field'})</div>`; return;

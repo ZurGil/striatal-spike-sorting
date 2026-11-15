@@ -9163,3 +9163,66 @@ Two separate causes:
 Step 5 re-ran locally off Z afterwards and matched 384/384 channels, 0 unmatched,
 454 units. Step 6b needed the cluster's classification JSON, which only existed under
 the session's `cluster_outputs/` on Z; copied down and re-run.
+
+### 5bd.57 A transient store error that reported itself as missing data
+
+Reviewing the joined 15 September session, unit 51's raw-spikes panel read
+*"no raw trace data for unit 51 (doc does not exist)"*. It did exist. The document
+was on the server with 16 snippets on channel 331, 81 KB packed against a 465-unit
+median of 80 KB, and it read back fine even with access dropped to an ordinary
+viewer's level. All 465 units have a document; none is missing.
+
+What the store was actually saying, once the page was reloaded, was
+*"unavailable: The document store is temporarily unavailable; retry later."*
+
+The panel had been caching the result of its fetch, failures included:
+
+```js
+try{ ... }catch(e){ data = null; fetchErr = e; }
+rawSpikesCache[uid] = data;        // null, whether absent or unreachable
+```
+
+`fetchErr` is a local, so by the next render it is gone; `data` is now null rather
+than undefined, so the panel never retries and falls through to the branch that
+reads null as "the document is not there". One bad moment became a permanent and
+false statement about the data, and the one piece of information that would have
+corrected it -- the store's own error text -- was the thing being discarded.
+
+Fixed in `scripts/build_review_html.py` (so every tool built from here on carries
+it) and applied to the built concat tool via
+`scripts/patch_review_tool_raw_trace_retry.py`, which refuses to write unless the
+old block matches exactly once -- a 15 MB one-shot file is not somewhere to accept
+a partial match. Three changes, in order of importance: a failed fetch is never
+cached, because an error is not evidence about whether a document exists; the
+fetch retries four times with 400/800/1600 ms backoff, since "temporarily
+unavailable" usually is; and the two cases now read differently on screen, with a
+*Try again* button instead of a page reload. Republished to the same URL as
+Version 3 (15,717,745 bytes, still inside the 16 MiB page limit), so the verdict
+database carried over untouched.
+
+#### What unit 51 actually looks like, which is the question underneath
+
+Measured from the stored snippets, against each snippet's own noise floor
+(median |x|/0.6745, excluding ±2 ms around the centre):
+
+| | unit 51 | unit 10 | unit 53 (same channel) |
+| --- | --- | --- | --- |
+| template amplitude | 63.9 µV (22nd pct of 465) | 138.2 | 217.6 |
+| noise σ | 23.3 µV | 21.1 | 22.2 |
+| median \|trough\|/σ | 2.91 | 4.43 | 3.84 |
+| snippets under 3σ | 8/16 | 1/16 | 5/15 |
+| centre is the deepest trough in its ±15 ms window | 4/16 | 10/16 | 8/15 |
+
+So there is nothing to see at the marker, and that is a property of the unit, not
+of the panel: in 12 of 16 windows something elsewhere in the same trace dips
+deeper. Channel 331's visible activity belongs to unit 53, a 218 µV non-soma unit
+(`footprint_cliff`) whose spikes show up in 51's windows at −7 and −13.6 ms. They
+are not duplicates -- template similarity 0.31, waveform corr 0.29, amplitude
+ratio 0.30 at 0 µm.
+
+Unit 51's own numbers pull both ways: 102,365 spikes at 13.1 Hz with a violation
+ratio of 0.019 and a 0.33 ms peak-trough is not noise, but `sep_vs_noise` is 1.98
+against 3.12 for unit 53 and 2.67 for unit 10. A real unit, weakly isolated. The
+panel draws only the peak channel, which is why a template matched across the
+probe can be invisible here; a top-4-channel view plus a spike-triggered average
+would settle it at 102k spikes, and is offered but not yet built.
