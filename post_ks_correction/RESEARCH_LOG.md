@@ -9471,3 +9471,51 @@ the same units** -- 340 the strongest cue-start unit in both (+35.7 and +35.1 Hz
 262 the strongest cue-end unit in both (-45.4 and -48.3 Hz). Two recordings, two Bpod
 files, two separate sync runs, one unit space. That is the joint sort and the
 split-at-the-seam sync agreeing with each other on data neither of them shares.
+
+
+### 5bd.61  Popper 20261116_102517 is on Z, verified file by file (2026-11-16, 16:15)
+
+The export Gil started this morning finished and the session is archived. The watcher
+(`scripts/archive_session_to_z_when_export_done.ps1`) did the whole thing unattended and
+wrote down each step, which is the point of it:
+
+```
+14:56:07  trodesexport is no longer running
+14:56:07  still changing -- 501.3 GiB so far
+14:57/58/59  sizes unchanged (1/3, 2/3, 3/3)
+14:59:07  export finished: 11 file(s), 501.3 GiB
+14:59:07  all expected pieces present, including 6 DIO file(s)
+14:59:07  space free on Z: 35,996.2 GiB
+14:59:07  copying to Z:\Gil\Popper\20261116_102517.rec
+16:14:54  robocopy exit code 1 (= files copied; success)
+16:14:54  verified: 11 file(s), 501.3 GiB, every size matches on Z
+16:14:54  F: is NOT touched. Freeing it is Gil's call.
+```
+
+Three separate guards had to pass before a byte moved: trodesexport gone, then the file
+sizes stable across three consecutive minutes (an exporter that has exited can still have
+buffered writes in flight), then the named pieces all present. The copy itself is
+`/E /COPY:DAT /XO` with no `/MIR` and no `/PURGE`, so nothing already on Z could be
+removed or overwritten in place, and the verification is a size comparison of all 11
+files on both sides rather than trusting robocopy's own exit code.
+
+What landed on Z:
+
+| file | size |
+|---|---|
+| `20261116_102517.rec` | 283,010,120,413 B |
+| `20261116_102517.kilosort\20261116_102517.probe1.dat` | 253,915,393,536 B |
+| `20261116_102517.kilosort\20261116_102517.timestamps.dat` | 1,322,476,615 B |
+| `20261116_102517.kilosort\20261116_102517.channelmap_probe1.dat` | 5,239 B |
+| `20261116_102517.DIO\...dio_Controller_Din1..6.dat` | 6 files, 4-31 kB |
+| `20261116_102517.timestampoffset\...txt` | 3 B |
+
+Din1 through Din6 are bits 0..5 of the Bpod sync word, so the behavioural sync has
+everything it needs. The `READ_ME_CatchError_0_NO_ERROR_CATCH_TRIALS.txt` written earlier
+today sits in the folder as well -- this session is one of the ten affected.
+
+F: still holds its copy. Nothing is deleted from F or from Z by this job, by design.
+
+The session is not in the status table yet because the table lists sorted sessions and
+this one has no sort. It is the next candidate for the RIS queue whenever Gil wants it,
+and the 82-channel map question (map B, from 2026-10-26) applies to it.
