@@ -1,0 +1,39 @@
+{
+  "session_id": "20260915_084812",
+  "synced_at": "2026-11-16T14:02:35",
+  "kilosort_dir": "Z:/Gil/Shamir_1/20260915_084812.rec\\20260915_084812.kilosort\\kilosort4_from_concat",
+  "applied": {
+    "verdicts": {
+      "dump": "outputs/review_verdicts/20260915_084812_from_concat\\verdicts.json",
+      "sha1": "a9b9f455dd113e2002a9f2279500b22a44993f6e",
+      "n_documents": 322
+    },
+    "trial_selections": {
+      "dump": "outputs/review_verdicts/20260915_084812_from_concat\\trial_selections.json",
+      "sha1": "4494b95125fc028b1d42a49e6b47edfba5b4c14f",
+      "n_documents": 20
+    },
+    "merge_verdicts": {
+      "dump": "outputs/review_verdicts/20260915_084812_from_concat\\merge_verdicts.json",
+      "sha1": "a1277ba3ad8f058474e6474bcf197c5312f06c19",
+      "n_documents": 33
+    }
+  },
+  "deliberately_skipped": [],
+  "pipeline_command": [
+    "-m",
+    "sync_pipeline.process_session",
+    "--rec_folder",
+    "Z:/Gil/Shamir_1/20260915_084812.rec",
+    "--rat_root",
+    "Z:/Gil/Shamir_1",
+    "--bpod_file",
+    "Z:/Gil/Shamir_1/bpod/Shamir01_Dual2AFC_nat_Sep15_2026_Session1.mat",
+    "--ks_folder",
+    "kilosort4_from_concat",
+    "--output_dir",
+    "Z:/Gil/Shamir_1/20260915_084812.rec/20260915_084812.kilosort/synced_from_concat"
+  ],
+  "verified": true,
+  "verify_exit_code": 0
+}

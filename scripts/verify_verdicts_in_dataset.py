@@ -223,19 +223,36 @@ def main():
     # Unit ids belong to one sorting. If spike_clusters.npy has changed since a verdict
     # was made, that verdict now names a different cell and must not be applied.
     live = sha1_of(os.path.join(ks, "spike_clusters.npy"))
+    ok_sha1 = {live}
+    derived_note = ""
+    # A sort can legitimately be a restriction of another one: half of a joined
+    # session carries the joint clustering's unit ids with only that half's spikes,
+    # so its spike_clusters.npy is a different file holding a subset of the same
+    # rows. The verdicts were made on the joint clustering and still name the same
+    # cells. That is only acceptable because the derivation is recorded in the sort
+    # folder -- an unexplained mismatch stays a failure.
+    dp = os.path.join(ks, "derived_from.json")
+    if os.path.exists(dp):
+        d = json.load(open(dp))
+        src = d.get("source_spike_clusters_sha1")
+        if src:
+            ok_sha1.add(src)
+            derived_note = ("; this sort is %s restricted to this recording, so "
+                            "verdicts stamped %s are accepted too (derived_from.json)"
+                            % (d.get("source_session", "another sort"), src[:12]))
     bad = []
     for fname in ("unit_merges.json", "unit_trial_selection.json"):
         p = os.path.join(ks, fname)
         if os.path.exists(p):
             got = (json.load(open(p)).get("clustering") or {}).get("spike_clusters_sha1")
-            if got != live:
+            if got not in ok_sha1:
                 bad.append("%s stamped %s, clustering is %s" % (fname, got, live))
     for pid, d in sorted(mverdicts.items()):
         got = d.get("spike_clusters_sha1")
-        if got and got != live:
+        if got and got not in ok_sha1:
             bad.append("merge verdict %s was made against clustering %s" % (pid, got))
     R.add("T1", "fingerprints", not bad,
-          "manifests and merge verdicts all stamped %s" % live[:12], bad)
+          "manifests and merge verdicts all stamped %s%s" % (live[:12], derived_note), bad)
 
     # --- T2 good / mua verdicts ----------------------------------------------------
     bad = []

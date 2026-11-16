@@ -165,7 +165,24 @@ def main():
 
     # --- which clock are these numbers in? read it, do not assume it -----------
     clock, mapping, tl_path = timeline_clock(args.session_id)
-    if clock is None:
+
+    # One input states its own clock credibly: a file converted FROM a joined
+    # session by split_concat_sort_for_sync.py. Its ranges were drawn on the
+    # joined timeline and converted to this recording's absolute Trodes seconds
+    # with that timeline's clock_mapping, and it carries the session it came
+    # from and the offsets used. There is no timeline for the half itself -- it
+    # was never reviewed on its own -- so demanding one would mean either
+    # building a timeline nobody plotted or passing --no_timeline_check, which
+    # asserts the clock with no evidence at all. This asserts it with evidence.
+    declared, src = raw_doc.get("clock"), raw_doc.get("source_session")
+    if clock is None and declared in SYNC_CAN_APPLY and src:
+        clock, mapping = declared, None
+        tl_path = "%s (converted from the joined session %s: timeline_t0_s %s, " \
+                  "trodes_t0_s %s)" % (os.path.basename(args.input_json), src,
+                                       raw_doc.get("timeline_t0_s"),
+                                       raw_doc.get("trodes_t0_s"))
+        print("clock declared by the input itself: %s, converted from %s" % (clock, src))
+    elif clock is None:
         if not args.no_timeline_check:
             raise SystemExit(
                 "no outputs\\session_timeline_%s.json, so there is no record of which clock "

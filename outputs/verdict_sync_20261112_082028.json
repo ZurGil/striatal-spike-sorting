@@ -1,0 +1,33 @@
+{
+  "session_id": "20261112_082028",
+  "synced_at": "2026-11-16T13:52:24",
+  "kilosort_dir": "Z:/Gil/Popper/20261112_082028.rec\\20261112_082028.kilosort\\kilosort4",
+  "applied": {
+    "verdicts": {
+      "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20261112_082028\\verdicts.json",
+      "sha1": "9c2f6c6978a2acd33c9f04dcb77c9f24d4866486",
+      "n_documents": 260
+    },
+    "trial_selections": {
+      "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20261112_082028\\trial_selections.json",
+      "sha1": "167690966b67ec5313807b3d0baba662b5094b0b",
+      "n_documents": 18
+    },
+    "merge_verdicts": {
+      "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20261112_082028\\merge_verdicts.json",
+      "sha1": "e5cf1a9bf48a9ff06cab9dbff700ba7f25abb6ec",
+      "n_documents": 31
+    }
+  },
+  "deliberately_skipped": [],
+  "pipeline_command": [
+    "-m",
+    "sync_pipeline.process_session",
+    "--rec_folder",
+    "Z:/Gil/Popper/20261112_082028.rec",
+    "--rat_root",
+    "Z:/Gil/Popper"
+  ],
+  "verified": true,
+  "verify_exit_code": 0
+}

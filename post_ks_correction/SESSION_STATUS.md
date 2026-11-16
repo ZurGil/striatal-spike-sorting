@@ -10,12 +10,21 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 | rat | session | units | Th u/l | decided | good | mua | noise | merges | windows | on Z | verdicts applied | Bpod synced | joined | state |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Popper | `20261112_082028` | 442 | 9.0 / 8.0 | 260 | 140 | 120 | 0 | 31 | 18 | yes | no | **blocked** -- no Bpod files for this rat | no | **SAVED, PARTIAL** |
+| Popper | `20261112_082028` | 442 | 9.0 / 8.0 | 260 | 140 | 120 | 0 | 31 | 18 | yes | yes | yes (`synced`) | no | **SAVED, PARTIAL** |
 | Shamir | `20260901_085606` | 155 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | no | **NOT REVIEWED** |
 | Shamir | `20260911_100049` | 466 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | no | **NOT REVIEWED** |
-| Shamir | `20260915_084812_103710_concat` | 465 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | yes | **NOT REVIEWED** |
+| Shamir | `20260914_122553` | 454 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+| Shamir | `20260915_084812 [from concat]` | 465 | 9.0 / 8.0 | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes (`synced_from_concat`) | no | **HALF OF A JOIN** |
+| Shamir | `20260915_084812_103710_concat` | 465 | 9.0 / 8.0 | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes, through its halves (`20260915_084812`, `20260915_103710`) | yes | **SAVED, REVIEW CLOSED** |
 | Shamir | `20260915_103710` | 447 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | part of a join | **SUPERSEDED** |
-| Shamir | `20260916_110311` | 472 | 9.0 / 8.0 | 240 | 114 | 113 | 13 | 10 | 20 | yes | yes | yes (`synced`, `synced_20261002`, `synced_20261015`, `synced_NEWFIX`) | no | **SAVED, PARTIAL** |
+| Shamir | `20260915_103710 [from concat]` | 465 | 9.0 / 8.0 | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes (`synced_from_concat`) | no | **HALF OF A JOIN** |
+| Shamir | `20260916_110311` | 472 | 9.0 / 8.0 | 240 | 114 | 113 | 13 | 10 | 20 | yes | yes | yes (`synced`, `synced_20261002`, `synced_20261015`, `synced_20261021_superseded_20261116`, `synced_NEWFIX`) | no | **SAVED, PARTIAL** |
+| Shamir | `20260917_100043` | 508 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+| Shamir | `20260918_100248` | 481 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+| Shamir | `20260922_144404` | 478 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+| Shamir | `20260923_105129` | 503 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+| Shamir | `20260924_121751` | 543 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
+| Shamir | `20260925_103539` | 543 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
 | Begin | `20260805_103305` | 73 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
 | Begin | `20260807_125640` | 95 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
 | Begin | `20260814_122755` | 94 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | no | **NOT REVIEWED** |
@@ -31,13 +40,13 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 
 - SAVED, PARTIAL -- 260 of 442 units decided, all of them on Z
 - 442 units, Kilosort thresholds 9.0 / 8.0
-- Bpod sync: **blocked** -- `Z:\Gil\Popper\bpod\` holds no files, so no session of this rat can be synced yet
+- Bpod sync: **done** -- `synced`
 - review page: https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG
 - Correlogram Atlas: https://claude.ai/artifact/69cKEsVzCAXDxrAz1KVtD5
 - on Z: 260 unit verdicts (good 140, mua 120), 31 merge verdicts (merge 27, separate 3, unsure 1), 18 trial selections
 - `Z:\Gil\Popper\20261112_082028.rec\20261112_082028.kilosort\review\verdicts`
 - snapshots: snapshot_2026-11-13_1017_mid_review, snapshot_2026-11-13_1346_260_units
-- verdicts applied into `cluster_info.tsv`: **no**
+- verdicts applied into `cluster_info.tsv`: yes
 
 ### 20260901_085606  (Shamir)
 
@@ -57,12 +66,31 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
 
+### 20260914_122553  (Shamir)
+
+- NOT REVIEWED -- no verdicts anywhere
+- 454 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (42 Bpod files available for this rat)
+- review page: **none built yet**
+- nothing saved on Z for this session yet
+- verdicts applied into `cluster_info.tsv`: **no**
+
+### 20260915_084812  (Shamir)
+
+- HALF OF A JOIN -- this recording's units and verdicts are 20260915_084812_103710_concat's, applied to the joint sort restricted to this half (kilosort4_from_concat) and synced against this recording's own Bpod file
+- 465 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: **done** -- `synced_from_concat`
+- review page: https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb
+- on Z: 322 unit verdicts (good 161, mua 159, noise 2), 33 merge verdicts (merge 31, separate 2), 26 trial selections
+- `Z:\Gil\Shamir_1\20260915_084812_103710_concat.rec\20260915_084812_103710_concat.kilosort\review\verdicts`
+- verdicts applied into `cluster_info.tsv`: yes
+
 ### 20260915_084812_103710_concat  (Shamir)
 
-- NOT REVIEWED -- the page is open and empty
+- SAVED, REVIEW CLOSED -- Gil called this review finished: 322 of 465 units carry a verdict, all of them on Z; the other 143 were left on their automatic label
 - 465 units, Kilosort thresholds 9.0 / 8.0
 - **the sort of record for 2026-09-15**, joining `20260915_084812` + `20260915_103710`
-- Bpod sync: not done (22 Bpod files available for this rat)
+- Bpod sync: not done (42 Bpod files available for this rat)
 
   **What this session actually is**
 
@@ -76,30 +104,96 @@ group column in `cluster_info.tsv`. A session can have one without the other.
   - FOR THE BPOD SYNC: split spike_times at sample 124,350,000 and sync each part against its own Bpod file. A spike at concat sample s belongs to part 1 at sample s when s < the seam, otherwise to part 2 at s minus the seam. Total 234,557,963 samples, 2.172 h.
   - SUPERSEDES: The standalone sort of 20260915_103710 (LSF 741761, 447 units, review tool https://claude.ai/artifact/QreYaMjGtujiE17m2k9zXf) covers only part 2 and has no verdicts in it, so nothing hand-made is lost by replacing it. It stays on Z as a second opinion; the joint sort's unit ids do not correspond to its.
 - review page: https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb
-- nothing saved on Z for this session yet
-- verdicts applied into `cluster_info.tsv`: **no**
+- on Z: 322 unit verdicts (good 161, mua 159, noise 2), 33 merge verdicts (merge 31, separate 2), 26 trial selections
+- `Z:\Gil\Shamir_1\20260915_084812_103710_concat.rec\20260915_084812_103710_concat.kilosort\review\verdicts`
+- snapshots: snapshot_2026-11-16_mid_review
+- verdicts applied into `cluster_info.tsv`: yes
 
 ### 20260915_103710  (Shamir)
 
 - SUPERSEDED -- part of 20260915_084812_103710_concat, which is the sort of record for this day. Not for review, and its unit ids do not correspond to the joint sort's.
 - 447 units, Kilosort thresholds 9.0 / 8.0
 - **superseded by** `20260915_084812_103710_concat` -- do not mix unit ids between them
-- Bpod sync: not done (22 Bpod files available for this rat)
+- Bpod sync: not done (42 Bpod files available for this rat)
 - review page: **none built yet**
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
+
+### 20260915_103710  (Shamir)
+
+- HALF OF A JOIN -- this recording's units and verdicts are 20260915_084812_103710_concat's, applied to the joint sort restricted to this half (kilosort4_from_concat) and synced against this recording's own Bpod file
+- 465 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: **done** -- `synced_from_concat`
+- review page: https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb
+- on Z: 322 unit verdicts (good 161, mua 159, noise 2), 33 merge verdicts (merge 31, separate 2), 26 trial selections
+- `Z:\Gil\Shamir_1\20260915_084812_103710_concat.rec\20260915_084812_103710_concat.kilosort\review\verdicts`
+- verdicts applied into `cluster_info.tsv`: yes
 
 ### 20260916_110311  (Shamir)
 
 - SAVED, PARTIAL -- 240 of 472 units decided, all of them on Z
 - 472 units, Kilosort thresholds 9.0 / 8.0
-- Bpod sync: **done** -- `synced`, `synced_20261002`, `synced_20261015`, `synced_NEWFIX`
-  - **4 sync directories exist**, so this session was synced more than once and which one is current is not recorded in their names. Settle that before anything downstream reads one.
+- Bpod sync: **done** -- `synced`, `synced_20261002`, `synced_20261015`, `synced_20261021_superseded_20261116`, `synced_NEWFIX`
+  - **5 sync directories exist**, so this session was synced more than once and which one is current is not recorded in their names. Settle that before anything downstream reads one.
 - review page: https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap
 - Merge Adjudicator: https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW
 - on Z: 240 unit verdicts (good 114, mua 113, noise 13), 10 merge verdicts (merge 8, separate 2), 20 trial selections
 - `Z:\Gil\Shamir_1\20260916_110311.rec\20260916_110311.kilosort\review\verdicts`
 - verdicts applied into `cluster_info.tsv`: yes
+
+### 20260917_100043  (Shamir)
+
+- NOT REVIEWED -- no verdicts anywhere
+- 508 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (42 Bpod files available for this rat)
+- review page: **none built yet**
+- nothing saved on Z for this session yet
+- verdicts applied into `cluster_info.tsv`: **no**
+
+### 20260918_100248  (Shamir)
+
+- NOT REVIEWED -- no verdicts anywhere
+- 481 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (42 Bpod files available for this rat)
+- review page: **none built yet**
+- nothing saved on Z for this session yet
+- verdicts applied into `cluster_info.tsv`: **no**
+
+### 20260922_144404  (Shamir)
+
+- NOT REVIEWED -- no verdicts anywhere
+- 478 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (42 Bpod files available for this rat)
+- review page: **none built yet**
+- nothing saved on Z for this session yet
+- verdicts applied into `cluster_info.tsv`: **no**
+
+### 20260923_105129  (Shamir)
+
+- NOT REVIEWED -- no verdicts anywhere
+- 503 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (42 Bpod files available for this rat)
+- review page: **none built yet**
+- nothing saved on Z for this session yet
+- verdicts applied into `cluster_info.tsv`: **no**
+
+### 20260924_121751  (Shamir)
+
+- NOT REVIEWED -- no verdicts anywhere
+- 543 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (42 Bpod files available for this rat)
+- review page: **none built yet**
+- nothing saved on Z for this session yet
+- verdicts applied into `cluster_info.tsv`: **no**
+
+### 20260925_103539  (Shamir)
+
+- NOT REVIEWED -- no verdicts anywhere
+- 543 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (42 Bpod files available for this rat)
+- review page: **none built yet**
+- nothing saved on Z for this session yet
+- verdicts applied into `cluster_info.tsv`: **no**
 
 ### 20260805_103305  (Begin)
 

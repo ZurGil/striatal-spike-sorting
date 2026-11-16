@@ -9226,3 +9226,107 @@ against 3.12 for unit 53 and 2.67 for unit 10. A real unit, weakly isolated. The
 panel draws only the peak channel, which is why a template matched across the
 probe can be invisible here; a top-4-channel view plus a spike-triggered average
 would settle it at 102k spikes, and is offered but not yet built.
+
+### 5bd.58 Three sessions synced with the verdicts in them, and the joined day solved by splitting the sort rather than joining the behaviour  (2026-11-16)
+
+Gil finished reviewing the joined 15 September session, both rats' `bpod/` folders were
+filled in, and the ask was: sync everything that has verdicts, with the verdicts in it.
+Three sessions had verdicts, and all three are now synced and verified.
+
+#### What was in the review pages
+
+Read live from each page's database and dumped to `outputs/review_verdicts/<sid>/` and to
+`<sid>.kilosort/review/verdicts/` on Z by the new `scripts/write_verdict_dumps.py`, which
+also writes `manual_verdicts.csv` and a MANIFEST carrying the artifact URL and a sha256
+per file. The URLs exist in no repo file, so a dump that does not carry its own cannot be
+traced back; that is why `--source` is a parameter and not a comment.
+
+| session | verdicts | merges | windows |
+| --- | --- | --- | --- |
+| 20260915_084812_103710_concat | **322** (161 good, 159 mua, 2 noise) | 33 (31 merge, 2 separate) -> 17 groups over 45 units | 26 |
+| 20260916_110311 | 240 (114 good, 113 mua, 13 noise) | 10 | 20 |
+| 20261112_082028 | 260 (140 good, 120 mua) | 31 | 18 |
+
+The concat's 322 of 465 is Gil's "finished": the 143 without a verdict are 134
+Kilosort-mua he had no intention of labelling and 9 Kilosort-good, of which 403 sits in a
+merge group and follows it. The other 8 are all 9-12 µV template amplitude except unit
+454 (28 µV, 0 % contamination), which is the only one of the 465 worth a second look.
+
+#### Four things were in the way, and each was a real defect
+
+**1. One derived folder broke Bpod matching for an entire rat.**
+`session_discovery.discover_rec_folders()` returned every `*.rec` directory and
+`find_bpod_file_for_rec_folder()` then called `_rec_date_time()` on all of them, which
+raises on a name that is not `YYYYMMDD_HHMMSS.rec`. So the existence of
+`20260915_084812_103710_concat.rec` made auto-matching raise for **every** Shamir
+session, including ones with nothing to do with 15 September. Fixed in sync_pipeline:
+discovery skips a folder that is not a Trodes recording and still hard-fails on one that
+holds a real `.rec` file under a wrong name -- a recording we would otherwise silently
+drop is a different thing from a folder we put there ourselves.
+
+**2. The pipeline silently changed output format.** Run from the `kilosort4` conda env it
+has no pyarrow, warns once, and writes `*.csv.gz` instead of `*.parquet`. It did that for
+20260916 before I noticed, leaving `synced/` holding both formats. The env with pyarrow is
+`phy2_ky` (3.11.9) and every run here used it after that. The stale `.csv.gz` files are
+still on Z; deleting from Z is Gil's call.
+
+**3. Two Popper and concat sorts had no `cluster_info.tsv`,** which `units_spikes` requires.
+Built with `build_cluster_info_from_classification_session.py` (note its second argument is
+the `.rec` folder, not the rat root).
+
+**4. "Verdicts applied" was read from the wrong file.** The register checked for
+`review/verdicts/verdict_sync.json`, which only the old per-session flow wrote;
+`sync_session.py` stamps `outputs/verdict_sync_<sid>.json`. So the table said "not
+applied" for sessions whose verdicts had just been applied. It now reads the stamp, and
+checks the stamp's `kilosort_dir` matches the sort in the row -- without that, one
+recording's stamp credited a sort it was never applied to.
+
+#### The joined session: the sort was split, not the behaviour joined
+
+2026-09-15 is two recordings sorted once. The joined folder has no DIO and no
+`timestamps.dat`, and the day has two Bpod files. `scripts/split_concat_sort_for_sync.py`
+writes, under each half, `kilosort4_from_concat/` holding the joint sort's unit ids,
+templates and `cluster_info.tsv` with only that half's spikes, sample indices shifted back
+by the seam (124,350,000). Every one of the 16,681,732 joint spikes landed in exactly one
+half, 9,283,188 + 7,398,544 -- which independently matches the per-part spike counts the
+timeline file computed weeks ago. `sync_pipeline` grew a `--ks_folder` so a recording with
+two sorts can sync either one, and `sync_session.py` passes it with one knob (`--ks_subdir`,
+which now requires `--output_dir` so two sorts cannot overwrite each other's bundle).
+
+Result: 360 trials for half 1 against `..._Sep15_2026_Session1.mat`, 313 for half 2
+against `_Session2.mat`, 673 for the day, and **one unit space** -- checked afterwards:
+both `units.parquet` files hold the same 433 unit ids and not one label differs. Unit 73
+is in both tables with spikes only in half 1 (the day's part-1-only unit); 151 is absorbed
+into 151+152 and 346 is Gil's noise verdict, so neither stands alone. All 9 verdict checks
+pass for each half.
+
+**The windows needed the other clock.** Selections were drawn on `concat_elapsed_seconds`;
+the pipeline wants each recording's own absolute Trodes seconds, which start at 29.6347 s
+and 17.6039 s. Converted from `clock_mapping` in the timeline file, clipped per half, a
+window crossing the seam split in two. Unit 20's 0-4843.5 s became 29.6-4169.6 s in half 1
+and 17.6-721.1 s in half 2. Note the five seconds between the two seams and that it is not
+an inconsistency: the timeline is binned at 20 s and drops half 1's last partial bin, so on
+the plotted axis half 2 starts at 4140.0 s while the sample seam is 4145.0 s. Windows are
+converted on the axis they were drawn on, spikes split on the sample seam, and neither
+number is used in the other's domain.
+
+**Two checks had to learn the case rather than be bypassed.** `write_unit_merges.py`
+refused parent 151, which fires only in half 2 -- correct in general, wrong here, and
+skipping the merge would have left 152 standing alone in one half and merged in the other:
+the same neuron under two ids. It now accepts a parent that `cluster_info.tsv` declares but
+which fired nothing in this recording, and says so. `verify_verdicts_in_dataset.py`'s T1
+compares each merge verdict's `spike_clusters_sha1` against the sort's; a half's file is
+necessarily a different file holding a subset of the same rows. Rather than loosen T1, the
+splitter writes `derived_from.json` naming the source sort and its sha1, and T1 accepts
+that one additional fingerprint **only** when that record is present. The joint sha1 it
+records, `dc16fc5bee4df606b05ab52036a93aa6fa486bfd`, is exactly the one Gil's merge
+verdicts carry, which is itself the proof that they were judged on this sort.
+
+#### The register is now generated, not written
+
+`outputs/session_register.html` is built by `scripts/build_session_register_html.py` from
+`outputs/session_status.json`, so the page cannot disagree with the files it describes --
+it had been saying 15 September held no decisions for three days. It also distinguishes the
+two sorts a single recording can hold (`[from concat]` rows), attributes a `synced_*`
+directory to the sort that produced it, and reports a joined session as synced through its
+halves rather than not synced. Published to the same URL, Version 4.

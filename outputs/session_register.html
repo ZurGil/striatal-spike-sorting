@@ -1,0 +1,308 @@
+<title>Session Review Register</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a lab register. Summary figures, then one dense table of every sorted
+     session, then a detail block per session carrying its links and, where the session
+     is not what its name suggests, what it actually is. Left-aligned throughout,
+     hairline rules only between rows, identifiers and figures in mono. */
+  :root {
+    --bg: #f7f8f8; --surface: #ffffff; --ink: #16201f; --ink-2: #4d5a59;
+    --ink-3: #788584; --rule: #dde3e2; --rule-strong: #c3cccb; --accent: #0f6f68;
+    --ok: #1f6b45; --partial: #8a5a00; --none: #6d7877; --alert: #a3261c;
+    --chip-ok: #e4f1ea; --chip-partial: #f8eedb; --chip-none: #eceeee;
+    --chip-alert: #f8e4e2;
+    --display: "Archivo", system-ui, sans-serif;
+    --body: "Source Sans 3", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1413; --surface: #161d1c; --ink: #e6ecea; --ink-2: #a3b0ae;
+      --ink-3: #788886; --rule: #25302e; --rule-strong: #33403e; --accent: #4ec9bd;
+      --ok: #6ed69f; --partial: #e0b463; --none: #8b9896; --alert: #f08a7e;
+      --chip-ok: #15291f; --chip-partial: #2b2314; --chip-none: #1d2423;
+      --chip-alert: #2e1a18; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1413; --surface: #161d1c; --ink: #e6ecea; --ink-2: #a3b0ae;
+    --ink-3: #788886; --rule: #25302e; --rule-strong: #33403e; --accent: #4ec9bd;
+    --ok: #6ed69f; --partial: #e0b463; --none: #8b9896; --alert: #f08a7e;
+    --chip-ok: #15291f; --chip-partial: #2b2314; --chip-none: #1d2423;
+    --chip-alert: #2e1a18; color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body);
+         font-size: 15px; line-height: 1.55; margin: 0; }
+  .wrap { max-width: 1080px; margin: 0 auto;
+          padding-left: max(16px, env(safe-area-inset-left, 0px));
+          padding-right: max(16px, env(safe-area-inset-right, 0px));
+          padding-block: 34px 56px; }
+  h1 { font-family: var(--display); font-weight: 600; font-size: clamp(25px, 5vw, 34px);
+       letter-spacing: -0.015em; line-height: 1.15; margin: 0 0 6px; text-wrap: balance; }
+  .lede { color: var(--ink-2); max-width: 62ch; margin: 0 0 4px; }
+  .asof { font-family: var(--mono); font-size: 12px; color: var(--ink-3); margin: 0 0 30px; }
+  h2 { font-family: var(--display); font-weight: 600; font-size: 15px;
+       letter-spacing: 0.085em; text-transform: uppercase; color: var(--ink-2);
+       margin: 44px 0 14px; padding-bottom: 7px; border-bottom: 1px solid var(--rule-strong); }
+  .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+             gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .fig { background: var(--surface); padding: 15px 16px; min-width: 0; }
+  .fig b { display: block; font-family: var(--mono); font-weight: 500; font-size: 27px;
+           font-variant-numeric: tabular-nums; line-height: 1.1; letter-spacing: -0.02em; }
+  .fig span { display: block; font-size: 12px; color: var(--ink-3);
+              letter-spacing: 0.04em; margin-top: 4px; }
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 9px 11px; text-align: left; white-space: nowrap; vertical-align: top; }
+  thead th { font-family: var(--body); font-weight: 600; font-size: 11px;
+             letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3);
+             border-bottom: 1px solid var(--rule-strong); }
+  tbody tr + tr td { border-top: 1px solid var(--rule); }
+  td.sid { font-family: var(--mono); font-size: 13px; }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  td.dim, .dim { color: var(--ink-3); }
+  .rat { font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); }
+  .chip { display: inline-block; font-size: 11.5px; font-weight: 600;
+          letter-spacing: 0.035em; padding: 2px 8px; border-radius: 2px; white-space: nowrap; }
+  .c-ok { background: var(--chip-ok); color: var(--ok); }
+  .c-partial { background: var(--chip-partial); color: var(--partial); }
+  .c-none { background: var(--chip-none); color: var(--none); }
+  .c-alert { background: var(--chip-alert); color: var(--alert); }
+  .c-sup { background: transparent; color: var(--ink-3);
+           border: 1px solid var(--rule-strong); font-weight: 400; }
+  .bar { position: relative; height: 5px; width: 96px; background: var(--rule); overflow: hidden; }
+  .bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); }
+  .detail { border-top: 1px solid var(--rule); padding: 17px 0; }
+  .detail:first-of-type { border-top: 0; }
+  .detail h3 { font-family: var(--mono); font-weight: 500; font-size: 16px;
+               margin: 0 0 3px; letter-spacing: -0.005em; }
+  .detail .meta { font-size: 13px; color: var(--ink-3); margin: 0 0 9px; }
+  .detail ul { margin: 0; padding-left: 17px; }
+  .detail li { margin-bottom: 3px; color: var(--ink-2); }
+  .detail li b { color: var(--ink); font-weight: 600; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .note { background: var(--surface); border: 1px solid var(--rule);
+          border-left: 3px solid var(--accent); padding: 15px 17px; margin-top: 10px; }
+  .note.warn { border-left-color: var(--alert); }
+  .note p { margin: 0 0 9px; color: var(--ink-2); }
+  .note p:last-child { margin-bottom: 0; }
+  .note code, .path { font-family: var(--mono); font-size: 12.5px; color: var(--ink);
+                      word-break: break-word; }
+  dl.states { margin: 0; display: grid; grid-template-columns: auto 1fr;
+              gap: 7px 13px; align-items: baseline; }
+  dl.states dd { margin: 0; color: var(--ink-2); font-size: 14px; }
+</style>
+<div class="wrap">
+<h1>Session Review Register</h1>
+<p class="lede">Every sorted session: how much of it has been judged, whether those judgements exist anywhere other than a browser database, whether it has been synced to Bpod, and where a session is not what its name suggests.</p>
+<p class="asof">Z and the review pages read 2026-11-16 13:39 &middot; page generated by scripts/build_session_register_html.py from scripts/session_status_report.py</p>
+<div class="figures">
+<div class="fig"><b>19</b><span>sorts listed</span></div>
+<div class="fig"><b>5,786</b><span>units of record</span></div>
+<div class="fig"><b>822</b><span>units judged</span></div>
+<div class="fig"><b>7</b><span>synced to Bpod</span></div>
+<div class="fig"><b>0</b><span>verdicts only in a browser</span></div>
+</div>
+<h2>Sorted sessions</h2>
+<div class="scroll"><table><thead><tr><th>Rat</th><th>Sort</th><th>Units</th><th>Th&nbsp;u/l</th><th>Judged</th><th>Progress</th><th>Good</th><th>MUA</th><th>Noise</th><th>Merges</th><th>Windows</th><th>On&nbsp;Z</th><th>Verdicts<br>applied</th><th>Bpod<br>synced</th><th>Joined</th><th>State</th></tr></thead><tbody>
+<tr><td class="rat">Popper</td><td class="sid">20261112_082028</td><td class="n">442</td><td class="n">9.0 / 8.0</td><td class="n">260</td><td><div class="bar" role="img" aria-label="260 of 442 units judged"><i style="width:58.8%"></i></div></td><td class="n">140</td><td class="n">120</td><td class="n dim">0</td><td class="n">31</td><td class="n">18</td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">yes</span><br><span class="rat">synced</span></td><td><span class="dim">no</span></td><td><span class="chip c-partial">saved, partial</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260901_085606</td><td class="n">155</td><td class="n">9.2 / 7.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 155 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="chip c-ok">yes</span><br><span class="rat">synced</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260911_100049</td><td class="n">466</td><td class="n">9.2 / 7.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 466 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="chip c-ok">yes</span><br><span class="rat">synced</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260914_122553</td><td class="n">454</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 454 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260915_084812 [from concat]</td><td class="n">465</td><td class="n">9.0 / 8.0</td><td class="n">322</td><td><div class="bar" role="img" aria-label="322 of 465 units judged"><i style="width:69.2%"></i></div></td><td class="n">161</td><td class="n">159</td><td class="n">2</td><td class="n">33</td><td class="n">26</td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">yes</span><br><span class="rat">synced_from_concat</span></td><td><span class="dim">part of a join</span></td><td><span class="chip c-ok">half of a join</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260915_084812_103710_concat</td><td class="n">465</td><td class="n">9.0 / 8.0</td><td class="n">322</td><td><div class="bar" role="img" aria-label="322 of 465 units judged"><i style="width:69.2%"></i></div></td><td class="n">161</td><td class="n">159</td><td class="n">2</td><td class="n">33</td><td class="n">26</td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">via its halves</span><br><span class="rat">20260915_084812, 20260915_103710</span></td><td><span class="dim">yes</span></td><td><span class="chip c-ok">saved, review closed</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260915_103710</td><td class="n">447</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><span class="dim">not for review</span></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">part of a join</span></td><td><span class="chip c-sup">superseded</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260915_103710 [from concat]</td><td class="n">465</td><td class="n">9.0 / 8.0</td><td class="n">322</td><td><div class="bar" role="img" aria-label="322 of 465 units judged"><i style="width:69.2%"></i></div></td><td class="n">161</td><td class="n">159</td><td class="n">2</td><td class="n">33</td><td class="n">26</td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">yes</span><br><span class="rat">synced_from_concat</span></td><td><span class="dim">part of a join</span></td><td><span class="chip c-ok">half of a join</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260916_110311</td><td class="n">472</td><td class="n">9.0 / 8.0</td><td class="n">240</td><td><div class="bar" role="img" aria-label="240 of 472 units judged"><i style="width:50.8%"></i></div></td><td class="n">114</td><td class="n">113</td><td class="n">13</td><td class="n">10</td><td class="n">20</td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">yes</span></td><td><span class="chip c-ok">yes</span><br><span class="rat">synced, synced_20261002, synced_20261015, synced_20261021_superseded_20261116, synced_NEWFIX</span></td><td><span class="dim">no</span></td><td><span class="chip c-partial">saved, partial</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260917_100043</td><td class="n">508</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 508 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260918_100248</td><td class="n">481</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 481 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260922_144404</td><td class="n">478</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 478 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260923_105129</td><td class="n">503</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 503 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260924_121751</td><td class="n">543</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 543 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Shamir</td><td class="sid">20260925_103539</td><td class="n">543</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 543 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Begin</td><td class="sid">20260805_103305</td><td class="n">73</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 73 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Begin</td><td class="sid">20260807_125640</td><td class="n">95</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 95 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Begin</td><td class="sid">20260814_122755</td><td class="n">94</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 94 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+<tr><td class="rat">Begin</td><td class="sid">20260818_110509</td><td class="n">14</td><td class="n">9.0 / 8.0</td><td class="n">0</td><td><div class="bar" role="img" aria-label="0 of 14 units judged"><i style="width:0.0%"></i></div></td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td class="n dim">0</td><td><span class="chip c-none">—</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="dim">no</span></td><td><span class="chip c-none">not reviewed</span></td></tr>
+</tbody></table></div>
+<h2>Two different questions</h2>
+<div class="note">
+<p><b>Verdicts applied</b> means the good / MUA / noise calls were written into the group column of <span class="path">cluster_info.tsv</span> &mdash; never into <span class="path">cluster_group.tsv</span>, and never by hand.</p>
+<p><b>Bpod synced</b> means <span class="path">scripts/sync_session.py</span> wrote a <span class="path">synced/</span> directory aligning the ephys to the behaviour, and that its nine verdict checks passed. A session can have one without the other, and treating them as one question is how &ldquo;is it synced?&rdquo; gets answered wrongly.</p>
+<p>A <b>joined</b> session has no DIO and no Bpod file of its own, so it is never synced in its own folder. It is synced once per half, each half against its own behaviour, from the joint sort restricted to that half &mdash; one unit space, two trial tables. Those rows are marked <span class="path">[from concat]</span>.</p>
+</div>
+<h2>Sessions in detail</h2>
+<div class="detail">
+<h3>20261112_082028</h3>
+<p class="meta">Popper &middot; 442 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>SAVED, PARTIAL</b> &mdash; 260 of 442 units decided, all of them on Z</li>
+<li>On Z: 260 unit verdicts (good 140, mua 120), 31 merge verdicts (merge 27, separate 3, unsure 1), 18 trial selections.</li>
+<li>Review page: <a href="https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG">unit review tool</a></li>
+<li>Correlogram Atlas: <a href="https://claude.ai/artifact/69cKEsVzCAXDxrAz1KVtD5">https://claude.ai/artifact/69cKEsVzCAXDxrAz1KVtD5</a></li>
+<li>Bpod sync: <b>done</b> &mdash; <span class="path">synced</span></li>
+<li>Mid-review snapshots on Z: <span class="path">snapshot_2026-11-13_1017_mid_review, snapshot_2026-11-13_1346_260_units</span></li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260901_085606</h3>
+<p class="meta">Shamir &middot; 155 units &middot; Kilosort 9.2 / 7.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+<li>Bpod sync: <b>done</b> &mdash; <span class="path">synced</span></li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260911_100049</h3>
+<p class="meta">Shamir &middot; 466 units &middot; Kilosort 9.2 / 7.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+<li>Bpod sync: <b>done</b> &mdash; <span class="path">synced</span></li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260914_122553</h3>
+<p class="meta">Shamir &middot; 454 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260915_084812 [from concat]</h3>
+<p class="meta">Shamir &middot; 465 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4_from_concat</span></p>
+<ul>
+<li><b>HALF OF A JOIN</b> &mdash; this recording&#x27;s units and verdicts are 20260915_084812_103710_concat&#x27;s, applied to the joint sort restricted to this half (kilosort4_from_concat) and synced against this recording&#x27;s own Bpod file</li>
+<li>On Z: 322 unit verdicts (good 161, mua 159, noise 2), 33 merge verdicts (merge 31, separate 2), 26 trial selections.</li>
+<li>Its decisions are <span class="path">20260915_084812_103710_concat</span>’s: one review and one unit space for the day.</li>
+<li>Review page: <a href="https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb">unit review tool</a></li>
+<li>Bpod sync: <b>done</b> &mdash; <span class="path">synced_from_concat</span></li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260915_084812_103710_concat</h3>
+<p class="meta">Shamir &middot; 465 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>SAVED, REVIEW CLOSED</b> &mdash; Gil called this review finished: 322 of 465 units carry a verdict, all of them on Z; the other 143 were left on their automatic label</li>
+<li>On Z: 322 unit verdicts (good 161, mua 159, noise 2), 33 merge verdicts (merge 31, separate 2), 26 trial selections.</li>
+<li>Review page: <a href="https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb">unit review tool</a></li>
+<li>Mid-review snapshots on Z: <span class="path">snapshot_2026-11-16_mid_review</span></li>
+</ul>
+<div class="note"><p>JOINED SESSION -- 2026-09-15 was recorded as 2 separate files and sorted ONCE. This is the sort of record for that day; neither part is sorted on its own.</p></div>
+<div class="note"><p>Gap between the parts: 37 min 56 s between 09:59:14 and 10:37:10. The seam at sample 124,350,000 is a break in TIME, not in the array -- nothing that bins over time, computes a rate or looks for drift may interpolate across it.</p></div>
+<div class="note"><p>part 1  20260915_084812  -&gt;  concat samples 0 to 124,350,000  (4145.0 s of recording)</p></div>
+<div class="note"><p>    TRIMMED: the last 116.667 s of this part were dropped before sorting, cut at t = 4145.0 s. Any Bpod trial that started after that has NO ephys behind it. Reason: At t = 4150 s (69.17 min) 82 of the 384 channels jump above three times the healthy spike-band noise level and stay there for the remaining 112 s. The affected channels alternate -- 10, 12, 14 .. 32, then 59, 61, 63 .. 105 -- which is a connector/ground signature rather than anything biological, and is very probably what forced Trodes to be restarted. The cut is at 4145 s, five seconds before the fault, so no part of it reaches the sorter: Kilosort estimates whitening and drift over the whole file, so 112 s of 82 bad channels would degrade the other 2.16 h rather than just itself.</p></div>
+<div class="note"><p>    Bpod: Shamir01_Dual2AFC_nat_Sep15_2026_Session1.mat</p></div>
+<div class="note"><p>part 2  20260915_103710  -&gt;  concat samples 124,350,000 to 234,557,963  (3673.599 s of recording)</p></div>
+<div class="note"><p>    Bpod: Shamir01_Dual2AFC_nat_Sep15_2026_Session2.mat</p></div>
+<div class="note"><p>FOR THE BPOD SYNC: split spike_times at sample 124,350,000 and sync each part against its own Bpod file. A spike at concat sample s belongs to part 1 at sample s when s &lt; the seam, otherwise to part 2 at s minus the seam. Total 234,557,963 samples, 2.172 h.</p></div>
+<div class="note"><p>SUPERSEDES: The standalone sort of 20260915_103710 (LSF 741761, 447 units, review tool https://claude.ai/artifact/QreYaMjGtujiE17m2k9zXf) covers only part 2 and has no verdicts in it, so nothing hand-made is lost by replacing it. It stays on Z as a second opinion; the joint sort&#x27;s unit ids do not correspond to its.</p></div>
+</div>
+<div class="detail">
+<h3>20260915_103710</h3>
+<p class="meta">Shamir &middot; 447 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>SUPERSEDED</b> &mdash; part of 20260915_084812_103710_concat, which is the sort of record for this day. Not for review, and its unit ids do not correspond to the joint sort&#x27;s.</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260915_103710 [from concat]</h3>
+<p class="meta">Shamir &middot; 465 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4_from_concat</span></p>
+<ul>
+<li><b>HALF OF A JOIN</b> &mdash; this recording&#x27;s units and verdicts are 20260915_084812_103710_concat&#x27;s, applied to the joint sort restricted to this half (kilosort4_from_concat) and synced against this recording&#x27;s own Bpod file</li>
+<li>On Z: 322 unit verdicts (good 161, mua 159, noise 2), 33 merge verdicts (merge 31, separate 2), 26 trial selections.</li>
+<li>Its decisions are <span class="path">20260915_084812_103710_concat</span>’s: one review and one unit space for the day.</li>
+<li>Review page: <a href="https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb">unit review tool</a></li>
+<li>Bpod sync: <b>done</b> &mdash; <span class="path">synced_from_concat</span></li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260916_110311</h3>
+<p class="meta">Shamir &middot; 472 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>SAVED, PARTIAL</b> &mdash; 240 of 472 units decided, all of them on Z</li>
+<li>On Z: 240 unit verdicts (good 114, mua 113, noise 13), 10 merge verdicts (merge 8, separate 2), 20 trial selections.</li>
+<li>Review page: <a href="https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap">unit review tool</a></li>
+<li>Merge Adjudicator: <a href="https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW">https://claude.ai/artifact/DLDrEjL5Sn74TvBuMnmdcW</a></li>
+<li>Bpod sync: <b>done</b> &mdash; <span class="path">synced, synced_20261002, synced_20261015, synced_20261021_superseded_20261116, synced_NEWFIX</span></li>
+<li><b>5 sync directories exist</b>, and nothing in their names says which is current. Settle that before anything downstream reads one.</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260917_100043</h3>
+<p class="meta">Shamir &middot; 508 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260918_100248</h3>
+<p class="meta">Shamir &middot; 481 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260922_144404</h3>
+<p class="meta">Shamir &middot; 478 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260923_105129</h3>
+<p class="meta">Shamir &middot; 503 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260924_121751</h3>
+<p class="meta">Shamir &middot; 543 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260925_103539</h3>
+<p class="meta">Shamir &middot; 543 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260805_103305</h3>
+<p class="meta">Begin &middot; 73 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260807_125640</h3>
+<p class="meta">Begin &middot; 95 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260814_122755</h3>
+<p class="meta">Begin &middot; 94 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<div class="detail">
+<h3>20260818_110509</h3>
+<p class="meta">Begin &middot; 14 units &middot; Kilosort 9.0 / 8.0 &middot; sort folder <span class="path">kilosort4</span></p>
+<ul>
+<li><b>NOT REVIEWED</b> &mdash; no verdicts anywhere</li>
+</ul>
+</div>
+<h2>Keeping this current</h2>
+<div class="note">
+<p>Verdicts live in each review page’s own database on claude.ai. Nothing on disk knows about them until they are dumped, so this register compares the two and says <span class="chip c-alert">drifted</span> when the page is ahead of Z.</p>
+<p>Say the word after a reviewing session and the three collections get dumped to <span class="path">&lt;session&gt;.kilosort/review/verdicts/</span> on Z, hashed on both sides, and this page is regenerated. The markdown copy at <span class="path">post_ks_correction/SESSION_STATUS.md</span> gives git the history.</p>
+<p>Nothing on this page is typed by hand: every figure comes from <span class="path">outputs/session_status.json</span>, which is read off Z.</p>
+</div>
+</div>

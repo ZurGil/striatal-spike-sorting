@@ -1,4 +1,4 @@
-unit_id,verdict,decided_at_ms
+unit,verdict,ts
 4,mua,1794585123317
 5,mua,1794585132526
 11,mua,1794585147405

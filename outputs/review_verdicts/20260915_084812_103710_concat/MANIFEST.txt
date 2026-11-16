@@ -1,0 +1,16 @@
+VERDICT DUMP -- 20260915_084812_103710_concat
+written 2026-11-16T13:39:31 from the review tool's live database
+source  https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       322   {'good': 161, 'mua': 159, 'noise': 2}
+merge verdicts       33   {'merge': 31, 'separate': 2}
+trial selections     26
+
+Gil reported this review FINISHED on 2026-11-16. 322 of 465 units carry a verdict; the 143 without are 134 Kilosort-mua and 9 Kilosort-good (403 of those sits in a merge group, so it follows its group).
+
+sha256                                                            file
+a93c5b1a4d8f83067ca2c8aa6a1f6ce7f5aa916b89f7f4dd64d2f67151b5f968  verdicts.json  19422 bytes
+be3f4948fe7072bdec9ef84b8faa6e682f8747319a2fc81e2f9ee989ad95a9f1  merge_verdicts.json  12292 bytes
+a65cb10c89bfbaf6967244841180964baa57ff2dbd300822aeb239fb22285aa1  trial_selections.json  12104 bytes
+1ea34e046c9c8034e02825a827e34beb0dbc98c798a7f19a2fb690c1317dd3a3  manual_verdicts.csv  7199 bytes

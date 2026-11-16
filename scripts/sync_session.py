@@ -62,6 +62,11 @@ def rows_of(path):
     with open(path) as f:
         doc = json.load(f)
     if isinstance(doc, dict):
+        # A converted selections file wraps the documents in "selections" and puts
+        # its own provenance beside them; counting the top-level keys there would
+        # report the number of metadata fields as the number of decisions.
+        if isinstance(doc.get("selections"), dict):
+            doc = doc["selections"]
         doc = list(doc.values())
     return [r.get("data", r) if isinstance(r, dict) else r for r in doc]
 
@@ -105,7 +110,18 @@ def main():
                     help="directory holding the database dumps. Defaults to the "
                          "in-repo copy at outputs/review_verdicts/<session_id>/, which "
                          "is where `dump the review tool verdicts` puts them.")
-    ap.add_argument("--ks_subdir", default="kilosort4")
+    ap.add_argument("--ks_subdir", default="kilosort4",
+                    help="the sort folder under <sid>.kilosort/ to apply the "
+                         "decisions to and sync. Anything other than the default is "
+                         "also passed to sync_pipeline as --ks_folder, so one knob "
+                         "moves the whole run onto that sort. This is how each half "
+                         "of the joined 2026-09-15 session is synced, from "
+                         "kilosort4_from_concat/.")
+    ap.add_argument("--output_dir", default=None,
+                    help="where sync_pipeline writes its bundle. Required with a "
+                         "non-default --ks_subdir: the default location is derived "
+                         "from the recording, so two sorts of one recording would "
+                         "otherwise overwrite each other.")
     ap.add_argument("--rat_root", default=None,
                     help=r"the rat's data_root, which is where the Bpod behaviour "
                          r"lives (e.g. Z:\Gil\Shamir_1). Needed whenever the ephys "
@@ -135,6 +151,12 @@ def main():
     sid, py = args.session_id, sys.executable
     if args.dumps is None:
         args.dumps = os.path.join(OUT, "review_verdicts", sid)
+    if args.ks_subdir != "kilosort4" and not args.output_dir and not args.no_pipeline:
+        raise SystemExit(
+            "--ks_subdir %s needs --output_dir too. sync_pipeline's default output "
+            "folder is <sid>.kilosort/synced, which belongs to whichever sort is "
+            "kilosort4/ -- writing this sort's bundle there would overwrite it."
+            % args.ks_subdir)
 
     if args.collect_from_downloads:
         # Deliberately before everything else: if the export is missing or stale this
@@ -213,6 +235,10 @@ def main():
         pipeline_cmd += ["--rat_root", args.rat_root]
     if args.bpod_file:
         pipeline_cmd += ["--bpod_file", args.bpod_file]
+    if args.ks_subdir != "kilosort4":
+        pipeline_cmd += ["--ks_folder", args.ks_subdir]
+    if args.output_dir:
+        pipeline_cmd += ["--output_dir", args.output_dir]
     stamp["pipeline_command"] = pipeline_cmd[1:]
     with open(stamp_path, "w") as f:
         json.dump(stamp, f, indent=2)
@@ -231,6 +257,8 @@ def main():
 
     verify = [py, os.path.join(SCRIPTS, "verify_verdicts_in_dataset.py"), sid,
               "--rec", args.rec, "--dumps", args.dumps, "--ks_subdir", args.ks_subdir]
+    if args.output_dir:
+        verify += ["--synced_dir", args.output_dir]
     print("\n--- verifying that every verdict reached synced/")
     print("    " + " ".join(verify))
     rc = subprocess.run(verify, cwd=ROOT).returncode

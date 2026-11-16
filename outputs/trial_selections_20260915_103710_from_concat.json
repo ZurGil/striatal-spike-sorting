@@ -1,0 +1,212 @@
+{
+ "_readme": [
+  "Per-unit stability windows for 20260915_103710, converted from the joined",
+  "session's review tool. The tool's axis is concat_elapsed_seconds;",
+  "these are this recording's own ABSOLUTE Trodes seconds, converted",
+  "with clock_mapping from session_timeline_20260915_084812_103710_concat.json",
+  "(t -> t - timeline_t0_s + trodes_t0_s, clipped to this half, a range",
+  "crossing the seam split between the halves)."
+ ],
+ "clock": "trodes_absolute_seconds",
+ "part_order": 2,
+ "selections": {
+  "118": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 2187.4309,
+     "t1": 2571.6249
+    },
+    {
+     "t0": 3331.0319,
+     "t1": 3697.6039
+    }
+   ]
+  },
+  "148": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 105.9529,
+     "t1": 1284.2669
+    }
+   ]
+  },
+  "15": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 1839.4939,
+     "t1": 3697.6039
+    }
+   ]
+  },
+  "151": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 1468.9889,
+     "t1": 3697.6039
+    }
+   ]
+  },
+  "156": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 1650.6569
+    }
+   ]
+  },
+  "160": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 961.1519,
+     "t1": 3697.6039
+    }
+   ]
+  },
+  "180": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 3690.2499
+    }
+   ]
+  },
+  "185": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 1219.4109,
+     "t1": 1835.8949
+    }
+   ]
+  },
+  "190": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 3697.6039
+    }
+   ]
+  },
+  "20": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 721.1199
+    }
+   ]
+  },
+  "202": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 21.5429
+    }
+   ]
+  },
+  "213": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 38.0919
+    }
+   ]
+  },
+  "228": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 2631.9439,
+     "t1": 3697.6039
+    }
+   ]
+  },
+  "254": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 23.8729
+    }
+   ]
+  },
+  "268": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 3697.6039
+    }
+   ]
+  },
+  "289": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 18.4239
+    }
+   ]
+  },
+  "446": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 17.6039,
+     "t1": 3688.7689
+    }
+   ]
+  },
+  "49": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 68.9369,
+     "t1": 975.8079
+    }
+   ]
+  },
+  "69": {
+   "ephys_t0_s": 17.6039,
+   "ephys_t1_s": 3691.202633,
+   "ranges": [
+    {
+     "t0": 99.7829,
+     "t1": 1543.3729
+    }
+   ]
+  }
+ },
+ "source_session": "20260915_084812_103710_concat",
+ "timeline_t0_s": 4140.0,
+ "timeline_t1_s": 7820.0,
+ "trodes_t0_s": 17.6039
+}

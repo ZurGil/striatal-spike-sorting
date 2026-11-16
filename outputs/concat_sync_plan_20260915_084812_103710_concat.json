@@ -1,0 +1,21 @@
+{
+  "concat_session_id": "20260915_084812_103710_concat",
+  "parts": [
+    {
+      "session_id": "20260915_084812",
+      "rec": "Z:\\Gil\\Shamir_1\\20260915_084812.rec",
+      "ks_folder": "Z:\\Gil\\Shamir_1\\20260915_084812.rec\\20260915_084812.kilosort\\kilosort4_from_concat",
+      "selections": "D:\\Gil\\spike_sorting_agent\\outputs\\trial_selections_20260915_084812_from_concat.json",
+      "bpod": "Z:\\Gil\\Shamir_1\\bpod\\Shamir01_Dual2AFC_nat_Sep15_2026_Session1.mat",
+      "n_spikes": 9283188
+    },
+    {
+      "session_id": "20260915_103710",
+      "rec": "Z:\\Gil\\Shamir_1\\20260915_103710.rec",
+      "ks_folder": "Z:\\Gil\\Shamir_1\\20260915_103710.rec\\20260915_103710.kilosort\\kilosort4_from_concat",
+      "selections": "D:\\Gil\\spike_sorting_agent\\outputs\\trial_selections_20260915_103710_from_concat.json",
+      "bpod": "Z:\\Gil\\Shamir_1\\bpod\\Shamir01_Dual2AFC_nat_Sep15_2026_Session2.mat",
+      "n_spikes": 7398544
+    }
+  ]
+}

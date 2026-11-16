@@ -1,0 +1,16 @@
+VERDICT DUMP -- 20260916_110311
+written 2026-11-16T13:39:31 from the review tool's live database
+source  https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap (= /code/artifact/74dec064-c86a-46a3-8c03-f112ee4ecb05)
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       240   {'good': 114, 'mua': 113, 'noise': 13}
+merge verdicts       10   {'merge': 8, 'separate': 2}
+trial selections     20
+
+Review in progress: 240 of 472 units carry a verdict. Applies to kilosort4/ (KS 4.1.7, the sort of record), NOT to kilosort4_cluster_4.0.24_NOT_CURATED.
+
+sha256                                                            file
+ab852a90605f1e87df1787635c8569bfa97f97ed7778468fde9150537299a595  verdicts.json  14494 bytes
+11dc6da56f95edbdd8a354d89da7871f1d0610c7b87e7610a95d77188487bfcb  merge_verdicts.json  3724 bytes
+f3acb309c81bbde245bdf67991f19720ec379b3fec93f8a0e4ca2ea0d808ab1f  trial_selections.json  9377 bytes
+9bdd8909572ec05268fc3339dde892c204e986debdc744243689f8a5c0046052  manual_verdicts.csv  5387 bytes

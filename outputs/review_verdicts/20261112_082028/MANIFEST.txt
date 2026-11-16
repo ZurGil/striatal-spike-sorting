@@ -1,0 +1,16 @@
+VERDICT DUMP -- 20261112_082028
+written 2026-11-16T13:39:31 from the review tool's live database
+source  https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       260   {'mua': 120, 'good': 140}
+merge verdicts       31   {'merge': 27, 'separate': 3, 'unsure': 1}
+trial selections     18
+
+Review in progress: 260 of 442 units carry a verdict, unchanged since 2026-11-13.
+
+sha256                                                            file
+c7d4b23f79ca76249ff26f22e8847395f0c1fc2b54f66ad33e965e3fc028d5b7  verdicts.json  15699 bytes
+793200b16d663059119d70927b5bee31fb2e2811f025129e5a80b2518d22b9fd  merge_verdicts.json  11592 bytes
+e036efed4c94056b5d776b135364953e4c0556f27e912101192f88d8548bc67a  trial_selections.json  9433 bytes
+74e936063c943a6067ed0eca01db54d53a01c627a02b2a752d0186b90e4acc1e  manual_verdicts.csv  5832 bytes

@@ -117,6 +117,29 @@ def fingerprint(ks_dir):
             set(int(c) for c in np.unique(clusters)))
 
 
+def declared_cluster_ids(ks_dir):
+    """Every cluster id the sorting declares, spikes in this recording or not.
+
+    cluster_info.tsv is the sorting's own per-cluster table, so it lists a unit
+    that exists for the sort even where spike_clusters.npy -- which only holds
+    the spikes of one recording -- has no row for it.
+    """
+    path = os.path.join(ks_dir, "cluster_info.tsv")
+    if not os.path.exists(path):
+        return set()
+    out = set()
+    with open(path) as fh:
+        header = fh.readline().rstrip("\n").split("\t")
+        if "cluster_id" not in header:
+            return set()
+        col = header.index("cluster_id")
+        for line in fh:
+            cells = line.rstrip("\n").split("\t")
+            if len(cells) > col and cells[col].strip():
+                out.add(int(float(cells[col])))
+    return out
+
+
 def union_of_ranges(ranges):
     """The merge rule: present wherever ANY parent was present.
 
@@ -467,21 +490,40 @@ def main():
                                       for ps, i in gone.items())), file=sys.stderr)
 
     # --- validate before writing anything ----------------------------------------
+    # A unit the sorting declares but which fired nothing in THIS recording is a
+    # real case, not a mistake: half of a joined session is synced against a sort
+    # made over the whole day, and 3 of that day's 465 units are active in only
+    # one half. Such a parent contributes no spikes here and must not block the
+    # merge, or the other parent would be left standing as an unmerged unit in one
+    # half and merged in the other -- the same neuron under two different ids.
+    # A parent in neither place is still an error.
+    declared_ids = declared_cluster_ids(ks_dir)
+    silent = []
     seen_parent = {}
     for e in entries:
         if len(e["parents"]) < 2:
             raise SystemExit("merge %s: needs at least 2 parents." % e["parents"])
         for p in e["parents"]:
             if p not in existing_ids:
-                raise SystemExit(
-                    "parent %d is not a cluster in %s. Check --ks_subdir and that these "
-                    "ids come from this sorting." % (p, ks_dir))
+                if p in declared_ids:
+                    silent.append(p)
+                else:
+                    raise SystemExit(
+                        "parent %d is not a cluster in %s, and cluster_info.tsv does not "
+                        "declare it either. Check --ks_subdir and that these ids come "
+                        "from this sorting." % (p, ks_dir))
             if p in seen_parent:
                 raise SystemExit(
                     "unit %d appears in two merges (%s and %s). A unit can only be "
                     "merged into one place -- combine them into one entry with three "
                     "parents." % (p, seen_parent[p], e["parents"]))
             seen_parent[p] = e["parents"]
+
+    if silent:
+        print("note: parent(s) %s are declared by this sorting but fired no spikes in "
+              "this recording, so they join their merge contributing nothing. That is "
+              "expected when a sort spans more than one recording."
+              % ", ".join(str(p) for p in sorted(set(silent))))
 
     # --- freeze the union --------------------------------------------------------
     merges = []

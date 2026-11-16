@@ -193,49 +193,110 @@ def scan():
                 continue
             sid = name[:-4]
             ks = os.path.join(sdir, sid + ".kilosort")
-            k4 = os.path.join(ks, "kilosort4")
-            if not os.path.exists(os.path.join(k4, "spike_clusters.npy")):
+            # One recording can hold more than one sorting, and then it needs more than
+            # one row: the second half of 15 September has both its own superseded
+            # standalone sort and the joint sort restricted to it, and those are
+            # different unit spaces with different states. Collapsing them into one row
+            # made the table report the half as unreviewed while its dataset carried
+            # all 322 verdicts.
+            for sub in ("kilosort4", "kilosort4_from_concat"):
+              k4 = os.path.join(ks, sub)
+              if not os.path.exists(os.path.join(k4, "spike_clusters.npy")):
                 continue
-            vd = os.path.join(ks, "review", "verdicts")
-            r = {
+              vd = os.path.join(ks, "review", "verdicts")
+              r = {
                 "rat": rat, "session": sid, "date": sid[:8],
+                "row_id": sid if sub == "kilosort4" else "%s [from concat]" % sid,
                 "n_units": n_units(k4), "thresholds": thresholds(k4),
                 "artifact": ARTIFACTS.get(sid),
                 "tools": EXTRA_TOOLS.get(sid, []),
                 "verdicts_dir": vd if os.path.isdir(vd) else None,
                 "cluster_info": os.path.exists(os.path.join(k4, "cluster_info.tsv")),
-                "superseded_by": sup.get(sid),
+                # Only the recording's own standalone sort can be superseded by the
+                # joint one. The joint sort restricted to this half IS the joint sort.
+                "superseded_by": sup.get(sid) if sub == "kilosort4" else None,
                 "joins": parts.get(sid),
                 "provenance": provenance_lines(root, sid),
                 # Bpod sync is a different thing from applying verdicts. sync_session.py
                 # writes a `synced/` directory; the verdicts go into cluster_info.tsv.
                 # A session can have one without the other, and conflating them is how
                 # "is it synced?" gets answered wrongly.
-                "bpod_synced": sorted(d for d in (os.listdir(ks) if os.path.isdir(ks) else [])
-                                      if d == "synced" or d.startswith("synced_")),
+                # A synced/ directory belongs to ONE of the recording's sorts, so it is
+                # attributed rather than just listed: synced_from_concat is the joint
+                # sort's output and must not be credited to the standalone sort beside it.
+                "bpod_synced": sorted(
+                    d for d in (os.listdir(ks) if os.path.isdir(ks) else [])
+                    if (d == "synced" or d.startswith("synced_"))
+                    and ((d == "synced_from_concat") == (sub == "kilosort4_from_concat"))),
                 "bpod_files": len(os.listdir(os.path.join(root, "bpod")))
                               if os.path.isdir(os.path.join(root, "bpod")) else 0,
-            }
-            v = jload(os.path.join(vd, "verdicts.json")) or {}
-            m = jload(os.path.join(vd, "merge_verdicts.json")) or {}
-            t = jload(os.path.join(vd, "trial_selections.json")) or {}
-            r["z_verdicts"] = len(v)
-            r["z_tally"] = dict(collections.Counter(x.get("verdict") for x in v.values()))
-            r["z_merges"] = len(m)
-            r["z_merge_tally"] = dict(collections.Counter(x.get("verdict") for x in m.values()))
-            r["z_trials"] = len(t)
-            r["synced"] = os.path.exists(os.path.join(vd, "verdict_sync.json"))
-            snaps = []
-            if os.path.isdir(vd):
-                snaps = sorted(d for d in os.listdir(vd)
-                               if d.startswith("snapshot_") and os.path.isdir(os.path.join(vd, d)))
-            r["snapshots"] = snaps
-            out.append(r)
+              }
+              v = jload(os.path.join(vd, "verdicts.json")) or {}
+              m = jload(os.path.join(vd, "merge_verdicts.json")) or {}
+              t = jload(os.path.join(vd, "trial_selections.json")) or {}
+              r["z_verdicts"] = len(v)
+              r["z_tally"] = dict(collections.Counter(x.get("verdict") for x in v.values()))
+              r["z_merges"] = len(m)
+              r["z_merge_tally"] = dict(collections.Counter(x.get("verdict") for x in m.values()))
+              r["z_trials"] = len(t)
+              # "verdicts applied" = a stamp exists saying which decisions went into this
+              # sort. sync_session.py writes it to outputs/verdict_sync_<sid>.json; the
+              # older per-session flow left a copy next to the verdicts on Z. Checking
+              # only the Z copy reported sessions as unapplied right after applying them.
+              stamp = jload(os.path.join(ROOT, "outputs", "verdict_sync_%s.json" % sid))
+              stamped_here = bool(stamp) and os.path.basename(
+                  str(stamp.get("kilosort_dir", "")).rstrip("\\/")) == sub
+              r["synced"] = (os.path.exists(os.path.join(vd, "verdict_sync.json"))
+                             or stamped_here)
+              r["ks_folder"] = os.path.basename(k4)
+              snaps = []
+              if os.path.isdir(vd):
+                  snaps = sorted(d for d in os.listdir(vd)
+                                 if d.startswith("snapshot_") and os.path.isdir(os.path.join(vd, d)))
+              r["snapshots"] = snaps
+              out.append(r)
+
+    # A joined session is synced through its halves, and each half's decisions are the
+    # joined session's. Neither fact is visible in either folder on its own, so it is
+    # read here from the derived_from.json the splitter leaves in each half.
+    by_sid = {r["session"]: r for r in out if r.get("ks_folder") == "kilosort4"}
+    for r in out:
+        if r.get("ks_folder") != "kilosort4_from_concat":
+            continue
+        d = None
+        for rat, root in RATS:
+            p = os.path.join(root, r["session"] + ".rec", r["session"] + ".kilosort",
+                             "kilosort4_from_concat", "derived_from.json")
+            d = jload(p)
+            if d:
+                break
+        if not d:
+            continue
+        src = d.get("source_session")
+        r["decisions_from"] = src
+        parent = by_sid.get(src)
+        if parent:
+            # The decisions are the joined session's -- but NOT its "applied" flag:
+            # each half has its own stamp, and the joined folder has none of its own
+            # because there is nothing there to sync.
+            for k in ("z_verdicts", "z_tally", "z_merges", "z_merge_tally", "z_trials",
+                      "verdicts_dir", "artifact"):
+                r[k] = parent[k]
+            parent.setdefault("synced_parts", []).append(
+                {"session": r["session"], "dirs": r["bpod_synced"],
+                 "applied": r["synced"]})
+            if r["synced"]:
+                parent["synced"] = True
     return out
 
 
 def state_of(r, live):
     """One word for where this session's decisions stand."""
+    if r.get("decisions_from"):
+        return "HALF OF A JOIN", (
+            "this recording's units and verdicts are %s's, applied to the joint sort "
+            "restricted to this half (kilosort4_from_concat) and synced against this "
+            "recording's own Bpod file" % r["decisions_from"])
     lv = live.get(r["session"], {}).get("verdicts") if live else None
     if r.get("superseded_by") and not r["z_verdicts"] and not lv:
         return "SUPERSEDED", ("part of %s, which is the sort of record for this day. "
@@ -254,6 +315,15 @@ def state_of(r, live):
         return "CHECK", ("Z has %d but the page has %d -- Z may be ahead, or the page was "
                          "rebuilt" % (r["z_verdicts"], lv))
     if not r["n_units"] or lv < r["n_units"]:
+        # Gil can call a review finished with units still unjudged -- he stops when the
+        # ones left are automatic MUA he has no intention of labelling. That is a
+        # decision, so it is recorded in artifact_live_counts.json and reported as
+        # finished; the count of unjudged units is still shown rather than hidden.
+        if r.get("review_finished"):
+            return "SAVED, REVIEW CLOSED", (
+                "Gil called this review finished: %d of %d units carry a verdict, all "
+                "of them on Z; the other %d were left on their automatic label"
+                % (lv, r["n_units"], r["n_units"] - lv))
         return "SAVED, PARTIAL", ("%d of %d units decided, all of them on Z"
                                   % (lv, r["n_units"] or 0))
     return "SAVED, COMPLETE", "%d of %d units decided, all on Z" % (lv, r["n_units"])
@@ -275,11 +345,13 @@ def main():
 
     rows = scan()
     for r in rows:
-        r["state"], r["state_why"] = state_of(r, live_rows)
         lv = live_rows.get(r["session"], {})
         r["live_verdicts"] = lv.get("verdicts")
         r["live_merges"] = lv.get("merge_verdicts")
         r["live_trials"] = lv.get("trial_selections")
+        r["review_finished"] = bool(lv.get("review_finished"))
+        # state last: it reads the fields above.
+        r["state"], r["state_why"] = state_of(r, live_rows)
 
     md = []
     md.append("# Sorted sessions, verdicts, and where they are saved")
@@ -301,12 +373,19 @@ def main():
         dec = r["live_verdicts"] if r["live_verdicts"] is not None else r["z_verdicts"]
         if r["bpod_synced"]:
             sy = "yes (`%s`)" % "`, `".join(r["bpod_synced"])
+        elif r.get("synced_parts"):
+            # A joined session has no DIO and no Bpod file of its own, so it is never
+            # synced in its own folder. It is synced once per half, each against that
+            # half's own behaviour, and saying "no" here would be false.
+            sy = "yes, through its halves (`%s`)" % "`, `".join(
+                p["session"] for p in r["synced_parts"])
         elif not r["bpod_files"]:
             sy = "**blocked** -- no Bpod files for this rat"
         else:
             sy = "no"
         md.append("| %s | `%s` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | **%s** |" % (
-            r["rat"], r["session"], r["n_units"] or "?", r["thresholds"] or "?",
+            r["rat"], r.get("row_id", r["session"]), r["n_units"] or "?",
+            r["thresholds"] or "?",
             dec, t.get("good", 0), t.get("mua", 0), t.get("noise", 0),
             r["z_merges"], r["z_trials"],
             "yes" if r["z_verdicts"] else "no",
