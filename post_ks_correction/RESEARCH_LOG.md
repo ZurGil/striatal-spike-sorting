@@ -9330,3 +9330,75 @@ it had been saying 15 September held no decisions for three days. It also distin
 two sorts a single recording can hold (`[from concat]` rows), attributes a `synced_*`
 directory to the sort that produced it, and reports a joined session as synced through its
 halves rather than not synced. Published to the same URL, Version 4.
+
+### 5bd.59 A sync check in the register, responses that prove the alignment, and the catch trials that are in fact there  (2026-11-16)
+
+Three things, in the order they matter.
+
+#### The catch trials are present in every session, and the behaviour proves it
+
+Gil's report was that no session so far includes catch trials, which would make them
+unusable for the analysis. Before marking anything, `scripts/audit_catch_trials.py`
+read every Bpod file for both rats -- 36 Shamir sessions and 11 Popper ones -- and
+checked the behaviour rather than the flag, because a flag in a file is not evidence
+that anything happened. Of the CORRECT trials, a catch one should never be rewarded
+and the animal should keep waiting.
+
+Every real session has them: `PercentCatch` is 0.15 throughout, 11-16 % of trials carry
+`Custom.CatchTrial = 1`, and on correct catch trials the reward rate is **0.0 %**
+against 65-88 % on correct non-catch trials, with a median wait of **5.0-8.2 s**
+against 1.0-1.6 s. The only exceptions are two stubs: `Popper ... Oct26 Session1`
+(2 trials) and `Shamir01 ... Nov05 Session3` (21 trials). One Shamir session,
+Sep 28, shows 1.5 % rewarded on catch -- a single trial.
+
+So nothing has been marked unusable. The audit CSV is `outputs/catch_trial_audit.csv`;
+if what is missing is a different manipulation that the word "catch" was standing in
+for here, the marking is one command away once Gil says which.
+
+#### A sync check in the tracking table, for every synced dataset
+
+A `synced/` folder existing says nothing about whether the clocks agree, so the
+register now carries both. Per dataset, read from its own `session_meta.json`: the
+fraction of Bpod events that matched a Trodes TTL, the **leave-one-out error of the
+time conversion** (each matched pair predicted from all the others), and how many
+trials the pipeline called sync_valid. All seven synced datasets pass: 100 % matched,
+worst-case holdout error 29-48 ms, every trial valid, no recording gaps.
+
+The register also now explains the `sync_status: needs_review` that every one of them
+carries, which is about a different number: the residual of fitting ONE straight line
+over the whole session, 29-570 ms median, large because the clocks drift. That drift
+is exactly why the conversion is local interpolation, and the holdout error above is
+the figure that describes what is actually applied.
+
+#### The responses, which are the real test of the alignment
+
+`scripts/plot_event_responses.py` draws the busiest good units against cue start
+(onset of `stimulus_delivery_min`), cue end (end of `stimulus_delivery`) and reward
+(the valve opening, `water_L`/`water_R`), on completed trials only -- no broken
+fixation, no early withdrawal, a choice recorded -- and rewarded trials only for the
+reward panels.
+
+It works in the pipeline's own per-trial frame: `spike_time_in_trial` minus
+`start_time_in_trial`, both produced by the same local-interpolation conversion. Taking
+a Bpod offset and adding it to `trial_start_trodes` instead would have reintroduced the
+drift the pipeline measured (slope 1.0016, so 16 ms of error 10 s into a trial) and then
+blamed the sync for it.
+
+| session | units modulated, p<0.05 (of 8) | | |
+| --- | --- | --- | --- |
+| | cue start | cue end | reward |
+| Popper 20261112_082028 | 7 | 6 | 5 |
+| Shamir 20260915_084812 (from the joint sort) | 6 | 5 | 2 |
+| Shamir 20260916_110311 | 5 | 5 | 3 |
+
+The shapes are what settles it. Popper unit 393 goes 56 -> 84 sp/s with a peak 0.3 s
+after the valve opens; unit 310 drops the instant the cue ends; unit 320 peaks 0.35 s
+after cue start, which is where cue end is. On 15 September, unit 461 goes 51 -> 65 sp/s
+with a sharp peak 0.15 s after reward. A misaligned dataset gives none of that -- it
+gives a smear. This is the first direct evidence that the split-at-the-seam sync of the
+joined session put the spikes against the right behaviour.
+
+One thing to keep in mind when reading the two cue columns: on these sessions
+`AuditoryStimulusTime` equals `MinSampleAud`, so the cue is 0.35 s long and cue end is
+0.35 s after cue start on every trial. The two columns are the same data shifted, not
+two independent events.

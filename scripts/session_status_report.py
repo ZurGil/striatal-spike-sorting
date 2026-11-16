@@ -249,6 +249,7 @@ def scan():
               r["synced"] = (os.path.exists(os.path.join(vd, "verdict_sync.json"))
                              or stamped_here)
               r["ks_folder"] = os.path.basename(k4)
+              r["sync_check"] = sync_check(ks, r["bpod_synced"])
               snaps = []
               if os.path.isdir(vd):
                   snaps = sorted(d for d in os.listdir(vd)
@@ -287,7 +288,90 @@ def scan():
                  "applied": r["synced"]})
             if r["synced"]:
                 parent["synced"] = True
+            # The joined session's alignment IS its halves' alignment; it has no clock
+            # of its own to check.
+            parent.setdefault("sync_check", []).extend(r.get("sync_check") or [])
     return out
+
+
+def sync_check(ks, synced_dirs):
+    """How well the ephys clock and the Bpod clock actually agree, per synced dataset.
+
+    Read from each `synced/session_meta.json`, because "there is a synced directory"
+    and "the alignment is good" are different claims and only the second one matters
+    to an analysis. Four numbers, and each is there for a reason:
+
+      matched           fraction of Bpod events that found their Trodes TTL. Below 1.0
+                        means events went unexplained, which is the loud failure.
+      holdout_max_ms    leave-one-out error of the time conversion: each matched pair
+                        predicted from the others. This is the honest accuracy figure.
+      linear_resid_ms   residual of a single straight line over the whole session. It
+                        is large here (hundreds of ms) and that is EXPECTED -- the two
+                        clocks drift, which is why the conversion is local rather than
+                        linear. It is reported because it is what sets sync_status to
+                        `needs_review`, and someone reading that word deserves to see
+                        the number behind it and the holdout number beside it.
+      trials_valid      trials the pipeline was willing to call synced.
+    """
+    out = []
+    for d in synced_dirs:
+        meta = jload(os.path.join(ks, d, "session_meta.json"))
+        if not meta:
+            continue
+        s = meta.get("sync", {})
+        trials = meta.get("n_trials")
+        tv = meta.get("n_trials_sync_valid")
+        if tv is None:                      # older bundles kept it only in the summary
+            tv = trials
+        out.append({
+            "dir": d,
+            "status": s.get("sync_status"),
+            "matched": s.get("match_fraction"),
+            "n_matched": s.get("n_matched"),
+            "n_bpod_events": s.get("n_bpod_events"),
+            "holdout_median_ms": s.get("interp_holdout_median_ms"),
+            "holdout_max_ms": s.get("interp_holdout_max_ms"),
+            "linear_median_resid_ms": s.get("median_residual_ms"),
+            "linear_max_resid_ms": s.get("max_residual_ms"),
+            "method": s.get("conversion_method"),
+            "n_trials": trials,
+            "n_trials_valid": tv,
+            "gaps": len(meta.get("recording_gaps") or []),
+            "trials_over_gap": meta.get("n_trials_overlapping_recording_gap"),
+            # One word. A dataset passes when every Bpod event matched, every trial is
+            # sync_valid, and the conversion's own worst-case holdout error is under
+            # 50 ms -- short enough that no trial-aligned analysis cares.
+            "verdict": None,
+        })
+        c = out[-1]
+        if c["matched"] is None:
+            c["verdict"] = "unknown"
+        elif (c["matched"] >= 1.0 and (c["holdout_max_ms"] or 1e9) < 50
+              and c["n_trials_valid"] == c["n_trials"]):
+            c["verdict"] = "pass"
+        elif c["matched"] >= 0.99:
+            c["verdict"] = "check"
+        else:
+            c["verdict"] = "FAIL"
+    return out
+
+
+def sync_cell_md(r):
+    """The alignment quality, in the table, next to "is there a synced folder".
+
+    A folder existing says nothing about whether the clocks agree; these numbers do.
+    Several synced folders for one recording are collapsed to the worst verdict, since
+    that is the one somebody needs to know about.
+    """
+    checks = r.get("sync_check") or []
+    if not checks:
+        return "--"
+    order = {"FAIL": 0, "check": 1, "unknown": 2, "pass": 3}
+    worst = sorted(checks, key=lambda c: order.get(c["verdict"], 9))[0]
+    bits = "%s (%.0f%% matched, %.0f ms worst-case, %s/%s trials)" % (
+        worst["verdict"], 100.0 * (worst["matched"] or 0),
+        worst["holdout_max_ms"] or 0, worst["n_trials_valid"], worst["n_trials"])
+    return ("**%s**" % bits) if worst["verdict"] != "pass" else bits
 
 
 def state_of(r, live):
@@ -365,9 +449,9 @@ def main():
     md.append("three collections to `<session>.kilosort/review/verdicts/` on Z.")
     md.append("")
     hdr = ("| rat | session | units | Th u/l | decided | good | mua | noise | merges | "
-           "windows | on Z | verdicts applied | Bpod synced | joined | state |")
+           "windows | on Z | verdicts applied | Bpod synced | sync check | joined | state |")
     md.append(hdr)
-    md.append("|" + "---|" * 15)
+    md.append("|" + "---|" * 16)
     for r in rows:
         t = r["z_tally"]
         dec = r["live_verdicts"] if r["live_verdicts"] is not None else r["z_verdicts"]
@@ -383,13 +467,13 @@ def main():
             sy = "**blocked** -- no Bpod files for this rat"
         else:
             sy = "no"
-        md.append("| %s | `%s` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | **%s** |" % (
+        md.append("| %s | `%s` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | **%s** |" % (
             r["rat"], r.get("row_id", r["session"]), r["n_units"] or "?",
             r["thresholds"] or "?",
             dec, t.get("good", 0), t.get("mua", 0), t.get("noise", 0),
             r["z_merges"], r["z_trials"],
             "yes" if r["z_verdicts"] else "no",
-            "yes" if r["synced"] else "no", sy,
+            "yes" if r["synced"] else "no", sy, sync_cell_md(r),
             "yes" if r["provenance"] else ("part of a join" if r["superseded_by"] else "no"),
             r["state"]))
     md.append("")

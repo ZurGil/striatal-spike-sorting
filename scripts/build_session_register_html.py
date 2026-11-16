@@ -149,6 +149,21 @@ def synced_cell(r):
     return '<span class="dim">no</span>'
 
 
+def sync_cell(r):
+    """Alignment quality, beside "is there a synced folder". Different questions."""
+    checks = r.get("sync_check") or []
+    if not checks:
+        return '<span class="dim">&mdash;</span>'
+    order = {"FAIL": 0, "check": 1, "unknown": 2, "pass": 3}
+    worst = sorted(checks, key=lambda c: order.get(c["verdict"], 9))[0]
+    cls = {"pass": "c-ok", "check": "c-partial", "FAIL": "c-alert"}.get(
+        worst["verdict"], "c-none")
+    detail = "%.0f%% matched &middot; %.0f ms worst case &middot; %s/%s trials" % (
+        100.0 * (worst["matched"] or 0), worst["holdout_max_ms"] or 0,
+        worst["n_trials_valid"], worst["n_trials"])
+    return chip(worst["verdict"], cls) + '<br><span class="rat">%s</span>' % detail
+
+
 def row_html(r):
     t = r["z_tally"]
     dec = r["live_verdicts"] if r["live_verdicts"] is not None else r["z_verdicts"]
@@ -165,14 +180,14 @@ def row_html(r):
         '<td class="rat">%s</td><td class="sid">%s</td>'
         '<td class="n">%s</td><td class="n">%s</td><td class="n">%s</td><td>%s</td>'
         '%s%s%s%s%s'
-        '<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>'
+        '<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>'
         % (esc(r["rat"]), esc(r.get("row_id", r["session"])),
            n or "?", esc(r["thresholds"] or "?"), dec, bar,
            num(t.get("good", 0)), num(t.get("mua", 0)), num(t.get("noise", 0)),
            num(r["z_merges"]), num(r["z_trials"]),
            chip("yes", "c-ok") if r["z_verdicts"] else chip("—", "c-none"),
            chip("yes", "c-ok") if r["synced"] else '<span class="dim">no</span>',
-           synced_cell(r),
+           synced_cell(r), sync_cell(r),
            ('<span class="dim">%s</span>'
             % ("yes" if r["provenance"] else
                ("part of a join" if (r["superseded_by"] or r.get("decisions_from"))
@@ -261,7 +276,7 @@ def main():
            '<th>Rat</th><th>Sort</th><th>Units</th><th>Th&nbsp;u/l</th><th>Judged</th>'
            '<th>Progress</th><th>Good</th><th>MUA</th><th>Noise</th><th>Merges</th>'
            '<th>Windows</th><th>On&nbsp;Z</th><th>Verdicts<br>applied</th>'
-           '<th>Bpod<br>synced</th><th>Joined</th><th>State</th>'
+           '<th>Bpod<br>synced</th><th>Sync<br>check</th><th>Joined</th><th>State</th>'
            '</tr></thead><tbody>']
     for r in rows:
         out.append(row_html(r))
@@ -282,6 +297,27 @@ def main():
             'its own behaviour, from the joint sort restricted to that half &mdash; one '
             'unit space, two trial tables. Those rows are marked '
             '<span class="path">[from concat]</span>.</p>',
+            '</div>',
+            '<h2>What the sync check means</h2>',
+            '<div class="note">',
+            '<p>A <span class="path">synced/</span> folder existing says nothing about '
+            'whether the two clocks agree. The check reports three things from that '
+            'dataset’s own <span class="path">session_meta.json</span>: the fraction '
+            'of Bpod events that found their Trodes TTL (anything under 100 % means '
+            'events went unexplained), the <b>worst-case leave-one-out error</b> of the '
+            'time conversion — each matched pair predicted from all the others, which '
+            'is the honest accuracy figure — and how many trials the pipeline was '
+            'willing to call synced.</p>',
+            '<p>A dataset passes when every event matched, every trial is valid, and that '
+            'worst-case error is under 50&nbsp;ms. All of them pass, at 29–48&nbsp;ms '
+            'worst case and a median error of essentially zero.</p>',
+            '<p>Each <span class="path">session_meta.json</span> also carries a '
+            '<span class="path">sync_status</span> of <span class="path">needs_review</span>, '
+            'and that is about a different number: the residual of fitting ONE straight '
+            'line across the whole session, which is hundreds of milliseconds because the '
+            'two clocks drift apart. That is exactly why the conversion is local '
+            'interpolation rather than a single line, and why the holdout error above is '
+            'the figure to read.</p>',
             '</div>',
             '<h2>Sessions in detail</h2>']
     for r in rows:
