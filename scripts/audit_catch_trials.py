@@ -82,6 +82,16 @@ def audit(path, cache_dir):
 
     corr = cc == 1
     m_catch, m_plain = corr & (ct == 1), corr & (ct == 0)
+    # The OTHER half of the paradigm, and the one that is easy to lose. A time-
+    # investment analysis needs how long the animal waits on ERROR trials as well as
+    # on correct catch trials -- the two curves crossing is the whole measurement.
+    # Whether error trials give you that is set by CatchError, not by PercentCatch:
+    #   CatchError = 1  an error trial is a catch trial. Nothing is signalled, the
+    #                   animal waits until it gives up, and the wait is its own.
+    #   CatchError = 0  the error is signalled at the end of the feedback delay. The
+    #                   "wait" you measure is then the delay WE drew, not a decision
+    #                   the animal made, and it is useless for confidence.
+    err = cc == 0
     row = {
         "bpod_file": os.path.basename(path),
         "n_trials": n,
@@ -99,7 +109,21 @@ def audit(path, cache_dir):
                                 if m_catch.sum() else None),
         "median_wait_noncatch_s": (round(float(np.nanmedian(ft[m_plain])), 2)
                                    if m_plain.sum() else None),
+        "n_error": int(err.sum()),
+        "median_wait_error_s": (round(float(np.nanmedian(ft[err])), 2)
+                                if err.sum() else None),
     }
+    # An error trial counts as giving a real wait when the animal waited about as long
+    # as it does on a correct catch trial -- half of it is the threshold, which
+    # separates 5-6 s from 1.1 s by a wide margin on every session here.
+    mw_err, mw_catch = row["median_wait_error_s"], row["median_wait_catch_s"]
+    if row["catch_error_setting"] == 0 or (mw_err is not None and mw_catch
+                                           and mw_err < 0.5 * mw_catch):
+        row["error_catch"] = "NO -- errors are signalled, no time investment on errors"
+    elif mw_err is None:
+        row["error_catch"] = "unknown"
+    else:
+        row["error_catch"] = "yes -- errors are catch trials too"
     # The verdict, stated once, from the behaviour rather than the flag.
     if not row["n_flagged_catch"]:
         row["verdict"] = "NO CATCH TRIALS"
@@ -145,19 +169,19 @@ def main():
                 r = {"bpod_file": f, "verdict": "COULD NOT READ: %s" % e}
             r["rat"] = rat
             rows.append(r)
-            print("%-9s %-52s n=%-5s set=%-5s flagged=%-4s correct-catch rewarded=%-6s "
-                  "wait %-6s vs %-6s  %s"
-                  % (rat, f, r.get("n_trials"), r.get("percent_catch_setting"),
-                     r.get("n_flagged_catch"), r.get("pct_rewarded_catch"),
-                     r.get("median_wait_catch_s"), r.get("median_wait_noncatch_s"),
-                     r.get("verdict")))
+            print("%-7s %-46s n=%-5s CatchError=%-4s flagged=%-4s  wait: catch %-5s "
+                  "error %-5s plain %-5s | %s"
+                  % (rat, f, r.get("n_trials"), r.get("catch_error_setting"),
+                     r.get("n_flagged_catch"), r.get("median_wait_catch_s"),
+                     r.get("median_wait_error_s"), r.get("median_wait_noncatch_s"),
+                     r.get("error_catch")))
 
     out = os.path.join(ROOT, "outputs", "catch_trial_audit.csv")
     keys = ["rat", "bpod_file", "n_trials", "percent_catch_setting", "catch_error_setting",
             "setting_changed_mid_session",
             "n_flagged_catch", "pct_flagged", "n_correct_catch", "pct_rewarded_catch",
             "pct_rewarded_noncatch", "median_wait_catch_s", "median_wait_noncatch_s",
-            "verdict"]
+            "n_error", "median_wait_error_s", "error_catch", "verdict"]
     with open(out, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=keys, extrasaction="ignore")
         w.writeheader()
@@ -165,7 +189,11 @@ def main():
             w.writerow(r)
     print("\nwrote %s (%d session(s))" % (out, len(rows)))
     bad = [r for r in rows if r.get("verdict", "").startswith(("NO CATCH", "FLAGGED BUT"))]
-    print("%d session(s) with no catch trials delivered" % len(bad))
+    print("%d session(s) with no catch trials delivered at all" % len(bad))
+    noerr = [r for r in rows if str(r.get("error_catch", "")).startswith("NO")]
+    print("%d session(s) with NO ERROR CATCH TRIALS -- no time investment on errors, "
+          "so no confidence analysis: %s"
+          % (len(noerr), ", ".join(r["bpod_file"] for r in noerr) or "none"))
     return 0
 
 

@@ -9402,3 +9402,72 @@ One thing to keep in mind when reading the two cue columns: on these sessions
 `AuditoryStimulusTime` equals `MinSampleAud`, so the cue is 0.35 s long and cue end is
 0.35 s after cue start on every trial. The two columns are the same data shifted, not
 two independent events.
+
+### 5bd.60 CatchError, which is the real defect, and a figure that was weak for reasons of its own  (2026-11-16)
+
+#### CatchError = 0 on every Popper session, = 1 on every Shamir session
+
+Gil's report was "no catch trials". The audit found catch trials everywhere, so he
+named the variable: `CatchError`. He was right and the first audit was asking the
+wrong question. There are two switches, and only one of them was checked:
+
+  `PercentCatch`  0.15 everywhere -- catch trials on CORRECT choices. Reward withheld
+                  on 100 % of them in both rats, the rat waits 5-8 s against 1.0-1.6 s
+                  when rewarded. Working, in every session of both rats.
+  `CatchError`    whether an ERROR trial is also a catch trial. **Popper 0, Shamir 1,
+                  on every session of each.**
+
+With `CatchError = 1` an error is never announced: the rat waits until it gives up and
+the wait is its own decision. Shamir's median wait on error trials is 4.8-6.9 s and
+`timeOut_IncorrectChoice` is entered **zero** times. With `CatchError = 0` the error is
+announced at the end of the feedback delay we drew: Popper's median wait on error
+trials is 1.1-1.5 s, and `timeOut_IncorrectChoice` is entered on 79 of the 92 completed
+error trials of 20261112_082028.
+
+A time-investment analysis needs the correct and error waiting curves together -- the
+two crossing as a function of evidence strength is the measurement. Popper gives only
+the correct one, so no Popper session recorded to date can support it. The ephys is
+unaffected and everything else about those sessions stands.
+
+Marked in four places: a banner at the top of the register naming the affected
+sessions, a `catch trials` column per session in the register and in
+SESSION_STATUS.md, `READ_ME_CatchError_0_NO_ERROR_CATCH_TRIALS.txt` at
+`Z:\Gil\Popper\` and inside each Popper `.rec` folder, and
+`outputs/catch_trial_audit.csv` with the per-session numbers. The fix for future
+sessions is one setting; nothing recovers the ten already recorded.
+
+#### The weak-looking figure was the figure, and here is the proof
+
+Gil read the first response figure as weak and unreliable and asked what had gone
+wrong in the pipeline. Nothing had. The six units of the validated October analysis
+(`psth_reward_TIMEFIXED_20260916_110311.png`, built from `synced_NEWFIX`), pulled from
+today's `synced/`, come back **identical to the decimal** -- unit 35 peaks at 80.9 Hz
+from a 20.8 Hz baseline in both, and so do 21, 250, 328, 331 and 461. Same sort, same
+sync, same numbers.
+
+What was wrong was how I drew it: the eight units with the most SPIKES, binned at 20 ms
+with no smoothing. Busiest is not most responsive -- unit 35, the strongest reward unit
+in the session, was not among them -- and 20 ms raw buries what modulation there is.
+`scripts/plot_event_responses.py` now screens every good unit, draws the six most
+responsive **for each event**, and uses the validated analysis's own 50 ms bins and
+Gaussian smoothing (sigma = 2 bins), plus a population panel so the claim rests on all
+the units rather than six.
+
+| session | good units | cue start | cue end | reward |
+| --- | --- | --- | --- | --- |
+| Popper 20261112_082028 | 120 | 74 | 82 | 61 |
+| Shamir 20260916_110311 | 111 | 76 | 73 | 49 |
+| 15 Sep half 1 | 138 | 94 | 80 | 56 |
+| 15 Sep half 2 | 138 | 87 | 74 | 49 |
+
+(modulated at p<0.05, baseline -1.0 to -0.5 s against 0 to +0.5 s, paired across trials)
+
+Popper unit 280 goes 1.2 -> 11.2 Hz at the valve opening, p = 8e-87, with a raster that
+is almost empty before zero and dense after. Shamir unit 35 goes 21.0 -> 66.4 Hz,
+p = 8e-95. These are not marginal effects.
+
+And a cross-check that came free: **the two halves of 15 September independently name
+the same units** -- 340 the strongest cue-start unit in both (+35.7 and +35.1 Hz) and
+262 the strongest cue-end unit in both (-45.4 and -48.3 Hz). Two recordings, two Bpod
+files, two separate sync runs, one unit space. That is the joint sort and the
+split-at-the-seam sync agreeing with each other on data neither of them shares.

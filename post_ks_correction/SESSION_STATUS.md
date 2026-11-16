@@ -8,27 +8,27 @@ cannot drift out of date without the script saying so.
 on Z, which means they exist only in a browser database. Fix it by dumping the
 three collections to `<session>.kilosort/review/verdicts/` on Z.
 
-| rat | session | units | Th u/l | decided | good | mua | noise | merges | windows | on Z | verdicts applied | Bpod synced | sync check | joined | state |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Popper | `20261112_082028` | 442 | 9.0 / 8.0 | 260 | 140 | 120 | 0 | 31 | 18 | yes | yes | yes (`synced`) | pass (100% matched, 29 ms worst-case, 1085/1085 trials) | no | **SAVED, PARTIAL** |
-| Shamir | `20260901_085606` | 155 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | pass (100% matched, 48 ms worst-case, 733/733 trials) | no | **NOT REVIEWED** |
-| Shamir | `20260911_100049` | 466 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | pass (100% matched, 33 ms worst-case, 1023/1023 trials) | no | **NOT REVIEWED** |
-| Shamir | `20260914_122553` | 454 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Shamir | `20260915_084812 [from concat]` | 465 | 9.0 / 8.0 | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes (`synced_from_concat`) | pass (100% matched, 40 ms worst-case, 360/360 trials) | no | **HALF OF A JOIN** |
-| Shamir | `20260915_084812_103710_concat` | 465 | 9.0 / 8.0 | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes, through its halves (`20260915_084812`, `20260915_103710`) | pass (100% matched, 40 ms worst-case, 360/360 trials) | yes | **SAVED, REVIEW CLOSED** |
-| Shamir | `20260915_103710` | 447 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | part of a join | **SUPERSEDED** |
-| Shamir | `20260915_103710 [from concat]` | 465 | 9.0 / 8.0 | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes (`synced_from_concat`) | pass (100% matched, 31 ms worst-case, 313/313 trials) | no | **HALF OF A JOIN** |
-| Shamir | `20260916_110311` | 472 | 9.0 / 8.0 | 240 | 114 | 113 | 13 | 10 | 20 | yes | yes | yes (`synced`, `synced_20261002`, `synced_20261015`, `synced_20261021_superseded_20261116`, `synced_NEWFIX`) | pass (100% matched, 43 ms worst-case, 953/953 trials) | no | **SAVED, PARTIAL** |
-| Shamir | `20260917_100043` | 508 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Shamir | `20260918_100248` | 481 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Shamir | `20260922_144404` | 478 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Shamir | `20260923_105129` | 503 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Shamir | `20260924_121751` | 543 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Shamir | `20260925_103539` | 543 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Begin | `20260805_103305` | 73 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Begin | `20260807_125640` | 95 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Begin | `20260814_122755` | 94 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
-| Begin | `20260818_110509` | 14 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | no | **NOT REVIEWED** |
+| rat | session | units | Th u/l | decided | good | mua | noise | merges | windows | on Z | verdicts applied | Bpod synced | sync check | catch trials | joined | state |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Popper | `20261112_082028` | 442 | 9.0 / 8.0 | 260 | 140 | 120 | 0 | 31 | 18 | yes | yes | yes (`synced`) | pass (100% matched, 29 ms worst-case, 1085/1085 trials) | **NO ERROR CATCH** (CatchError=0; error wait 1.13s vs 6.61s on correct catch) | no | **SAVED, PARTIAL** |
+| Shamir | `20260901_085606` | 155 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | pass (100% matched, 48 ms worst-case, 733/733 trials) | ok (15.7% catch, error wait 5.27s) | no | **NOT REVIEWED** |
+| Shamir | `20260911_100049` | 466 | 9.2 / 7.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | pass (100% matched, 33 ms worst-case, 1023/1023 trials) | ok (15.3% catch, error wait 5.86s) | no | **NOT REVIEWED** |
+| Shamir | `20260914_122553` | 454 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (13.3% catch, error wait 4.96s) | no | **NOT REVIEWED** |
+| Shamir | `20260915_084812 [from concat]` | 465 | 9.0 / 8.0 | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes (`synced_from_concat`) | pass (100% matched, 40 ms worst-case, 360/360 trials) | ok (15.0% catch, error wait 5.45s) | no | **HALF OF A JOIN** |
+| Shamir | `20260915_084812_103710_concat` | 465 | 9.0 / 8.0 | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes, through its halves (`20260915_084812`, `20260915_103710`) | pass (100% matched, 40 ms worst-case, 360/360 trials) | ok (15.0% catch, error wait 5.45s) | yes | **SAVED, REVIEW CLOSED** |
+| Shamir | `20260915_103710` | 447 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (15.0% catch, error wait 5.45s) | part of a join | **SUPERSEDED** |
+| Shamir | `20260915_103710 [from concat]` | 465 | 9.0 / 8.0 | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes (`synced_from_concat`) | pass (100% matched, 31 ms worst-case, 313/313 trials) | ok (15.0% catch, error wait 5.45s) | no | **HALF OF A JOIN** |
+| Shamir | `20260916_110311` | 472 | 9.0 / 8.0 | 240 | 114 | 113 | 13 | 10 | 20 | yes | yes | yes (`synced`, `synced_20261002`, `synced_20261015`, `synced_20261021_superseded_20261116`, `synced_NEWFIX`) | pass (100% matched, 43 ms worst-case, 953/953 trials) | ok (15.6% catch, error wait 5.89s) | no | **SAVED, PARTIAL** |
+| Shamir | `20260917_100043` | 508 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (12.7% catch, error wait 6.3s) | no | **NOT REVIEWED** |
+| Shamir | `20260918_100248` | 481 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.6% catch, error wait 6.31s) | no | **NOT REVIEWED** |
+| Shamir | `20260922_144404` | 478 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.0% catch, error wait 4.83s) | no | **NOT REVIEWED** |
+| Shamir | `20260923_105129` | 503 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.6% catch, error wait 4.86s) | no | **NOT REVIEWED** |
+| Shamir | `20260924_121751` | 543 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (15.5% catch, error wait 6.0s) | no | **NOT REVIEWED** |
+| Shamir | `20260925_103539` | 543 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (15.4% catch, error wait 6.08s) | no | **NOT REVIEWED** |
+| Begin | `20260805_103305` | 73 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | -- | no | **NOT REVIEWED** |
+| Begin | `20260807_125640` | 95 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | -- | no | **NOT REVIEWED** |
+| Begin | `20260814_122755` | 94 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | -- | no | **NOT REVIEWED** |
+| Begin | `20260818_110509` | 14 | 9.0 / 8.0 | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | -- | no | **NOT REVIEWED** |
 
 `Bpod synced` is a different question from `verdicts applied`: the first is
 a `synced/` directory written by `scripts/sync_session.py`, the second is the

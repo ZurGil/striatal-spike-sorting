@@ -1,37 +1,48 @@
-rat,bpod_file,n_trials,percent_catch_setting,catch_error_setting,setting_changed_mid_session,n_flagged_catch,pct_flagged,n_correct_catch,pct_rewarded_catch,pct_rewarded_noncatch,median_wait_catch_s,median_wait_noncatch_s,verdict
-Shamir,Shamir01_Dual2AFC_nat_Nov05_2026_Session1.mat,,,,,,,,,,,,COULD NOT READ: 0
-Shamir,Shamir01_Dual2AFC_nat_Nov05_2026_Session2.mat,,,,,,,,,,,,COULD NOT READ: 0
-Shamir,Shamir01_Dual2AFC_nat_Nov05_2026_Session3.mat,21,0.15,1.0,,0,0.0,0,,100.0,,1.64,NO CATCH TRIALS
-Shamir,Shamir01_Dual2AFC_nat_Oct01_2026_Session1.mat,1303,0.15,1.0,,186,14.3,100,0.0,87.8,6.86,1.37,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct12_2026_Session1.mat,361,0.15,1.0,,39,10.8,26,0.0,91.2,6.23,1.39,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct13_2026_Session1.mat,1102,0.15,1.0,,164,14.9,86,0.0,87.1,6.9,1.33,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct14_2026_Session1.mat,838,0.15,1.0,,126,15.0,60,0.0,89.5,7.36,1.41,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct15_2026_Session1.mat,1400,0.15,1.0,,203,14.5,72,0.0,86.1,8.17,1.54,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct16_2026_Session1.mat,1153,0.15,1.0,,169,14.7,70,0.0,86.0,7.96,1.35,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct20_2026_Session1.mat,1075,0.15,1.0,,155,14.4,67,0.0,87.9,6.73,1.49,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct21_2026_Session1.mat,1166,0.15,1.0,,166,14.2,74,0.0,86.0,7.15,1.38,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct23_2026_Session1.mat,1025,0.15,1.0,,142,13.9,63,0.0,86.6,7.56,1.38,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct26_2026_Session1.mat,732,0.15,1.0,,115,15.7,59,0.0,91.1,7.15,1.36,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct27_2026_Session1.mat,1023,0.15,1.0,,132,12.9,65,0.0,90.6,7.32,1.59,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct28_2026_Session1.mat,1180,0.15,1.0,,176,14.9,93,0.0,88.0,7.09,1.53,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct29_2026_Session1.mat,216,0.15,1.0,,26,12.0,12,0.0,88.7,7.33,1.23,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Oct29_2026_Session2.mat,384,0.15,1.0,,62,16.1,28,0.0,94.0,7.13,1.26,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep01_2026_Session1.mat,733,0.15,1.0,,115,15.7,50,0.0,78.2,6.32,1.42,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep02_2026_Session1.mat,812,0.15,1.0,,116,14.3,48,0.0,81.6,6.46,1.43,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep03_2026_Session1.mat,832,0.15,1.0,,113,13.6,36,0.0,84.9,7.65,1.48,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep04_2026_Session1.mat,1052,0.15,1.0,,155,14.7,67,0.0,80.5,7.26,1.47,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep10_2026_Session1.mat,1172,0.15,1.0,,200,17.1,93,0.0,79.2,6.03,1.41,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep11_2026_Session1.mat,1023,0.15,1.0,,157,15.3,67,0.0,83.3,6.69,1.47,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep14_2026_Session1.mat,547,0.15,1.0,,73,13.3,43,0.0,76.7,5.65,1.49,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep15_2026_Session1.mat,360,0.15,1.0,,54,15.0,27,0.0,77.9,6.04,1.38,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep15_2026_Session2.mat,313,0.15,1.0,,37,11.8,21,0.0,83.9,6.7,1.64,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep16_2026_Session1.mat,953,0.15,1.0,,149,15.6,67,0.0,85.6,6.79,1.56,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep17_2026_Session1.mat,1106,0.15,1.0,,141,12.7,81,0.0,82.8,7.49,1.5,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep18_2026_Session1.mat,1115,0.15,1.0,,163,14.6,62,0.0,81.6,6.79,1.39,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep22_2026_Session1.mat,484,0.15,1.0,,68,14.0,35,0.0,88.1,5.93,1.58,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep23_2026_Session1.mat,651,0.15,1.0,,95,14.6,62,0.0,80.1,5.51,1.44,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep24_2026_Session1.mat,932,0.15,1.0,,144,15.5,69,0.0,90.5,7.01,1.53,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep25_2026_Session1.mat,1090,0.15,1.0,,168,15.4,83,0.0,90.7,6.92,1.41,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep28_2026_Session1.mat,985,0.15,1.0,,162,16.4,65,1.5,91.9,6.37,1.4,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep29_2026_Session1.mat,1102,0.15,1.0,,156,14.2,79,0.0,91.8,7.08,1.4,catch trials delivered
-Shamir,Shamir01_Dual2AFC_nat_Sep30_2026_Session1.mat,1086,0.15,1.0,,164,15.1,82,0.0,90.1,6.63,1.48,catch trials delivered
+rat,bpod_file,n_trials,percent_catch_setting,catch_error_setting,setting_changed_mid_session,n_flagged_catch,pct_flagged,n_correct_catch,pct_rewarded_catch,pct_rewarded_noncatch,median_wait_catch_s,median_wait_noncatch_s,n_error,median_wait_error_s,error_catch,verdict
+Popper,Popper_Dual2AFC_nat_Nov09_2026_Session1.mat,632,0.15,0.0,,99,15.7,34,0.0,68.3,5.35,1.02,25,1.21,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Nov10_2026_Session1.mat,831,0.15,0.0,,101,12.2,42,0.0,66.4,5.93,1.15,118,1.5,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Nov11_2026_Session1.mat,877,0.15,0.0,,103,11.7,49,0.0,87.4,7.13,1.45,102,1.18,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Nov12_2026_Session1.mat,1085,0.15,0.0,,176,16.2,70,0.0,75.7,6.61,1.29,92,1.13,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Nov13_2026_Session1.mat,924,0.15,0.0,,101,10.9,42,0.0,79.8,6.55,1.27,82,1.1,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Nov16_2026_Session1.mat,623,0.15,0.0,,85,13.6,30,0.0,73.0,5.7,1.12,50,1.38,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Oct26_2026_Session1.mat,2,0.0,0.0,,0,0.0,0,,,,,0,,"NO -- errors are signalled, no time investment on errors",NO CATCH TRIALS
+Popper,Popper_Dual2AFC_nat_Oct26_2026_Session2.mat,678,0.0,0.0,PercentCatch 0->0.15,94,13.9,56,0.0,64.8,5.0,1.23,60,1.19,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Oct27_2026_Session1.mat,299,0.15,0.0,,36,12.0,21,0.0,75.6,6.11,1.26,25,1.24,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Oct28_2026_Session1.mat,578,0.15,0.0,,83,14.4,28,0.0,78.4,6.75,1.24,53,1.28,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Oct30_2026_Session1.mat,985,0.15,0.0,,130,13.2,57,0.0,71.0,5.55,1.22,93,1.35,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Nov05_2026_Session1.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Shamir,Shamir01_Dual2AFC_nat_Nov05_2026_Session2.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Shamir,Shamir01_Dual2AFC_nat_Nov05_2026_Session3.mat,21,0.15,1.0,,0,0.0,0,,100.0,,1.64,2,10.64,yes -- errors are catch trials too,NO CATCH TRIALS
+Shamir,Shamir01_Dual2AFC_nat_Oct01_2026_Session1.mat,1303,0.15,1.0,,186,14.3,100,0.0,87.8,6.86,1.37,87,5.86,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct12_2026_Session1.mat,361,0.15,1.0,,39,10.8,26,0.0,91.2,6.23,1.39,41,5.45,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct13_2026_Session1.mat,1102,0.15,1.0,,164,14.9,86,0.0,87.1,6.9,1.33,97,5.45,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct14_2026_Session1.mat,838,0.15,1.0,,126,15.0,60,0.0,89.5,7.36,1.41,72,6.04,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct15_2026_Session1.mat,1400,0.15,1.0,,203,14.5,72,0.0,86.1,8.17,1.54,78,6.79,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct16_2026_Session1.mat,1153,0.15,1.0,,169,14.7,70,0.0,86.0,7.96,1.35,87,6.15,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct20_2026_Session1.mat,1075,0.15,1.0,,155,14.4,67,0.0,87.9,6.73,1.49,81,5.5,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct21_2026_Session1.mat,1166,0.15,1.0,,166,14.2,74,0.0,86.0,7.15,1.38,96,5.93,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct23_2026_Session1.mat,1025,0.15,1.0,,142,13.9,63,0.0,86.6,7.56,1.38,62,5.39,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct26_2026_Session1.mat,732,0.15,1.0,,115,15.7,59,0.0,91.1,7.15,1.36,68,5.64,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct27_2026_Session1.mat,1023,0.15,1.0,,132,12.9,65,0.0,90.6,7.32,1.59,79,5.12,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct28_2026_Session1.mat,1180,0.15,1.0,,176,14.9,93,0.0,88.0,7.09,1.53,118,5.18,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct29_2026_Session1.mat,216,0.15,1.0,,26,12.0,12,0.0,88.7,7.33,1.23,10,5.62,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Oct29_2026_Session2.mat,384,0.15,1.0,,62,16.1,28,0.0,94.0,7.13,1.26,24,4.96,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep01_2026_Session1.mat,733,0.15,1.0,,115,15.7,50,0.0,78.2,6.32,1.42,84,5.27,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep02_2026_Session1.mat,812,0.15,1.0,,116,14.3,48,0.0,81.6,6.46,1.43,63,5.48,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep03_2026_Session1.mat,832,0.15,1.0,,113,13.6,36,0.0,84.9,7.65,1.48,54,6.41,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep04_2026_Session1.mat,1052,0.15,1.0,,155,14.7,67,0.0,80.5,7.26,1.47,108,6.68,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep10_2026_Session1.mat,1172,0.15,1.0,,200,17.1,93,0.0,79.2,6.03,1.41,109,5.37,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep11_2026_Session1.mat,1023,0.15,1.0,,157,15.3,67,0.0,83.3,6.69,1.47,90,5.86,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep14_2026_Session1.mat,547,0.15,1.0,,73,13.3,43,0.0,76.7,5.65,1.49,56,4.96,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep15_2026_Session1.mat,360,0.15,1.0,,54,15.0,27,0.0,77.9,6.04,1.38,22,5.45,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep15_2026_Session2.mat,313,0.15,1.0,,37,11.8,21,0.0,83.9,6.7,1.64,14,6.87,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep16_2026_Session1.mat,953,0.15,1.0,,149,15.6,67,0.0,85.6,6.79,1.56,71,5.89,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep17_2026_Session1.mat,1106,0.15,1.0,,141,12.7,81,0.0,82.8,7.49,1.5,65,6.3,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep18_2026_Session1.mat,1115,0.15,1.0,,163,14.6,62,0.0,81.6,6.79,1.39,68,6.31,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep22_2026_Session1.mat,484,0.15,1.0,,68,14.0,35,0.0,88.1,5.93,1.58,38,4.83,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep23_2026_Session1.mat,651,0.15,1.0,,95,14.6,62,0.0,80.1,5.51,1.44,118,4.86,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep24_2026_Session1.mat,932,0.15,1.0,,144,15.5,69,0.0,90.5,7.01,1.53,75,6.0,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep25_2026_Session1.mat,1090,0.15,1.0,,168,15.4,83,0.0,90.7,6.92,1.41,68,6.08,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep28_2026_Session1.mat,985,0.15,1.0,,162,16.4,65,1.5,91.9,6.37,1.4,75,5.47,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep29_2026_Session1.mat,1102,0.15,1.0,,156,14.2,79,0.0,91.8,7.08,1.4,90,6.18,yes -- errors are catch trials too,catch trials delivered
+Shamir,Shamir01_Dual2AFC_nat_Sep30_2026_Session1.mat,1086,0.15,1.0,,164,15.1,82,0.0,90.1,6.63,1.48,67,5.43,yes -- errors are catch trials too,catch trials delivered

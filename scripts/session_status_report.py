@@ -34,6 +34,7 @@ import collections
 import csv
 import json
 import os
+import re
 
 RATS = [("Popper", r"Z:\Gil\Popper"),
         ("Shamir", r"Z:\Gil\Shamir_1"),
@@ -179,8 +180,37 @@ def concat_map(root):
     return sup, parts
 
 
+MONTHS = {"Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04", "May": "05", "Jun": "06",
+          "Jul": "07", "Aug": "08", "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"}
+
+
+def catch_audit_by_date():
+    """outputs/catch_trial_audit.csv, keyed by (rat, YYYYMMDD).
+
+    A session's Bpod file is named by date, so this is how the behavioural audit
+    reaches the register: whether that day's protocol made ERROR trials catch
+    trials, which is what decides whether a time-investment analysis is possible
+    at all. It is kept out of the per-session scan because it is a property of the
+    behaviour file, not of the sort.
+    """
+    path = os.path.join(ROOT, "outputs", "catch_trial_audit.csv")
+    out = {}
+    if not os.path.exists(path):
+        return out
+    with open(path) as fh:
+        for row in csv.DictReader(fh):
+            m = re.search(r"_([A-Z][a-z]{2})(\d{1,2})_(\d{4})_Session(\d+)",
+                          row.get("bpod_file", ""))
+            if not m:
+                continue
+            key = (row["rat"], "%s%s%02d" % (m.group(3), MONTHS[m.group(1)], int(m.group(2))))
+            out.setdefault(key, []).append(row)
+    return out
+
+
 def scan():
     out = []
+    catch = catch_audit_by_date()
     for rat, root in RATS:
         if not os.path.isdir(root):
             continue
@@ -250,6 +280,7 @@ def scan():
                              or stamped_here)
               r["ks_folder"] = os.path.basename(k4)
               r["sync_check"] = sync_check(ks, r["bpod_synced"])
+              r["catch"] = catch.get((rat, sid[:8]), [])
               snaps = []
               if os.path.isdir(vd):
                   snaps = sorted(d for d in os.listdir(vd)
@@ -374,6 +405,32 @@ def sync_cell_md(r):
     return ("**%s**" % bits) if worst["verdict"] != "pass" else bits
 
 
+def catch_cell_md(r):
+    """Whether this day's protocol makes ERROR trials catch trials.
+
+    PercentCatch gives catch trials on CORRECT choices, and every session here has
+    them. CatchError is the separate switch that decides whether an error trial is
+    also left unsignalled so the animal reveals how long it is willing to wait. With
+    it off, the error is announced at the end of a delay WE drew, so there is no time
+    investment to measure on errors and the confidence analysis -- which needs the
+    correct and error waiting curves together -- cannot be done at all. It is the
+    difference between a session that is merely incomplete and one that cannot answer
+    the question, so it belongs in the table and not in a footnote.
+    """
+    c = r.get("catch") or []
+    if not c:
+        return "--"
+    row = c[0]
+    err = str(row.get("error_catch", ""))
+    if err.startswith("NO"):
+        return ("**NO ERROR CATCH** (CatchError=0; error wait %ss vs %ss on correct "
+                "catch)" % (row.get("median_wait_error_s"), row.get("median_wait_catch_s")))
+    if err.startswith("yes"):
+        return "ok (%s%% catch, error wait %ss)" % (row.get("pct_flagged"),
+                                                    row.get("median_wait_error_s"))
+    return err or "--"
+
+
 def state_of(r, live):
     """One word for where this session's decisions stand."""
     if r.get("decisions_from"):
@@ -449,9 +506,10 @@ def main():
     md.append("three collections to `<session>.kilosort/review/verdicts/` on Z.")
     md.append("")
     hdr = ("| rat | session | units | Th u/l | decided | good | mua | noise | merges | "
-           "windows | on Z | verdicts applied | Bpod synced | sync check | joined | state |")
+           "windows | on Z | verdicts applied | Bpod synced | sync check | catch trials "
+           "| joined | state |")
     md.append(hdr)
-    md.append("|" + "---|" * 16)
+    md.append("|" + "---|" * 17)
     for r in rows:
         t = r["z_tally"]
         dec = r["live_verdicts"] if r["live_verdicts"] is not None else r["z_verdicts"]
@@ -467,13 +525,13 @@ def main():
             sy = "**blocked** -- no Bpod files for this rat"
         else:
             sy = "no"
-        md.append("| %s | `%s` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | **%s** |" % (
+        md.append("| %s | `%s` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | **%s** |" % (
             r["rat"], r.get("row_id", r["session"]), r["n_units"] or "?",
             r["thresholds"] or "?",
             dec, t.get("good", 0), t.get("mua", 0), t.get("noise", 0),
             r["z_merges"], r["z_trials"],
             "yes" if r["z_verdicts"] else "no",
-            "yes" if r["synced"] else "no", sy, sync_cell_md(r),
+            "yes" if r["synced"] else "no", sy, sync_cell_md(r), catch_cell_md(r),
             "yes" if r["provenance"] else ("part of a join" if r["superseded_by"] else "no"),
             r["state"]))
     md.append("")
