@@ -365,19 +365,30 @@ were adapted from (hardcoded to `20260901_085606`) are left untouched as referen
 | `cell_type`, `postSpikeSuppression_ms`, `propLongISI` | `outputs/striatal_celltypes.csv` (from `scripts/run_striatal_celltype.py`) + `scripts/build_full_unit_browser.py`'s merge pattern | **Still not built for a second session** -- `build_full_unit_browser.py` is from an early iteration (predates most of the fields above) and isn't a drop-in script; treat as a reference for the merge pattern only, not yet re-verified as needed by the current tool's rendering code the way `isi_amp_scatter` was checked and ruled out. If a future session needs it, check the JS rendering first (same method that ruled out `isi_amp_scatter`) before spending time computing it. |
 
 **Raw spike traces are architecturally different from every other field above** --
-they're fetched live by the browser (`db.collection('raw_traces').doc(String(uid)).get()`),
-not embedded in the HTML at build time. After running
-`compute_raw_trace_snippets_session.py`, its output JSON must be split into one small
-file per unit and pushed via the Artifact tool's `write_db` (`db_op: "batch"`,
-`collection: "raw_traces"`, `doc_id` = unit_id as a string, one write per unit,
-`file_path` per entry rather than inline `data` to keep each tool call small). **Keep
-each batch's total payload under ~900KB** (the actual limit is 1,048,576 bytes).
-**The safe batch size depends on N_SPIKES and must be recomputed whenever that
-changes**: at N_SPIKES=8 (original), ~46KB average/51KB max per unit -> 15/batch was
-safe; at N_SPIKES=16 (current, see 2026-09-16 entry below), ~93KB average/101KB max
-per unit -> dropped to 8/batch. Always check actual on-disk file sizes
-(`os.path.getsize` over the split directory) before picking a batch size rather than
-assuming the old number still holds.
+they are fetched by the browser at view time, not embedded in the HTML at build time,
+because they are ~97 kB per unit and ~44 MB for a session, far past the 16 MiB
+artifact limit.
+
+**They are published as files beside the page** (changed 2026-11-17):
+`data/raw_traces/shard_<n>.json`, each shard holding `RAW_SHARD_SIZE = 25` units
+keyed by unit id. `build_review_for_session.py` writes them under
+`outputs/artifact_files_<sid>/` and emits the ready-made publish mapping as
+`outputs/publish_files_<sid>.json`, split into parts when the set would exceed one
+publish's 64 MB / 255 file budget. The page fetches a shard once and keeps it, so
+moving between units in the same shard costs nothing.
+
+**Why it changed.** They used to go into the artifact's own `raw_traces` database
+collection, one document per unit, pushed with `write_db` in batches of 8 because a
+single call cannot exceed 1,048,576 bytes. That is ~50 separate tool calls per
+session, which is why sessions kept getting published without them and every unit
+read *"no raw trace data for unit N (doc does not exist)"* -- which is exactly what
+Gil found on 20260914. Shards are one publish. The page still falls back to the
+database when no shard file is there, so the sessions already published that way keep
+working untouched.
+
+`RAW_SHARD_SIZE` is declared in **two** places that must agree:
+`scripts/build_review_html.py` (the fetch) and `scripts/build_review_for_session.py`
+(the split). The build fails if a shard exceeds 12 MiB.
 
 **Lesson (why this file exists):** several of the fields above were originally computed
 as one-off scratchpad/inline code during a conversation and never promoted to
@@ -763,6 +774,7 @@ The checks it refuses to save past:
 | every co-located pair analysed | the `--max_pairs 150` cap (5bd.49) — a unit absent from the merge panel reads as *cleared* when it means *never compared* |
 | `uv_per_bit` matches the `.rec` header | the 0.195 SpikeGLX default, 10.6× too large for our Trodes exports |
 | the page's own sync command names a folder that exists | `F:\Gil\Shamir` hardcoded, for sessions sorted on RIS and archived straight to Z |
+| every unit with spikes has raw traces | the raw spikes panel reading *"no raw trace data … doc does not exist"* because the step was never part of the build |
 | page under 16 MiB | the artifact limit — 454 units is already 15.37 MiB |
 
 Publishing is the only remaining manual step, because it goes through the Artifact

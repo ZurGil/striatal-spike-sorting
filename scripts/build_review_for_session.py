@@ -174,6 +174,44 @@ def read_gain(rec, sid):
     return found[0]
 
 
+RAW_SHARD_SIZE = 25          # must match RAW_SHARD_SIZE in build_review_html.py
+
+
+def shard_raw_traces(sid):
+    r"""Split the per-unit raw spike traces into the files the page fetches.
+
+    These are the "raw spikes" panel, and they are the one part of the tool that is
+    NOT baked into the HTML -- 97 kB per unit, 44 MB for a session, far past the
+    16 MiB artifact limit. They used to be written into the artifact's `raw_traces`
+    database one document per unit, which is ~50 separate write calls per session,
+    so in practice a session got published without them and every unit read
+    "no raw trace data ... doc does not exist". Shards of 25 units are ONE publish
+    beside the page, and the page falls back to the database so the sessions already
+    published that way keep working.
+    """
+    src = os.path.join(OUT, "raw_trace_snippets_%s.json" % sid)
+    with open(src, encoding="utf-8") as fh:
+        per_unit = json.load(fh)
+    dest = os.path.join(OUT, "artifact_files_%s" % sid, "data", "raw_traces")
+    if os.path.isdir(dest):
+        shutil.rmtree(dest)
+    os.makedirs(dest)
+    shards, with_traces = {}, 0
+    for uid, doc in per_unit.items():
+        if doc and doc.get("traces"):
+            with_traces += 1
+        shards.setdefault(int(uid) // RAW_SHARD_SIZE, {})[str(uid)] = doc
+    files, biggest = {}, 0
+    for n, payload in sorted(shards.items()):
+        name = "shard_%d.json" % n
+        path = os.path.join(dest, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh)
+        biggest = max(biggest, os.path.getsize(path))
+        files["data/raw_traces/" + name] = os.path.relpath(path, ROOT).replace("\\", "/")
+    return files, with_traces, len(per_unit), len(shards), biggest
+
+
 def run(args, label):
     say("\n=== %s" % label)
     say("    " + " ".join(str(a) for a in args))
@@ -182,12 +220,28 @@ def run(args, label):
         raise SystemExit("FAILED: %s (exit %d)" % (label, r.returncode))
 
 
-def check(sid, page, gain):
+def check(sid, page, gain, with_traces, n_trace_docs, biggest_shard):
     """The checks that would have caught every correction a past build needed."""
     problems = []
 
     review = json.load(open(os.path.join(OUT, "pipeline_review_data_%s.json" % sid),
                             encoding="utf-8"))
+
+    # The raw spikes panel. Gil hit this on 20260914: the page said "no raw trace
+    # data for unit 15 (doc does not exist)" for every unit, because this step was
+    # never part of the build at all.
+    want = sum(1 for r in review if r.get("n_spikes"))
+    if with_traces < want:
+        problems.append("raw spike traces exist for %d units but %d units have "
+                        "spikes -- the raw spikes panel would read 'no raw trace "
+                        "data' for the rest" % (with_traces, want))
+    if n_trace_docs != len(review):
+        problems.append("raw trace file covers %d units, the review data has %d"
+                        % (n_trace_docs, len(review)))
+    if biggest_shard > 12 * 1024 * 1024:
+        problems.append("a raw-trace shard is %.1f MiB; shards this large make the "
+                        "panel slow to open -- lower RAW_SHARD_SIZE (in both this "
+                        "script and build_review_html.py)" % (biggest_shard / 1048576.0))
     nulls = [r["unit_id"] for r in review if r.get("trodes_channel") is None]
     if nulls:
         problems.append("%d units have trodes_channel = null (the 2026-09-16 bug: the "
@@ -248,6 +302,15 @@ def save_to_z(sid, rec, page, gain, extra):
                        "merge_candidates.json")):
         shutil.copy2(src, os.path.join(dest, name))
         files[name] = {"bytes": os.path.getsize(src), "sha256": sha256_of(src)}
+    # the raw spike traces too, so this folder is everything a republish needs
+    shard_src = os.path.join(OUT, "artifact_files_%s" % sid, "data", "raw_traces")
+    if os.path.isdir(shard_src):
+        shard_dst = os.path.join(dest, "data", "raw_traces")
+        shutil.copytree(shard_src, shard_dst)
+        files["data/raw_traces/"] = {
+            "n_files": len(os.listdir(shard_src)),
+            "bytes": sum(os.path.getsize(os.path.join(shard_src, f))
+                         for f in os.listdir(shard_src))}
     manifest = {
         "session_id": sid,
         "built": datetime.datetime.now().isoformat(timespec="seconds"),
@@ -328,15 +391,54 @@ def main():
              "--rec_root", rat_root, "--max_pairs", args.max_pairs,
              "--uv_per_bit", gain], "merge candidates")
 
+    if have("raw_trace_snippets_%s.json"):
+        say("\n=== raw spike traces: already computed")
+    else:
+        run([py, os.path.join(SCRIPTS, "compute_raw_trace_snippets_session.py"),
+             sid, rec, gain], "raw spike traces")
+
     run([py, os.path.join(SCRIPTS, "build_review_tool.py"), sid,
          "--rec_root", rat_root, "--rat_root", rat_root], "the page")
 
     page = os.path.join(OUT, "unit_review_tool_%s.html" % sid)
-    problems, size, n_units, in_range, analysed = check(sid, page, gain)
+
+    say("\n=== raw spike traces -> the files published beside the page")
+    pub_files, with_traces, n_trace_docs, n_shards, biggest = shard_raw_traces(sid)
+    say("    %d units with traces, in %d shards of %d, largest %.1f MiB"
+        % (with_traces, n_shards, RAW_SHARD_SIZE, biggest / 1048576.0))
+    pub_files["data/merge_candidates.json"] = \
+        "outputs/merge_candidates_%s.json" % sid
+    # One publish carries at most 255 files and 64 MB. A 543-unit session's shards
+    # plus its merge data come to about 64 MB, so the set is split into parts under
+    # a safe 45 MB and published one after another to the same url -- files left out
+    # of a publish are kept, so the parts accumulate.
+    parts, cur, cur_bytes = [], {}, 0
+    for pub_name in sorted(pub_files):
+        local = pub_files[pub_name]
+        n_bytes = os.path.getsize(os.path.join(ROOT, local))
+        if cur and (cur_bytes + n_bytes > 45 * 1024 * 1024 or len(cur) >= 200):
+            parts.append(cur)
+            cur, cur_bytes = {}, 0
+        cur[pub_name] = local
+        cur_bytes += n_bytes
+    if cur:
+        parts.append(cur)
+    files_paths = []
+    for i, part in enumerate(parts):
+        suffix = "" if len(parts) == 1 else "_part%d" % (i + 1)
+        p = os.path.join(OUT, "publish_files_%s%s.json" % (sid, suffix))
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(part, fh, indent=2, sort_keys=True)
+        files_paths.append(p)
+    files_path = files_paths[0]
+
+    problems, size, n_units, in_range, analysed = check(
+        sid, page, gain, with_traces, n_trace_docs, biggest)
 
     say("\n=== checks")
     say("    units             %d" % n_units)
     say("    co-located pairs  %s analysed of %s in range" % (analysed, in_range))
+    say("    raw spike traces  %d of %d units" % (with_traces, n_trace_docs))
     say("    page              %d bytes (%.2f MiB of the 16 MiB limit)"
         % (size, size / 1048576.0))
     if problems:
@@ -353,7 +455,9 @@ def main():
                          {"clustering_spike_clusters_sha1": clustering,
                           "n_units": n_units,
                           "n_pairs_in_range": in_range,
-                          "n_pairs_analysed": analysed})
+                          "n_pairs_analysed": analysed,
+                          "n_units_with_raw_traces": with_traces,
+                          "n_raw_trace_shards": n_shards})
         say("\n=== saved on Z")
         say("    %s" % dest)
         say("    the page, merge_candidates.json and a MANIFEST.json naming both "
@@ -361,8 +465,15 @@ def main():
 
     say("\n=== publish it")
     say("    file_path    = outputs/unit_review_tool_%s.html" % sid)
-    say('    files        = {"data/merge_candidates.json": '
-        '"outputs/merge_candidates_%s.json"}' % sid)
+    if len(files_paths) == 1:
+        say("    files        = the %d entries in %s"
+            % (len(pub_files), os.path.relpath(files_path, ROOT)))
+    else:
+        say("    files        = %d entries, split into %d publishes to the SAME url "
+            "(a publish keeps the files it leaves out):" % (len(pub_files),
+                                                            len(files_paths)))
+        for p in files_paths:
+            say("                   %s" % os.path.relpath(p, ROOT))
     say('    capabilities = {"db": {}, "downloads": true}')
     say("    pass the EXISTING artifact url to keep its verdicts.")
     return 0

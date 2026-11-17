@@ -1,0 +1,19 @@
+{
+  "data/merge_candidates.json": "outputs/merge_candidates_20260914_122553.json",
+  "data/raw_traces/shard_0.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_0.json",
+  "data/raw_traces/shard_1.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_1.json",
+  "data/raw_traces/shard_10.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_10.json",
+  "data/raw_traces/shard_11.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_11.json",
+  "data/raw_traces/shard_12.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_12.json",
+  "data/raw_traces/shard_13.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_13.json",
+  "data/raw_traces/shard_14.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_14.json",
+  "data/raw_traces/shard_15.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_15.json",
+  "data/raw_traces/shard_16.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_16.json",
+  "data/raw_traces/shard_17.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_17.json",
+  "data/raw_traces/shard_18.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_18.json",
+  "data/raw_traces/shard_2.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_2.json",
+  "data/raw_traces/shard_3.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_3.json",
+  "data/raw_traces/shard_4.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_4.json",
+  "data/raw_traces/shard_5.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_5.json",
+  "data/raw_traces/shard_6.json": "outputs/artifact_files_20260914_122553/data/raw_traces/shard_6.json"
+}

@@ -545,11 +545,35 @@ function renderTracePair(container, t, padMs, tIdx, nTotal, uid, otherColorMap){
   container.appendChild(row);
 }
 
+const rawShardCache = {};
+const RAW_SHARD_SIZE = 25;
+
+async function fetchRawShard(uid){
+  /* Traces published ALONGSIDE the page, as data/raw_traces/shard_<n>.json.
+     They used to go into the `raw_traces` database collection one document per
+     unit, which meant ~50 separate write calls per session -- so in practice a
+     session often got published without them and the panel read "doc does not
+     exist" for every unit. Shards of 25 units are one publish. A shard is fetched
+     once and kept, so moving between units in the same shard costs nothing. */
+  const n = Math.floor(uid / RAW_SHARD_SIZE);
+  if(rawShardCache[n] !== undefined) return rawShardCache[n];
+  let shard = null;
+  try{
+    const r = await fetch('data/raw_traces/shard_' + n + '.json');
+    if(r.ok) shard = await r.json();
+  }catch(e){ /* not published with the page: fall back to the database below */ }
+  rawShardCache[n] = shard;
+  return shard;
+}
+
 async function fetchRawTraces(uid, attempts){
   /* The document store answers `unavailable` from time to time. That is a
      passing server state, not a statement about this unit, so try again before
      giving up -- and hand the caller enough to tell a failure apart from a
      document that genuinely is not there. */
+  const shard = await fetchRawShard(uid);
+  if(shard) return { ok: true, data: shard[String(uid)] || null };
+  if(!db) return { ok: true, data: null };
   let lastErr = null;
   for(let i = 0; i < attempts; i++){
     try{
@@ -567,7 +591,8 @@ async function fetchRawTraces(uid, attempts){
 
 async function renderRawSpikesPanel(container, uid){
   container.innerHTML = '<div class="no-data">loading raw traces&hellip;</div>';
-  if(!db){ container.innerHTML = '<div class="no-data">shared database unavailable in this view (claude.use("db") did not resolve)</div>'; return; }
+  /* No `if(!db) return` here any more: the traces are published with the page, so
+     this panel works in a view where the database never resolved. */
   let data = rawSpikesCache[uid];
   if(data === undefined){
     const res = await fetchRawTraces(uid, 4);
