@@ -364,6 +364,26 @@ def main():
     say("\n=== gain")
     say("    spikeScalingToUv = %s uV/bit, from the session's own .rec header" % gain)
 
+    # cluster_info.tsv is the file sync_pipeline refuses to run without, and a
+    # session sorted on the cluster has never had Phy opened on it, so nothing
+    # creates it. 20260914_122553 got all the way to a finished review and then the
+    # sync stopped dead on exactly this, after the verdicts had already been read
+    # out of the artifact. It is built here from the classification brought in
+    # above, and only when it is absent: if a real Phy curation pass ever writes
+    # this file, that pass owns it and this must not overwrite it.
+    say("\n=== cluster_info.tsv (sync_pipeline will not run without it)")
+    cluster_info = os.path.join(ks, "cluster_info.tsv")
+    if os.path.exists(cluster_info):
+        say("    already there, left alone: %s" % cluster_info)
+    else:
+        run([py, os.path.join(SCRIPTS,
+                              "build_cluster_info_from_classification_session.py"),
+             sid, rec], "cluster_info.tsv from the corrected classification")
+        if not os.path.exists(cluster_info):
+            raise SystemExit(
+                "cluster_info.tsv still is not at %s. The sync would refuse later; "
+                "stopping here instead." % cluster_info)
+
     def have(name):
         p = os.path.join(OUT, name % sid)
         return (not args.force) and os.path.exists(p)

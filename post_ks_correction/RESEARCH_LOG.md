@@ -9641,3 +9641,85 @@ an scp of the script into `CODE_DIR`.
 Page size is also worth watching: 15.37 MiB of 16 MiB for 454 units, about 35 kB each.
 20260924 and 20260925 have 543 units. If either overflows, the per-unit payload has to
 move out to a published data file the way `merge_candidates.json` already is.
+
+
+### 5bd.63  20260914_122553 is reviewed, synced and responding — and the one file nobody builds (2026-11-17)
+
+Gil finished the verdicts on 20260914_122553 and asked for the whole second half:
+extract, sync, responses, and open the next session.
+
+#### What came out of the artifact database
+
+| collection | documents | breakdown |
+| --- | --- | --- |
+| `verdicts` | 264 | 137 good, 127 mua, **0 noise** |
+| `merge_verdicts` | 31 | 29 merge, 2 separate |
+| `trial_selections` | 29 | stability windows |
+
+264 of 454 units carry a hand verdict; the other 188 keep their automatic label, which
+T4 of the verification checks explicitly. Dumped to
+`outputs/review_verdicts/20260914_122553/` and to
+`Z:\Gil\Shamir_1\20260914_122553.rec\20260914_122553.kilosort\review\verdicts\`.
+
+Not one noise verdict in 264. On 20260916 Gil marked 13 of 240. Either this session
+genuinely has no obvious noise left after the classifier, or noise is being left
+unmarked rather than labelled — worth asking before reading anything into the count.
+
+#### THE SYNC REFUSED, AND IT WAS RIGHT TO
+
+First run died at the last of the three apply steps:
+
+```
+Z:\...\kilosort4\cluster_info.tsv not found -- sync_pipeline requires it;
+build it with scripts/build_cluster_info_from_classification_session.py
+```
+
+`cluster_info.tsv` is Phy's file. A session sorted on the cluster has never had Phy
+opened on it, so nothing creates it, and `build_cluster_info_from_classification_session.py`
+exists precisely to stand in — it maps our corrected classification down to Phy's
+good/mua/noise vocabulary and takes `depth` from the session's own
+`channel_positions.npy`. It has existed for months. It was simply never called for this
+session, because calling it has always been a thing a human remembered.
+
+This is the same shape as `--max_pairs 150`, `--uv_per_bit 0.195` and the missing raw
+traces: a step that is not in the script, so it is skipped, so the next session hits it
+too. It is now a step in `build_review_for_session.py`, between the cluster inputs and
+the review data, and it refuses to continue if the file is still absent afterwards. It
+builds the file **only when it is missing** — if a real Phy curation pass ever writes
+one, that pass owns it.
+
+Worth naming what it cost: the verdicts had already been read out of the artifact when
+the sync stopped. Nothing was lost, but the failure landed after the irreversible-looking
+part rather than before it.
+
+#### The sync
+
+454 units in, 426 out: 49 parents collapse into 21 merge groups (10000–10020), largest
+`426 + 432 + 433 + 436`. 547 trials, 11490 markers matched at `match_fraction = 1.000`,
+`interval_diff_correlation = 0.999998`. `sync_status = needs_review` from a 285 ms
+median global-fit residual — the same flag 20260916 carries (364 ms) and for the same
+reason: the global fit is not what the pipeline applies, the local interpolation is.
+
+`verify_verdicts_in_dataset.py` passed all nine checks, including T8, 264 of 264 unit
+verdicts present in `synced/`.
+
+#### The responses
+
+`plot_event_responses.py`, 547 trials, 318 completed, 168 rewarded, 114 good units:
+
+| event | modulated, p<0.05 | strongest |
+| --- | --- | --- |
+| cue start | 76 of 114 | unit 223, +18.8 Hz |
+| cue end | 65 of 114 | unit 223, +22.8 Hz |
+| reward | 43 of 114 | unit 123, +13.6 Hz |
+
+The reward panel is the alignment evidence: unit 146 goes 5.3 → 8.3 Hz with the peak
+0.1 s after the valve opens (p = 3e-36), unit 213 12.1 → 24.1 Hz (p = 9e-20), unit 123
+7.7 → 21.3 Hz peaking at 0.45 s. Unit 244 is the mirror image, 28.9 → 20.0 Hz. Sharp
+transitions at t = 0 in both directions; a misaligned dataset gives a smear.
+
+Completion is in line with the other sessions, which is worth checking rather than
+assuming: 318 of 547 trials completed here (58 %), against 478 of 953 on 20260916 (50 %)
+and 578 of 1085 on Popper 20261112 (53 %). Of the completed trials 168 were rewarded
+(53 %), the same share as Popper's 315 of 578. The CatchError = 1 defect of this session
+(§5bd.60) does not show up as a collapse in either number.

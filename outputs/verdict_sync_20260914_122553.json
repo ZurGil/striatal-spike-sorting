@@ -1,0 +1,33 @@
+{
+  "session_id": "20260914_122553",
+  "synced_at": "2026-11-17T11:33:58",
+  "kilosort_dir": "Z:/Gil/Shamir_1/20260914_122553.rec\\20260914_122553.kilosort\\kilosort4",
+  "applied": {
+    "verdicts": {
+      "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20260914_122553\\verdicts.json",
+      "sha1": "3c159a4b73bb9320064f5ff385e612b2ffa23512",
+      "n_documents": 264
+    },
+    "trial_selections": {
+      "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20260914_122553\\trial_selections.json",
+      "sha1": "652b378c49e86b771f52d08f5d11a97efbf12b22",
+      "n_documents": 29
+    },
+    "merge_verdicts": {
+      "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20260914_122553\\merge_verdicts.json",
+      "sha1": "f338fcd1ed0ef7016ba3d43866de500624b2d382",
+      "n_documents": 31
+    }
+  },
+  "deliberately_skipped": [],
+  "pipeline_command": [
+    "-m",
+    "sync_pipeline.process_session",
+    "--rec_folder",
+    "Z:/Gil/Shamir_1/20260914_122553.rec",
+    "--rat_root",
+    "Z:/Gil/Shamir_1"
+  ],
+  "verified": true,
+  "verify_exit_code": 0
+}

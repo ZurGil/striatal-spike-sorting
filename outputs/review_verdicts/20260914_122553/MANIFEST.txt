@@ -1,0 +1,16 @@
+VERDICT DUMP -- 20260914_122553
+written 2026-11-17T11:32:59 from the review tool's live database
+source  https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8 collections verdicts, merge_verdicts, trial_selections
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       264   {'mua': 127, 'good': 137}
+merge verdicts       31   {'merge': 29, 'separate': 2}
+trial selections     29
+
+Gil reported the review of this session finished on 2026-11-17. Applies to kilosort4/ (the sort of record).
+
+sha256                                                            file
+20ae3c5a596d73ab643bc894197b31b2f6d0fc6a78b5587fd7f835963b719568  verdicts.json  15921 bytes
+7590188acac49ace558060e9f1dc54d3fd2304c8ada45dc2ff78c082e25cd7c0  merge_verdicts.json  11651 bytes
+fb04a28bc7fd1c05cf3112a0935c81f720ae2912e7e5852f997deabf36a398bc  trial_selections.json  13625 bytes
+efc47ae6a822f3b019a2f5710a9384f1c995b355c3212b7099795fabb0b43309  manual_verdicts.csv  5902 bytes

@@ -777,6 +777,14 @@ The checks it refuses to save past:
 | every unit with spikes has raw traces | the raw spikes panel reading *"no raw trace data … doc does not exist"* because the step was never part of the build |
 | page under 16 MiB | the artifact limit — 454 units is already 15.37 MiB |
 
+It also builds **`cluster_info.tsv`** in the sort folder when it is missing, from
+`corrected_classification_<sid>_with_waveforms.json`, via
+`build_cluster_info_from_classification_session.py`. That file is Phy's, and a session
+sorted on the cluster has never had Phy opened on it — so without this step the sync
+refuses, months later, *after* the human has finished reviewing and the verdicts have
+already been pulled out of the artifact. That is exactly what 20260914_122553 did. If a
+real Phy curation pass ever writes the file, it is left alone.
+
 Publishing is the only remaining manual step, because it goes through the Artifact
 tooling and only Claude can reach it. Pass the **existing** artifact URL to keep a
 session's verdicts.

@@ -1,0 +1,12 @@
+20260914_122553: 547 trials, 318 completed, 168 rewarded
+   cue start  318 trials
+   cue end    318 trials
+   reward     168 trials
+   screening all 114 good units
+   wrote D:\Gil\spike_sorting_agent\outputs\responses_20260914_122553_cue_start.png
+   wrote D:\Gil\spike_sorting_agent\outputs\responses_20260914_122553_cue_end.png
+   wrote D:\Gil\spike_sorting_agent\outputs\responses_20260914_122553_reward.png
+   wrote D:\Gil\spike_sorting_agent\outputs\responses_20260914_122553_population.png
+   cue start  76 of 114 good units modulated at p<0.05 | strongest +18.8 Hz (unit 223)
+   cue end    65 of 114 good units modulated at p<0.05 | strongest +22.8 Hz (unit 223)
+   reward     43 of 114 good units modulated at p<0.05 | strongest +13.6 Hz (unit 123)
