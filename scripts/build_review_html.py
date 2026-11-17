@@ -1,11 +1,14 @@
 import json, os, sys
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from striatal_agent.paths import out_path  # noqa: E402
+
 # usage: python build_review_html.py <session_id>
 SESSION_ID = sys.argv[1] if len(sys.argv) > 1 else "20260901_085606"
-IN_PATH = (r"D:\Gil\spike_sorting_agent\outputs\pipeline_review_data.json" if SESSION_ID == "20260901_085606"
-           else rf"D:\Gil\spike_sorting_agent\outputs\pipeline_review_data_{SESSION_ID}.json")
-TIMELINE_PATH = rf"D:\Gil\spike_sorting_agent\outputs\session_timeline_{SESSION_ID}.json"
-OUT_PATH = rf"D:\Gil\spike_sorting_agent\outputs\unit_review_pipeline_{SESSION_ID}.html"
+IN_PATH = (out_path("pipeline_review_data.json") if SESSION_ID == "20260901_085606"
+           else out_path(f"pipeline_review_data_{SESSION_ID}.json"))
+TIMELINE_PATH = out_path(f"session_timeline_{SESSION_ID}.json")
+OUT_PATH = out_path(f"unit_review_pipeline_{SESSION_ID}.html")
 
 with open(IN_PATH) as f:
     units = json.load(f)
@@ -547,6 +550,28 @@ function renderTracePair(container, t, padMs, tIdx, nTotal, uid, otherColorMap){
 
 const rawShardCache = {};
 const RAW_SHARD_SIZE = 25;
+
+/* Cluster points, published beside the page as data/cluster_points/shard_<n>.json.
+   They were 79% of the page's weight and only one unit's are ever on screen, so a
+   508-unit session went over the 16 MiB artifact limit with them inside. Same shard
+   mechanism as the raw traces: 25 units per file, fetched once and kept.
+   A page built before 2026-11-17 has them in UNITS and never calls this. */
+const CP_SHARD_SIZE = 25;
+const cpShardCache = {};
+
+async function fetchClusterPoints(uid){
+  const n = Math.floor(uid / CP_SHARD_SIZE);
+  if(cpShardCache[n] === undefined){
+    let shard = null;
+    try{
+      const r = await fetch('data/cluster_points/shard_' + n + '.json');
+      if(r.ok) shard = await r.json();
+    }catch(e){ /* opened from disk, or not published: the panel says so */ }
+    cpShardCache[n] = shard;
+  }
+  const shard = cpShardCache[n];
+  return shard ? (shard[String(uid)] || null) : null;
+}
 
 async function fetchRawShard(uid){
   /* Traces published ALONGSIDE the page, as data/raw_traces/shard_<n>.json.
@@ -1107,9 +1132,25 @@ function renderDetail(uid){
   const fieldOptions = Object.keys(SCATTER_FIELD_LABELS).map(f => `<option value="${f}">${SCATTER_FIELD_LABELS[f]}</option>`).join('');
   scatterXSel.innerHTML = fieldOptions; scatterYSel.innerHTML = fieldOptions;
   scatterXSel.value = scatterXField; scatterYSel.value = scatterYField;
-  renderScatter(el.querySelector('.clus'), u.cluster_points, scatterXField, scatterYField);
-  scatterXSel.addEventListener('change', () => { scatterXField = scatterXSel.value; renderScatter(el.querySelector('.clus'), u.cluster_points, scatterXField, scatterYField); });
-  scatterYSel.addEventListener('change', () => { scatterYField = scatterYSel.value; renderScatter(el.querySelector('.clus'), u.cluster_points, scatterXField, scatterYField); });
+  const clusEl = el.querySelector('.clus');
+  /* cpHere is reassigned once the shard lands; the axis menus redraw from whatever
+     it holds, and renderScatter renders a null as "not yet computed" rather than
+     throwing, so changing an axis mid-fetch is harmless. */
+  let cpHere = u.cluster_points || null;
+  const drawScatter = () => renderScatter(clusEl, cpHere, scatterXField, scatterYField);
+  if(cpHere){
+    drawScatter();
+  }else{
+    clusEl.innerHTML = '<div class="no-data">loading cluster points...</div>';
+    fetchClusterPoints(uid).then(cp => {
+      cpHere = cp;
+      // The user may have moved to another unit while this was in flight; that unit's
+      // own render owns the panel now.
+      if(String(selected) === String(uid)) drawScatter();
+    });
+  }
+  scatterXSel.addEventListener('change', () => { scatterXField = scatterXSel.value; drawScatter(); });
+  scatterYSel.addEventListener('change', () => { scatterYField = scatterYSel.value; drawScatter(); });
   renderAcg(el.querySelector('.acg'), u);
   renderBurstCurve(el.querySelector('.burstcurve'), u.burst_curve, u.burst_shape);
   renderTimeline(el.querySelector('.timeline-panel'), uid);
@@ -1187,6 +1228,28 @@ renderDetail(selected);
 initDb();
 </script>
 """
+
+# --- the cluster points go BESIDE the page, not inside it --------------------
+# They are 79 % of the per-unit payload -- 12.06 MiB of 15.20 MiB on 20260917_100043's
+# 508 units -- and only the selected unit's points are ever drawn. Embedded, a 508-unit
+# session built a 16.66 MiB page against a 16 MiB artifact limit, and 543 units would
+# have been hopeless. Published as data/cluster_points/shard_<n>.json they are fetched
+# per unit, the same way the raw traces already are, and the page drops to about 5 MiB
+# whatever the session size.
+#
+# A page built before 2026-11-17 has them embedded and keeps working: the JS uses
+# u.cluster_points when it is there and only fetches when it is not.
+CLUSTER_POINTS_PATH = out_path(f"cluster_points_{SESSION_ID}.json")
+cluster_points = {}
+for u in units:
+    cp = u.pop("cluster_points", None)
+    if cp is not None:
+        cluster_points[str(u["unit_id"])] = cp
+with open(CLUSTER_POINTS_PATH, "w", encoding="utf-8") as f:
+    json.dump(cluster_points, f)
+print(f"cluster points for {len(cluster_points)} unit(s) -> {CLUSTER_POINTS_PATH} "
+      f"({os.path.getsize(CLUSTER_POINTS_PATH) / 1048576.0:.2f} MiB, published beside "
+      f"the page rather than inside it)")
 
 html = html.replace("__UNITS_JSON__", json.dumps(units))
 html = html.replace("__TIMELINE_JSON__", json.dumps(timeline) if timeline else "null")

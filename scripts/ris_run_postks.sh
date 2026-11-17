@@ -271,15 +271,17 @@ run_step "STEP 10/11 session timeline from the DIO" \
     "${PY} ${CODE}/build_session_timeline_data.py ${SESSION} ${REC_ROOT}" \
     ${PY} "${CODE}/build_session_timeline_data.py" "${SESSION}" "${REC_ROOT}"
 
-# --max_pairs 3000, not the old default of 150: RESEARCH_LOG 5bd.49 measured that 150
-# discarded 94 % of co-located pairs, and a unit missing from the merge panel reads as
-# "checked, nothing found" when it means "never compared".
+# --max_pairs 0 means NO CAP: every co-located pair in range is analysed. The old
+# default of 150 discarded 94 % of them (RESEARCH_LOG 5bd.49) and its replacement, 3000,
+# still quietly dropped 669 of 20260917's 3669. A unit missing from the merge panel
+# reads as "checked, nothing found" when it means "never compared", so there is no
+# safe cap -- only an honest one, which is none.
 # --uv_per_bit is the session's own gain, passed in by the submitter from the .rec
 # header. The 0.195 default is a SpikeGLX Neuropixels figure, 10.6x too large here.
 run_step "STEP 11a/11 merge candidates" \
-    "${PY} ${CODE}/build_merge_candidates.py ${SESSION} --rec_root ${SDIR} --max_pairs 3000 --uv_per_bit ${GAIN}" \
+    "${PY} ${CODE}/build_merge_candidates.py ${SESSION} --rec_root ${SDIR} --max_pairs 0 --uv_per_bit ${GAIN}" \
     ${PY} "${CODE}/build_merge_candidates.py" "${SESSION}" --rec_root "${SDIR}" \
-          --max_pairs 3000 --uv_per_bit "${GAIN}"
+          --max_pairs 0 --uv_per_bit "${GAIN}"
 
 run_step "STEP 11b/11 raw spike trace snippets" \
     "${PY} ${CODE}/compute_raw_trace_snippets_session.py ${SESSION} ${REC_ROOT} ${GAIN}" \

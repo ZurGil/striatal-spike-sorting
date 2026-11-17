@@ -771,11 +771,20 @@ The checks it refuses to save past:
 | check | the mistake it catches |
 |---|---|
 | no null `trodes_channel` | the 2026-09-16 bug — the lookup was built and never merged in, so the page showed the 0–383 KS index |
-| every co-located pair analysed | the `--max_pairs 150` cap (5bd.49) — a unit absent from the merge panel reads as *cleared* when it means *never compared* |
+| every co-located pair analysed | any `--max_pairs` cap — a unit absent from the merge panel reads as *cleared* when it means *never compared*. 150 dropped 94 % of them (5bd.49); its replacement 3000 still dropped 669 of 20260917's 3669, so the default is now **0 = no cap** |
 | `uv_per_bit` matches the `.rec` header | the 0.195 SpikeGLX default, 10.6× too large for our Trodes exports |
 | the page's own sync command names a folder that exists | `F:\Gil\Shamir` hardcoded, for sessions sorted on RIS and archived straight to Z |
 | every unit with spikes has raw traces | the raw spikes panel reading *"no raw trace data … doc does not exist"* because the step was never part of the build |
-| page under 16 MiB | the artifact limit — 454 units is already 15.37 MiB |
+| the cluster-point shards cover every unit | the same failure in the scatter panel, which would read *"cluster data not yet computed"* |
+| page under 16 MiB | the artifact limit — 20260917's 508 units built a **16.66 MiB** page and were refused |
+
+**Two shard sets are published beside the page**, both fetched per unit and cached:
+`data/raw_traces/shard_<n>.json` and, since 2026-11-17, `data/cluster_points/shard_<n>.json`.
+The cluster points were **79 % of the embedded per-unit payload** — 12.06 of 15.20 MiB on
+a 508-unit session — and only the selected unit's are ever drawn, so a page that used to
+grow past the limit at ~500 units now sits near 5 MiB at any session size. Pages built
+before that date still have them embedded and keep working: the JS uses `u.cluster_points`
+when it is there and only fetches when it is not.
 
 It also builds **`cluster_info.tsv`** in the sort folder when it is missing, from
 `corrected_classification_<sid>_with_waveforms.json`, via

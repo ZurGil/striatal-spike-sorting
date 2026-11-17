@@ -25,3 +25,14 @@
 20260923_105129
 20260924_121751
 20260925_103539
+
+# Added 2026-11-17 at Gil's request: the next three Shamir days, in sequence after
+# 20260925. Sept 26-27 is a weekend; these are Mon/Tue/Wed. Preflighted the same day --
+# all three READY, map era A, pad block 0ab0e80dd61d identical to 20260925_103539, the
+# sort they extend. 941 GiB of probe1.dat, 12.2 h of recording, ~40 h of GPU one at a
+# time. These are the first sessions whose post-KS job also builds the merge candidates
+# and the raw spike traces on the cluster (ris_run_postks.sh steps 7-11), so they should
+# come home ready to publish with nothing left to compute here.
+20260928_091523
+20260929_092327
+20260930_091521

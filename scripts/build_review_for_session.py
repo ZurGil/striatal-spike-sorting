@@ -244,6 +244,45 @@ def shard_raw_traces(sid):
     return files, with_traces, len(per_unit), len(shards), biggest
 
 
+CP_SHARD_SIZE = 25           # must match CP_SHARD_SIZE in build_review_html.py
+
+
+def shard_cluster_points(sid):
+    r"""Split the per-unit cluster points into the files the page fetches.
+
+    Same mechanism as the raw traces, for the same reason and with a sharper edge:
+    cluster points were 79 % of the embedded per-unit payload (12.06 of 15.20 MiB on
+    20260917_100043), which put that session's page at 16.66 MiB against the artifact's
+    16 MiB limit and would have made the 543-unit sessions impossible. Only the
+    selected unit's points are ever drawn, so they belong beside the page.
+
+    build_review_html.py writes them out when it strips them from the page; a page
+    built before 2026-11-17 still has them embedded and this file will not exist.
+    """
+    src = os.path.join(OUT, "cluster_points_%s.json" % sid)
+    if not os.path.exists(src):
+        return {}, 0, 0, 0
+    with open(src, encoding="utf-8") as fh:
+        per_unit = json.load(fh)
+    dest = os.path.join(OUT, "artifact_files_%s" % sid, "data", "cluster_points")
+    if os.path.isdir(dest):
+        shutil.rmtree(dest)
+    os.makedirs(dest)
+    shards = {}
+    for uid, doc in per_unit.items():
+        shards.setdefault(int(uid) // CP_SHARD_SIZE, {})[str(uid)] = doc
+    files, biggest = {}, 0
+    for n, payload in sorted(shards.items()):
+        name = "shard_%d.json" % n
+        path = os.path.join(dest, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh)
+        biggest = max(biggest, os.path.getsize(path))
+        files["data/cluster_points/" + name] = \
+            os.path.relpath(path, ROOT).replace("\\", "/")
+    return files, len(per_unit), len(shards), biggest
+
+
 def run(args, label):
     say("\n=== %s" % label)
     say("    " + " ".join(str(a) for a in args))
@@ -252,7 +291,8 @@ def run(args, label):
         raise SystemExit("FAILED: %s (exit %d)" % (label, r.returncode))
 
 
-def check(sid, page, gain, with_traces, n_trace_docs, biggest_shard):
+def check(sid, page, gain, with_traces, n_trace_docs, biggest_shard,
+          cp_units, cp_biggest):
     """The checks that would have caught every correction a past build needed."""
     problems = []
 
@@ -274,6 +314,18 @@ def check(sid, page, gain, with_traces, n_trace_docs, biggest_shard):
         problems.append("a raw-trace shard is %.1f MiB; shards this large make the "
                         "panel slow to open -- lower RAW_SHARD_SIZE (in both this "
                         "script and build_review_html.py)" % (biggest_shard / 1048576.0))
+    # The scatter panel, which moved out of the page on 2026-11-17 for size. Same
+    # failure mode as the raw traces if the shards go missing: the panel reads
+    # "cluster data not yet computed for this unit" and nothing else says why.
+    if cp_units != len(review):
+        problems.append("the cluster-point shards cover %d units, the review data has "
+                        "%d -- the scatter panel would read 'not yet computed' for the "
+                        "rest" % (cp_units, len(review)))
+    if cp_biggest > 12 * 1024 * 1024:
+        problems.append("a cluster-point shard is %.1f MiB -- lower CP_SHARD_SIZE (in "
+                        "both this script and build_review_html.py)"
+                        % (cp_biggest / 1048576.0))
+
     nulls = [r["unit_id"] for r in review if r.get("trodes_channel") is None]
     if nulls:
         problems.append("%d units have trodes_channel = null (the 2026-09-16 bug: the "
@@ -334,12 +386,13 @@ def save_to_z(sid, rec, page, gain, extra):
                        "merge_candidates.json")):
         shutil.copy2(src, os.path.join(dest, name))
         files[name] = {"bytes": os.path.getsize(src), "sha256": sha256_of(src)}
-    # the raw spike traces too, so this folder is everything a republish needs
-    shard_src = os.path.join(OUT, "artifact_files_%s" % sid, "data", "raw_traces")
-    if os.path.isdir(shard_src):
-        shard_dst = os.path.join(dest, "data", "raw_traces")
-        shutil.copytree(shard_src, shard_dst)
-        files["data/raw_traces/"] = {
+    # and the shard sets, so this folder is everything a republish needs
+    for kind in ("raw_traces", "cluster_points"):
+        shard_src = os.path.join(OUT, "artifact_files_%s" % sid, "data", kind)
+        if not os.path.isdir(shard_src):
+            continue
+        shutil.copytree(shard_src, os.path.join(dest, "data", kind))
+        files["data/%s/" % kind] = {
             "n_files": len(os.listdir(shard_src)),
             "bytes": sum(os.path.getsize(os.path.join(shard_src, f))
                          for f in os.listdir(shard_src))}
@@ -372,7 +425,10 @@ def main():
                     help="recompute every step even if its output is already there")
     ap.add_argument("--no_z_copy", action="store_true",
                     help="build, check and stop -- do not write the result to Z")
-    ap.add_argument("--max_pairs", type=int, default=3000)
+    ap.add_argument("--max_pairs", type=int, default=0,
+                    help="cap on the co-located pairs given the full merge "
+                         "analysis. 0, the default, is no cap -- anything else "
+                         "leaves pairs uncompared while the page looks complete.")
     args = ap.parse_args()
     sid = args.session_id
     py = sys.executable
@@ -458,6 +514,12 @@ def main():
     pub_files, with_traces, n_trace_docs, n_shards, biggest = shard_raw_traces(sid)
     say("    %d units with traces, in %d shards of %d, largest %.1f MiB"
         % (with_traces, n_shards, RAW_SHARD_SIZE, biggest / 1048576.0))
+    say("\n=== cluster points -> the files published beside the page")
+    cp_files, cp_units, cp_shards, cp_biggest = shard_cluster_points(sid)
+    say("    %d units, in %d shards of %d, largest %.1f MiB"
+        % (cp_units, cp_shards, CP_SHARD_SIZE, cp_biggest / 1048576.0))
+    pub_files.update(cp_files)
+
     pub_files["data/merge_candidates.json"] = \
         "outputs/merge_candidates_%s.json" % sid
     # One publish carries at most 255 files and 64 MB. A 543-unit session's shards
@@ -485,12 +547,13 @@ def main():
     files_path = files_paths[0]
 
     problems, size, n_units, in_range, analysed = check(
-        sid, page, gain, with_traces, n_trace_docs, biggest)
+        sid, page, gain, with_traces, n_trace_docs, biggest, cp_units, cp_biggest)
 
     say("\n=== checks")
     say("    units             %d" % n_units)
     say("    co-located pairs  %s analysed of %s in range" % (analysed, in_range))
     say("    raw spike traces  %d of %d units" % (with_traces, n_trace_docs))
+    say("    cluster points    %d of %d units" % (cp_units, n_units))
     say("    page              %d bytes (%.2f MiB of the 16 MiB limit)"
         % (size, size / 1048576.0))
     if problems:

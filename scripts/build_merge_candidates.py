@@ -31,7 +31,7 @@ turn a decision into unit_merges.json.
 
 Usage:
   python build_merge_candidates.py <session_id> [--rec_root F:/Gil/Shamir]
-                                   [--max_dist_um 60] [--max_pairs 150]
+                                   [--max_dist_um 60] [--max_pairs 0]
                                    [--n_waveform_spikes 150]
 
 Needs numpy 2 for nothing in particular, but does need the review-data JSON built
@@ -288,15 +288,16 @@ def main():
     ap.add_argument("--max_dist_um", type=float, default=60.0,
                     help="peak channels further apart than this are not candidates; "
                          "a neuron's footprint does not jump across the probe")
-    ap.add_argument("--max_pairs", type=int, default=3000,
-                    help="how many of the co-located pairs get the full analysis, "
-                         "ranked by template similarity. The old default of 150 was a "
-                         "cap from the days before correlogram() was vectorised; it "
-                         "discarded 94%% of the pairs in a session to save sixteen "
-                         "seconds, and a unit absent from the merge panel then reads "
-                         "as 'checked, nothing found' when it means 'never compared' "
-                         "(see RESEARCH_LOG 5bd.49). 3000 covers every co-located "
-                         "pair in the sessions sorted so far.")
+    ap.add_argument("--max_pairs", type=int, default=0,
+                    help="cap on how many co-located pairs get the full analysis, "
+                         "ranked by template similarity. 0, the default, means NO CAP "
+                         "-- every pair in range is analysed. Any cap is a trap: a "
+                         "unit absent from the merge panel then reads as 'checked, "
+                         "nothing found' when it means 'never compared'. 150 was the "
+                         "default until 2026-11-17 and discarded 94%% of a session's "
+                         "pairs to save sixteen seconds (RESEARCH_LOG 5bd.49); 3000 "
+                         "replaced it and then quietly dropped 669 of 20260917's 3669. "
+                         "A number here is for debugging a single run, nothing else.")
     ap.add_argument("--n_waveform_spikes", type=int, default=150)
     ap.add_argument("--uv_per_bit", type=float, default=None,
                     help="left out, this is READ FROM THE SESSION'S OWN .rec HEADER "
@@ -385,12 +386,14 @@ def main():
     # pairs are worth computing it for. (NOT a way to decide the merge -- see the
     # module docstring.)
     cands.sort(key=lambda c: -c[3])
-    cands = cands[:args.max_pairs]
+    if args.max_pairs:
+        cands = cands[:args.max_pairs]
     if n_in_range > len(cands):
         log("WARNING: %d co-located pairs will NOT be analysed (--max_pairs %d). A unit "
             "absent from the merge panel has not been cleared, it was never examined."
             % (n_in_range - len(cands), args.max_pairs))
-    log("keeping top %d by template similarity for full analysis" % len(cands))
+    log("analysing all %d co-located pairs" % len(cands) if not args.max_pairs
+        else "keeping top %d by template similarity for full analysis" % len(cands))
 
     # ------------------------------------------------------- per-unit raw waveforms
     involved = sorted({u for c in cands for u in c[:2]})
