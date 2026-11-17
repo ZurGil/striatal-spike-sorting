@@ -21,10 +21,10 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 | Shamir | `20260916_110311` | 472 | 9.0 / 8.0 | yes (pre-`build_` layout, traces in the page db) | 240 | 114 | 113 | 13 | 10 | 20 | yes | yes | yes (`synced`, `synced_20261002`, `synced_20261015`, `synced_20261021_superseded_20261116`, `synced_NEWFIX`) | pass (100% matched, 43 ms worst-case, 953/953 trials) | ok (15.6% catch, error wait 5.89s) | no | **SAVED, PARTIAL** |
 | Shamir | `20260917_100043` | 508 | 9.0 / 8.0 | yes (20261117_1227) | 363 | 155 | 208 | 0 | 42 | 29 | yes | yes | yes (`synced`) | pass (100% matched, 45 ms worst-case, 1106/1106 trials) | ok (12.7% catch, error wait 6.3s) | no | **SAVED, REVIEW CLOSED** |
 | Shamir | `20260918_100248` | 481 | 9.0 / 8.0 | yes (20261117_1341) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.6% catch, error wait 6.31s) | no | **NOT REVIEWED** |
-| Shamir | `20260922_144404` | 478 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.0% catch, error wait 4.83s) | no | **NOT REVIEWED** |
-| Shamir | `20260923_105129` | 503 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.6% catch, error wait 4.86s) | no | **NOT REVIEWED** |
-| Shamir | `20260924_121751` | 543 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (15.5% catch, error wait 6.0s) | no | **NOT REVIEWED** |
-| Shamir | `20260925_103539` | 543 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (15.4% catch, error wait 6.08s) | no | **NOT REVIEWED** |
+| Shamir | `20260922_144404` | 478 | 9.0 / 8.0 | yes (20261117_1553) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.0% catch, error wait 4.83s) | no | **NOT REVIEWED** |
+| Shamir | `20260923_105129` | 503 | 9.0 / 8.0 | yes (20261117_1621) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.6% catch, error wait 4.86s) | no | **NOT REVIEWED** |
+| Shamir | `20260924_121751` | 543 | 9.0 / 8.0 | yes (20261117_1650) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (15.5% catch, error wait 6.0s) | no | **NOT REVIEWED** |
+| Shamir | `20260925_103539` | 543 | 9.0 / 8.0 | yes (20261117_1721) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (15.4% catch, error wait 6.08s) | no | **NOT REVIEWED** |
 | Begin | `20260805_103305` | 73 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (9.3% catch, error wait 2.46s) | no | **NOT REVIEWED** |
 | Begin | `20260807_125640` | 95 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.7% catch, error wait 3.53s) | no | **NOT REVIEWED** |
 | Begin | `20260814_122755` | 94 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (13.9% catch, error wait 6.34s) | no | **NOT REVIEWED** |
@@ -172,41 +172,41 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 
 ### 20260922_144404  (Shamir)
 
-- NOT REVIEWED -- no verdicts anywhere
+- NOT REVIEWED -- the page is open and empty
 - 478 units, Kilosort thresholds 9.0 / 8.0
 - Bpod sync: not done (44 Bpod files available for this rat)
-- review tool built on Z: **no** -- `build_review_for_session.py 20260922_144404` has not been run
-- review page: **none built yet**
+- review tool built on Z: `Z:\Gil\Shamir_1\20260922_144404.rec\20260922_144404.kilosort\review\tool\build_20261117_1553` (1 build kept) -- page yes, merge candidates yes, 20 raw-trace shard(s)
+- review page: https://claude.ai/artifact/CHDv3SjMPCoezGbu2Q7nzW
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
 
 ### 20260923_105129  (Shamir)
 
-- NOT REVIEWED -- no verdicts anywhere
+- NOT REVIEWED -- the page is open and empty
 - 503 units, Kilosort thresholds 9.0 / 8.0
 - Bpod sync: not done (44 Bpod files available for this rat)
-- review tool built on Z: **no** -- `build_review_for_session.py 20260923_105129` has not been run
-- review page: **none built yet**
+- review tool built on Z: `Z:\Gil\Shamir_1\20260923_105129.rec\20260923_105129.kilosort\review\tool\build_20261117_1621` (1 build kept) -- page yes, merge candidates yes, 21 raw-trace shard(s)
+- review page: https://claude.ai/artifact/563NiJTGm4V51f4ZxwRAEb
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
 
 ### 20260924_121751  (Shamir)
 
-- NOT REVIEWED -- no verdicts anywhere
+- NOT REVIEWED -- the page is open and empty
 - 543 units, Kilosort thresholds 9.0 / 8.0
 - Bpod sync: not done (44 Bpod files available for this rat)
-- review tool built on Z: **no** -- `build_review_for_session.py 20260924_121751` has not been run
-- review page: **none built yet**
+- review tool built on Z: `Z:\Gil\Shamir_1\20260924_121751.rec\20260924_121751.kilosort\review\tool\build_20261117_1650` (1 build kept) -- page yes, merge candidates yes, 22 raw-trace shard(s)
+- review page: https://claude.ai/artifact/Qczrgr3CB5Un86bFdZuV5R
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
 
 ### 20260925_103539  (Shamir)
 
-- NOT REVIEWED -- no verdicts anywhere
+- NOT REVIEWED -- the page is open and empty
 - 543 units, Kilosort thresholds 9.0 / 8.0
 - Bpod sync: not done (44 Bpod files available for this rat)
-- review tool built on Z: **no** -- `build_review_for_session.py 20260925_103539` has not been run
-- review page: **none built yet**
+- review tool built on Z: `Z:\Gil\Shamir_1\20260925_103539.rec\20260925_103539.kilosort\review\tool\build_20261117_1721` (1 build kept) -- page yes, merge candidates yes, 22 raw-trace shard(s)
+- review page: https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
 

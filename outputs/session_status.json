@@ -1086,10 +1086,18 @@
       "row_id": "20260922_144404",
       "n_units": 478,
       "thresholds": "9.0 / 8.0",
-      "artifact": null,
+      "artifact": "https://claude.ai/artifact/CHDv3SjMPCoezGbu2Q7nzW",
       "tools": [],
       "verdicts_dir": null,
-      "review_tool": null,
+      "review_tool": {
+        "build": "20261117_1553",
+        "layout": "build",
+        "path": "Z:\\Gil\\Shamir_1\\20260922_144404.rec\\20260922_144404.kilosort\\review\\tool\\build_20261117_1553",
+        "n_builds": 1,
+        "page": true,
+        "merge_candidates": true,
+        "raw_shards": 20
+      },
       "cluster_info": true,
       "superseded_by": null,
       "joins": null,
@@ -1126,12 +1134,12 @@
         }
       ],
       "snapshots": [],
-      "live_verdicts": null,
-      "live_merges": null,
-      "live_trials": null,
+      "live_verdicts": 0,
+      "live_merges": 0,
+      "live_trials": 0,
       "review_finished": false,
       "state": "NOT REVIEWED",
-      "state_why": "no verdicts anywhere"
+      "state_why": "the page is open and empty"
     },
     {
       "rat": "Shamir",
@@ -1140,11 +1148,19 @@
       "row_id": "20260923_105129",
       "n_units": 503,
       "thresholds": "9.0 / 8.0",
-      "artifact": null,
+      "artifact": "https://claude.ai/artifact/563NiJTGm4V51f4ZxwRAEb",
       "tools": [],
       "verdicts_dir": null,
-      "review_tool": null,
-      "cluster_info": false,
+      "review_tool": {
+        "build": "20261117_1621",
+        "layout": "build",
+        "path": "Z:\\Gil\\Shamir_1\\20260923_105129.rec\\20260923_105129.kilosort\\review\\tool\\build_20261117_1621",
+        "n_builds": 1,
+        "page": true,
+        "merge_candidates": true,
+        "raw_shards": 21
+      },
+      "cluster_info": true,
       "superseded_by": null,
       "joins": null,
       "provenance": [],
@@ -1180,12 +1196,12 @@
         }
       ],
       "snapshots": [],
-      "live_verdicts": null,
-      "live_merges": null,
-      "live_trials": null,
+      "live_verdicts": 0,
+      "live_merges": 0,
+      "live_trials": 0,
       "review_finished": false,
       "state": "NOT REVIEWED",
-      "state_why": "no verdicts anywhere"
+      "state_why": "the page is open and empty"
     },
     {
       "rat": "Shamir",
@@ -1194,11 +1210,19 @@
       "row_id": "20260924_121751",
       "n_units": 543,
       "thresholds": "9.0 / 8.0",
-      "artifact": null,
+      "artifact": "https://claude.ai/artifact/Qczrgr3CB5Un86bFdZuV5R",
       "tools": [],
       "verdicts_dir": null,
-      "review_tool": null,
-      "cluster_info": false,
+      "review_tool": {
+        "build": "20261117_1650",
+        "layout": "build",
+        "path": "Z:\\Gil\\Shamir_1\\20260924_121751.rec\\20260924_121751.kilosort\\review\\tool\\build_20261117_1650",
+        "n_builds": 1,
+        "page": true,
+        "merge_candidates": true,
+        "raw_shards": 22
+      },
+      "cluster_info": true,
       "superseded_by": null,
       "joins": null,
       "provenance": [],
@@ -1234,12 +1258,12 @@
         }
       ],
       "snapshots": [],
-      "live_verdicts": null,
-      "live_merges": null,
-      "live_trials": null,
+      "live_verdicts": 0,
+      "live_merges": 0,
+      "live_trials": 0,
       "review_finished": false,
       "state": "NOT REVIEWED",
-      "state_why": "no verdicts anywhere"
+      "state_why": "the page is open and empty"
     },
     {
       "rat": "Shamir",
@@ -1248,11 +1272,19 @@
       "row_id": "20260925_103539",
       "n_units": 543,
       "thresholds": "9.0 / 8.0",
-      "artifact": null,
+      "artifact": "https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw",
       "tools": [],
       "verdicts_dir": null,
-      "review_tool": null,
-      "cluster_info": false,
+      "review_tool": {
+        "build": "20261117_1721",
+        "layout": "build",
+        "path": "Z:\\Gil\\Shamir_1\\20260925_103539.rec\\20260925_103539.kilosort\\review\\tool\\build_20261117_1721",
+        "n_builds": 1,
+        "page": true,
+        "merge_candidates": true,
+        "raw_shards": 22
+      },
+      "cluster_info": true,
       "superseded_by": null,
       "joins": null,
       "provenance": [],
@@ -1288,12 +1320,12 @@
         }
       ],
       "snapshots": [],
-      "live_verdicts": null,
-      "live_merges": null,
-      "live_trials": null,
+      "live_verdicts": 0,
+      "live_merges": 0,
+      "live_trials": 0,
       "review_finished": false,
       "state": "NOT REVIEWED",
-      "state_why": "no verdicts anywhere"
+      "state_why": "the page is open and empty"
     },
     {
       "rat": "Begin",

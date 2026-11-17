@@ -1,0 +1,52 @@
+
+==============================================================
+12:28:04  building the review tool for 20260918_100248
+    log: /d/Gil/spike_sorting_agent/outputs/build_review_20260918_100248.log
+==============================================================
+    done in 73 min
+                       outputs\publish_files_20260918_100248_part2.json
+        capabilities = {"db": {}, "downloads": true}
+        pass the EXISTING artifact url to keep its verdicts.
+
+==============================================================
+13:41:10  building the review tool for 20260922_144404
+    log: /d/Gil/spike_sorting_agent/outputs/build_review_20260922_144404.log
+==============================================================
+    done in 132 min
+                       outputs\publish_files_20260922_144404_part2.json
+        capabilities = {"db": {}, "downloads": true}
+        pass the EXISTING artifact url to keep its verdicts.
+
+==============================================================
+15:53:55  building the review tool for 20260923_105129
+    log: /d/Gil/spike_sorting_agent/outputs/build_review_20260923_105129.log
+==============================================================
+    done in 27 min
+                       outputs\publish_files_20260923_105129_part2.json
+        capabilities = {"db": {}, "downloads": true}
+        pass the EXISTING artifact url to keep its verdicts.
+
+==============================================================
+16:21:40  building the review tool for 20260924_121751
+    log: /d/Gil/spike_sorting_agent/outputs/build_review_20260924_121751.log
+==============================================================
+    done in 29 min
+                       outputs\publish_files_20260924_121751_part2.json
+        capabilities = {"db": {}, "downloads": true}
+        pass the EXISTING artifact url to keep its verdicts.
+
+==============================================================
+16:50:58  building the review tool for 20260925_103539
+    log: /d/Gil/spike_sorting_agent/outputs/build_review_20260925_103539.log
+==============================================================
+    done in 30 min
+                       outputs\publish_files_20260925_103539_part2.json
+        capabilities = {"db": {}, "downloads": true}
+        pass the EXISTING artifact url to keep its verdicts.
+
+==============================================================
+finished in 293 min
+built  : 5  20260918_100248 20260922_144404 20260923_105129 20260924_121751 20260925_103539
+Every build that succeeded is saved on Z and needs only to be PUBLISHED,
+which only Claude can do (Artifact tool).
+==============================================================
