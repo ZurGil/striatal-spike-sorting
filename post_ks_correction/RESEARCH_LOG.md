@@ -9813,3 +9813,94 @@ Checked before offering to start new sessions: `/scratch1/fs1/akepecs/zur` empty
 `kilosort4` results directory empty, no LSF jobs, ~13 MB total (build contexts, code,
 47 job logs), and `find -user zur` outside `Gil_Zur/` returns nothing on either
 filesystem.
+
+
+### 5bd.65  20260917_100043 reviewed, synced and responding, and the register that was two days behind (2026-11-17)
+
+Gil finished the verdicts on 20260917_100043 the same afternoon the page was published,
+and asked the same three things as for 20260914: sync, update the table, show the
+responses. The first and third were mechanical. The second was not, and that is the
+part worth recording.
+
+#### The table he reads was not the table I was updating
+
+> "why i dont see session sepetmer 14 updated in the table as verdicted and synced?"
+
+Because there are two. `post_ks_correction/SESSION_STATUS.md` had been regenerated and
+committed at 11:53, with 20260914 reading 264 verdicts, synced, SAVED/REVIEW CLOSED.
+The **published Session Review Register** — the page Gil actually opens — still carried
+"Z and the review pages read 2026-11-16 13:39" and said 20260914 was *"NOT REVIEWED --
+the page is open and empty"*. Running the scan regenerates `session_status.json` and the
+markdown; the artifact only changes when it is republished, and I had not republished
+it. So the register, which exists precisely so the page cannot disagree with the files,
+disagreed with the files for a day.
+
+Three things changed:
+
+* the register generator grew the `tool ready` column the markdown got that morning,
+  reading the newest `build_<stamp>/` on Z and naming whichever of page / merge
+  candidates / raw-trace shards is missing rather than saying yes;
+* its catch-trial banner stopped being typed by hand. It read *"EVERY POPPER SESSION SO
+  FAR HAS CatchError = 0"* and would have gone on saying so forever; it now computes the
+  date of the first Popper file that runs the switch on, out of
+  `outputs/catch_trial_audit.csv`;
+* the publish is now written down as part of updating the table, in
+  `feedback_the_table_gil_reads_is_the_published_register`, because this was a
+  remembering failure and remembering is not a fix.
+
+While fixing the banner I re-ran `audit_catch_trials.py --rat Popper` and so overwrote
+the audit CSV with Popper-only rows, which emptied every Shamir catch cell in the next
+register build. Caught it in the generated page, re-ran the audit over all three rats
+(it now covers Begin's 105 files as well), and rebuilt. The lesson is the same one:
+`--rat` is a filter on a file that something else reads whole.
+
+#### Today's Popper session is the first with CatchError = 1
+
+Trodes finished exporting 20261117_084903 and the behaviour file arrived at 12:08.
+Against a Shamir reference, both switches now agree:
+
+| | `PercentCatch` | `CatchError` | catch wait | error wait | plain wait |
+| --- | --- | --- | --- | --- | --- |
+| Popper, Nov 17, 753 trials | 0.15 | **1** | 6.26 s | **6.54 s** | 1.26 s |
+| Shamir, Sep 18, 1115 trials | 0.15 | **1** | 6.79 s | 6.31 s | 1.39 s |
+| Popper, 11 earlier sessions | 0.15 | **0** | 5.0-7.1 s | 1.1-1.5 s | ~1.2 s |
+
+No mid-session change, catch trials never rewarded (0.0 %), and 84 error trials carrying
+a real 6.5 s wait. This is the first Popper session with both waiting curves, so the
+first that can carry a time-investment analysis at all (§5bd.60).
+
+#### The sync
+
+363 unit verdicts (155 good, 208 mua, no noise), 42 pairs judged (30 merge, 11 separate,
+1 unsure) and 29 stability windows, dumped from the artifact database to
+`outputs/review_verdicts/20260917_100043/` and to
+`Z:\Gil\Shamir_1\20260917_100043.rec\20260917_100043.kilosort\review\verdicts\`.
+`sync_session.py` applied them in dependency order and all nine checks passed:
+475 units and 1106 trials in `synced/` after the 22 merge groups collapsed 508 into 475,
+314 verdicts carried into `quality_label`, 143 unjudged units left on their automatic
+label, 363 of 363 accounted for (T8). Sync quality: 100 % of events matched, 45 ms
+worst-case leave-one-out error, 1106 of 1106 trials.
+
+Note that this is the first session whose `cluster_info.tsv` was written by
+`build_cluster_info_from_classification_session.py` inside the review build rather than
+after a refusal (§5bd.63) — the sync did not stop for it.
+
+#### The responses
+
+`plot_event_responses.py`, 1106 trials, 605 completed, 380 rewarded, 129 good units:
+
+| event | modulated, p<0.05 | strongest |
+| --- | --- | --- |
+| cue start | 111 of 129 | unit 463, 6.5 -> 32.6 Hz, peak +0.23 s |
+| cue end | 94 of 129 | unit 287, 51.2 -> 3.9 Hz |
+| reward | 56 of 129 | unit 286, 26.8 -> 51.5 Hz, peak +0.17 s |
+
+The reward panel is again the alignment evidence, and it is sharper than 20260914's:
+unit 286 peaks 0.17 s after the valve opens (p = 2e-90), unit 292 11.2 -> 24.1 Hz also at
+0.17 s, unit 178 8.8 -> 26.1 Hz at 0.47 s, and unit 280 is the mirror image, 24.5 -> 9.1 Hz.
+Three of the five strongest peak within 0.2 s of t = 0; a misaligned dataset smears that.
+
+Two numbers worth keeping. 605 of 1106 trials completed is 55 %, in line with 58 % on
+20260914, 50 % on 20260916 and 53 % on Popper 20261112, so nothing about this session is
+unusual. And unit 10008 appears among the strongest at both cue events — a merged unit,
+which is the merges arriving in the analysis rather than stopping at the manifest.

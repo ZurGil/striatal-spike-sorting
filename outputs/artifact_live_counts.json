@@ -1,45 +1,53 @@
 {
-  "_what": "Document counts read live from each review page's own database on claude.ai, using the Artifact data tooling. Python cannot reach those databases, so this file is how the counts get into scripts/session_status_report.py. Re-read the pages and rewrite this file whenever Gil says he has done more reviewing.",
+  "20260914_122553": {
+    "_note": "Gil reported this review finished on 2026-11-17. 264 of 454 units carry a verdict (137 good, 127 mua, no noise); the 190 without keep their automatic label. Dumped, synced and verified the same day.",
+    "merge_verdicts": 31,
+    "review_finished": true,
+    "trial_selections": 29,
+    "url": "https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8",
+    "verdicts": 264
+  },
+  "20260915_084812_103710_concat": {
+    "_note": "Gil reported this review finished on 2026-11-16. 322 of 465 units carry a verdict; the 143 without are 134 Kilosort-mua and 9 Kilosort-good.",
+    "merge_verdicts": 33,
+    "review_finished": true,
+    "trial_selections": 26,
+    "url": "https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb",
+    "verdicts": 322
+  },
+  "20260916_110311": {
+    "merge_verdicts": 10,
+    "trial_selections": 20,
+    "url": "https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap",
+    "verdicts": 240
+  },
+  "20260917_100043": {
+    "_note": "Gil reported this review finished on 2026-11-17. 363 of 508 units carry a verdict (155 good, 208 mua, no noise); the 145 without keep their automatic label. 42 pairs judged: 30 merge, 11 separate, 1 unsure. Dumped, synced and verified the same day -- all nine checks, 475 units and 1106 trials in synced/ after 22 merge groups.",
+    "merge_verdicts": 42,
+    "review_finished": true,
+    "trial_selections": 29,
+    "url": "https://claude.ai/artifact/LxJPCJ8UpRz1LsqhcRji3Y",
+    "verdicts": 363
+  },
+  "20260918_100248": {
+    "_note": "published 2026-11-17, review not started yet. 481 units, all 3283 co-located pairs compared, page 4.30 MiB.",
+    "merge_verdicts": 0,
+    "trial_selections": 0,
+    "url": "https://claude.ai/artifact/AuWU4jP4vWn3tELjDBcWfN",
+    "verdicts": 0
+  },
+  "20261112_082028": {
+    "merge_verdicts": 31,
+    "trial_selections": 18,
+    "url": "https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG",
+    "verdicts": 260
+  },
   "_checked": "2026-11-17 (20260914_122553 only; the others were read 2026-11-16)",
   "_collections": [
     "verdicts",
     "merge_verdicts",
     "trial_selections"
   ],
-  "20261112_082028": {
-    "url": "https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG",
-    "verdicts": 260,
-    "merge_verdicts": 31,
-    "trial_selections": 18
-  },
-  "20260916_110311": {
-    "url": "https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap",
-    "verdicts": 240,
-    "merge_verdicts": 10,
-    "trial_selections": 20
-  },
-  "20260915_084812_103710_concat": {
-    "url": "https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb",
-    "verdicts": 322,
-    "merge_verdicts": 33,
-    "trial_selections": 26,
-    "_note": "Gil reported this review finished on 2026-11-16. 322 of 465 units carry a verdict; the 143 without are 134 Kilosort-mua and 9 Kilosort-good.",
-    "review_finished": true
-  },
   "_fields": "verdicts / merge_verdicts / trial_selections are document counts read live from the page's database. review_finished is Gil's own word for 'I am done with this session', which is not the same as every unit carrying a verdict -- he stops when what is left is automatic MUA he does not intend to label.",
-  "20260914_122553": {
-    "url": "https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8",
-    "verdicts": 264,
-    "merge_verdicts": 31,
-    "trial_selections": 29,
-    "_note": "Gil reported this review finished on 2026-11-17. 264 of 454 units carry a verdict (137 good, 127 mua, no noise); the 190 without keep their automatic label. Dumped, synced and verified the same day.",
-    "review_finished": true
-  },
-  "20260917_100043": {
-    "url": "https://claude.ai/artifact/LxJPCJ8UpRz1LsqhcRji3Y",
-    "verdicts": 0,
-    "merge_verdicts": 0,
-    "trial_selections": 0,
-    "_note": "published 2026-11-17, review not started yet. 508 units; first page built with the cluster points published beside it rather than embedded."
-  }
+  "_what": "Document counts read live from each review page's own database on claude.ai, using the Artifact data tooling. Python cannot reach those databases, so this file is how the counts get into scripts/session_status_report.py. Re-read the pages and rewrite this file whenever Gil says he has done more reviewing."
 }

@@ -115,7 +115,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -189,7 +189,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -271,7 +271,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 264,
       "z_tally": {
         "mua": 127,
@@ -351,7 +351,7 @@
       "bpod_synced": [
         "synced_from_concat"
       ],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 322,
       "z_tally": {
         "good": 161,
@@ -463,7 +463,7 @@
         "SUPERSEDES: The standalone sort of 20260915_103710 (LSF 741761, 447 units, review tool https://claude.ai/artifact/QreYaMjGtujiE17m2k9zXf) covers only part 2 and has no verdicts in it, so nothing hand-made is lost by replacing it. It stays on Z as a second opinion; the joint sort's unit ids do not correspond to its."
       ],
       "bpod_synced": [],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 322,
       "z_tally": {
         "good": 161,
@@ -604,7 +604,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -679,7 +679,7 @@
       "bpod_synced": [
         "synced_from_concat"
       ],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 322,
       "z_tally": {
         "good": 161,
@@ -797,7 +797,7 @@
         "synced_20261021_superseded_20261116",
         "synced_NEWFIX"
       ],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 240,
       "z_tally": {
         "good": 114,
@@ -937,7 +937,7 @@
       "thresholds": "9.0 / 8.0",
       "artifact": "https://claude.ai/artifact/LxJPCJ8UpRz1LsqhcRji3Y",
       "tools": [],
-      "verdicts_dir": null,
+      "verdicts_dir": "Z:\\Gil\\Shamir_1\\20260917_100043.rec\\20260917_100043.kilosort\\review\\verdicts",
       "review_tool": {
         "build": "20261117_1227",
         "layout": "build",
@@ -951,16 +951,43 @@
       "superseded_by": null,
       "joins": null,
       "provenance": [],
-      "bpod_synced": [],
-      "bpod_files": 43,
-      "z_verdicts": 0,
-      "z_tally": {},
-      "z_merges": 0,
-      "z_merge_tally": {},
-      "z_trials": 0,
-      "synced": false,
+      "bpod_synced": [
+        "synced"
+      ],
+      "bpod_files": 44,
+      "z_verdicts": 363,
+      "z_tally": {
+        "mua": 208,
+        "good": 155
+      },
+      "z_merges": 42,
+      "z_merge_tally": {
+        "separate": 11,
+        "merge": 30,
+        "unsure": 1
+      },
+      "z_trials": 29,
+      "synced": true,
       "ks_folder": "kilosort4",
-      "sync_check": [],
+      "sync_check": [
+        {
+          "dir": "synced",
+          "status": "needs_review",
+          "matched": 1.0,
+          "n_matched": 24646,
+          "n_bpod_events": 24646,
+          "holdout_median_ms": 5.9117155615240335e-08,
+          "holdout_max_ms": 44.7380172136036,
+          "linear_median_resid_ms": 304.57081837084843,
+          "linear_max_resid_ms": 904.1510639272019,
+          "method": "local_interpolation",
+          "n_trials": 1106,
+          "n_trials_valid": 1106,
+          "gaps": 0,
+          "trials_over_gap": 0,
+          "verdict": "pass"
+        }
+      ],
       "catch": [
         {
           "rat": "Shamir",
@@ -983,12 +1010,12 @@
         }
       ],
       "snapshots": [],
-      "live_verdicts": 0,
-      "live_merges": 0,
-      "live_trials": 0,
-      "review_finished": false,
-      "state": "NOT REVIEWED",
-      "state_why": "the page is open and empty"
+      "live_verdicts": 363,
+      "live_merges": 42,
+      "live_trials": 29,
+      "review_finished": true,
+      "state": "SAVED, REVIEW CLOSED",
+      "state_why": "Gil called this review finished: 363 of 508 units carry a verdict, all of them on Z; the other 145 were left on their automatic label"
     },
     {
       "rat": "Shamir",
@@ -1014,7 +1041,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -1045,12 +1072,12 @@
         }
       ],
       "snapshots": [],
-      "live_verdicts": null,
-      "live_merges": null,
-      "live_trials": null,
+      "live_verdicts": 0,
+      "live_merges": 0,
+      "live_trials": 0,
       "review_finished": false,
       "state": "NOT REVIEWED",
-      "state_why": "no verdicts anywhere"
+      "state_why": "the page is open and empty"
     },
     {
       "rat": "Shamir",
@@ -1068,7 +1095,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -1122,7 +1149,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -1176,7 +1203,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -1230,7 +1257,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 43,
+      "bpod_files": 44,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,

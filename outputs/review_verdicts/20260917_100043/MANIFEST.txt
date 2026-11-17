@@ -1,0 +1,14 @@
+VERDICT DUMP -- 20260917_100043
+written 2026-11-17T14:30:36 from the review tool's live database
+source  (not recorded -- pass --source next time)
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       363   {'mua': 208, 'good': 155}
+merge verdicts       42   {'separate': 11, 'merge': 30, 'unsure': 1}
+trial selections     29
+
+sha256                                                            file
+e2904f3fcd2b4ea2e83cbca0a253d98ea0bec777372c949ce3ca63876873f981  verdicts.json  21873 bytes
+cf1d7820e01750ace0d0d9a24788b9b6e1a70c81875dda3de55c351934930a9e  merge_verdicts.json  15791 bytes
+d93c4f8d7ba43a8083c50064af766c01a37e00dc936ce09e85d7422b9bfd6db0  trial_selections.json  14784 bytes
+03c2e0f0b5b082dfbcfb5d9dd4ad3c87d97f7410e4dc329b390f0d3e70a94682  manual_verdicts.csv  8092 bytes

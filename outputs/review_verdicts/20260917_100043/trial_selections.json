@@ -1,0 +1,665 @@
+{
+ "101": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 887,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 8055.32
+   },
+   {
+    "t0": 8880.689,
+    "t1": 9572.215
+   },
+   {
+    "t0": 9951.439,
+    "t1": 10174.512
+   },
+   {
+    "t0": 10966.421,
+    "t1": 11535.256
+   },
+   {
+    "t0": 12427.548,
+    "t1": 14147.351
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 101,
+  "updated_ms": 1794941628212
+ },
+ "107": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 908,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 3560.402
+   },
+   {
+    "t0": 4597.69,
+    "t1": 7977.244
+   },
+   {
+    "t0": 9393.757,
+    "t1": 14147.351
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 107,
+  "updated_ms": 1794941709329
+ },
+ "108": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 343,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 1262.751,
+    "t1": 2545.42
+   },
+   {
+    "t0": 5121.912,
+    "t1": 5902.667
+   },
+   {
+    "t0": 9795.288,
+    "t1": 12148.707
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 108,
+  "updated_ms": 1794945177105
+ },
+ "112": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 1069,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 13676.756
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 112,
+  "updated_ms": 1794941729583
+ },
+ "119": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 1024,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 5947.281
+   },
+   {
+    "t0": 7018.031,
+    "t1": 14134.055
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 119,
+  "updated_ms": 1794941785334
+ },
+ "127": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 855,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 3872.704
+   },
+   {
+    "t0": 4831.917,
+    "t1": 6304.198
+   },
+   {
+    "t0": 8468.005,
+    "t1": 14055.98
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 127,
+  "updated_ms": 1794941879768
+ },
+ "150": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 92,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 5601.518,
+    "t1": 6817.265
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 150,
+  "updated_ms": 1794945311479
+ },
+ "151": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 156,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 5356.138,
+    "t1": 7397.255
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 151,
+  "updated_ms": 1794945328009
+ },
+ "152": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 88,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 5568.057,
+    "t1": 6750.344
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 152,
+  "updated_ms": 1794945352263
+ },
+ "157": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 811,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 9192.991
+   },
+   {
+    "t0": 11881.019,
+    "t1": 12974.076
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 157,
+  "updated_ms": 1794941978665
+ },
+ "160": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 715,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 4854.224,
+    "t1": 14147.351
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 160,
+  "updated_ms": 1794942032381
+ },
+ "170": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 830,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 80.465,
+    "t1": 6371.12
+   },
+   {
+    "t0": 9772.981,
+    "t1": 14147.351
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 170,
+  "updated_ms": 1794945451341
+ },
+ "181": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 790,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 3381.943,
+    "t1": 13598.68
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 181,
+  "updated_ms": 1794942211621
+ },
+ "213": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 771,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 9627.983
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 213,
+  "updated_ms": 1794945690153
+ },
+ "214": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 8,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 1474.67,
+    "t1": 1563.899
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 214,
+  "updated_ms": 1794942300797
+ },
+ "218": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 413,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 861.22,
+    "t1": 3192.331
+   },
+   {
+    "t0": 6705.729,
+    "t1": 9471.832
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 218,
+  "updated_ms": 1794942321975
+ },
+ "221": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 379,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 58.158,
+    "t1": 1987.738
+   },
+   {
+    "t0": 11111.418,
+    "t1": 14134.055
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 221,
+  "updated_ms": 1794945708684
+ },
+ "222": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 689,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 80.465,
+    "t1": 2422.73
+   },
+   {
+    "t0": 6638.807,
+    "t1": 13119.074
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 222,
+  "updated_ms": 1794942400929
+ },
+ "223": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 629,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 1976.584
+   },
+   {
+    "t0": 6861.88,
+    "t1": 13029.845
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 223,
+  "updated_ms": 1794942353037
+ },
+ "224": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 290,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 1597.36
+   },
+   {
+    "t0": 11936.788,
+    "t1": 14147.351
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 224,
+  "updated_ms": 1794945722454
+ },
+ "242": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 343,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 604.686,
+    "t1": 682.762
+   },
+   {
+    "t0": 5255.755,
+    "t1": 9516.447
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 242,
+  "updated_ms": 1794945839376
+ },
+ "252": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 735,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 4619.998,
+    "t1": 14147.351
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 252,
+  "updated_ms": 1794942445651
+ },
+ "338": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 657,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 5545.75,
+    "t1": 14147.351
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 338,
+  "updated_ms": 1794943149015
+ },
+ "34": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 762,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 7598.02
+   },
+   {
+    "t0": 8166.856,
+    "t1": 8858.382
+   },
+   {
+    "t0": 10486.814,
+    "t1": 11791.79
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 34,
+  "updated_ms": 1794944812286
+ },
+ "353": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 191,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9181.838,
+    "t1": 11657.947
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 353,
+  "updated_ms": 1794946416608
+ },
+ "45": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 412,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 2523.113
+   },
+   {
+    "t0": 11289.876,
+    "t1": 14147.351
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 45,
+  "updated_ms": 1794944886858
+ },
+ "492": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 604,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 35.85,
+    "t1": 5389.599
+   },
+   {
+    "t0": 7676.096,
+    "t1": 7843.401
+   },
+   {
+    "t0": 10888.345,
+    "t1": 13096.767
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 492,
+  "updated_ms": 1794947240426
+ },
+ "54": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 739,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 9.104,
+    "t1": 6504.963
+   },
+   {
+    "t0": 11167.186,
+    "t1": 14147.351
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 54,
+  "updated_ms": 1794940998099
+ },
+ "91": {
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 9.1039,
+  "ephys_t1_s": 14147.3505,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 295,
+  "n_markers_total": 1107,
+  "ranges": [
+   {
+    "t0": 1106.6,
+    "t1": 2422.73
+   },
+   {
+    "t0": 4642.305,
+    "t1": 5701.901
+   },
+   {
+    "t0": 6984.57,
+    "t1": 8021.859
+   },
+   {
+    "t0": 11323.337,
+    "t1": 11591.025
+   }
+  ],
+  "session_id": "20260917_100043",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 91,
+  "updated_ms": 1794941518357
+ }
+}
