@@ -242,6 +242,9 @@ def scan():
                 "artifact": ARTIFACTS.get(sid),
                 "tools": EXTRA_TOOLS.get(sid, []),
                 "verdicts_dir": vd if os.path.isdir(vd) else None,
+                # Only the recording's own sort has a review tool folder; the joint
+                # sort's tool belongs to the concat session's own row.
+                "review_tool": review_tool_on_z(ks) if sub == "kilosort4" else None,
                 "cluster_info": os.path.exists(os.path.join(k4, "cluster_info.tsv")),
                 # Only the recording's own standalone sort can be superseded by the
                 # joint one. The joint sort restricted to this half IS the joint sort.
@@ -388,6 +391,70 @@ def sync_check(ks, synced_dirs):
     return out
 
 
+def review_tool_on_z(ks):
+    """The newest built review tool for this sort, and whether it is COMPLETE.
+
+    Gil's standard is that when he asks for a session, nothing is left to build. So
+    the question this answers is not "was a tool built once" but "is everything the
+    publish needs sitting on Z right now": the page, the merge candidates, and the raw
+    spike trace shards. A build missing the merge candidates means the merge panel is
+    empty and the 15 minutes of raw-bound work have to be done again, which is exactly
+    what the table has to make visible instead of letting it be discovered later.
+    """
+    review = os.path.join(ks, "review")
+    root = os.path.join(review, "tool")
+    builds = (sorted(d for d in os.listdir(root) if d.startswith("build_"))
+              if os.path.isdir(root) else [])
+    if builds:
+        newest, layout, stamp, n = os.path.join(root, builds[-1]), "build", \
+            builds[-1].replace("build_", ""), len(builds)
+    elif os.path.isdir(review) and any(
+            n.startswith("unit_review_tool_") for n in os.listdir(review)):
+        # The layout before build_<stamp>/ existed: the page and data/ sit directly in
+        # review/, and the raw traces went into the page's own database rather than
+        # into shard files. 20260916 and 20261112 are both like this, and calling them
+        # "not built" would be wrong.
+        newest, layout, stamp, n = review, "legacy", None, 1
+    else:
+        return None
+    names = os.listdir(newest)
+    data = os.path.join(newest, "data")
+    if os.path.isdir(data):
+        names += os.listdir(data)
+    shards = os.path.join(data, "raw_traces")
+    return {
+        "build": stamp, "layout": layout, "path": newest, "n_builds": n,
+        "page": any(n.startswith("unit_review_tool_") and n.endswith(".html")
+                    for n in names),
+        "merge_candidates": any(n.startswith("merge_candidates") and n.endswith(".json")
+                                for n in names),
+        "raw_shards": (len([n for n in os.listdir(shards) if n.endswith(".json")])
+                       if os.path.isdir(shards) else 0),
+    }
+
+
+def tool_cell_md(r):
+    """"Is this session ready to hand over?" -- one cell, naming what is missing."""
+    tl = r.get("review_tool")
+    if not tl:
+        return "**no**"
+    missing = []
+    if not tl["page"]:
+        missing.append("page")
+    if not tl["merge_candidates"]:
+        missing.append("merge candidates")
+    # A legacy build's traces live in the page's database, which still works -- the
+    # page falls back to it when no shard files are published. Demanding shards there
+    # would report two finished sessions as broken.
+    if not tl["raw_shards"] and tl["layout"] != "legacy":
+        missing.append("raw traces")
+    if missing:
+        return "**partial -- no %s**" % ", no ".join(missing)
+    if tl["layout"] == "legacy":
+        return "yes (pre-`build_` layout, traces in the page db)"
+    return "yes (%s)" % tl["build"]
+
+
 def sync_cell_md(r):
     """The alignment quality, in the table, next to "is there a synced folder".
 
@@ -506,11 +573,11 @@ def main():
     md.append("on Z, which means they exist only in a browser database. Fix it by dumping the")
     md.append("three collections to `<session>.kilosort/review/verdicts/` on Z.")
     md.append("")
-    hdr = ("| rat | session | units | Th u/l | decided | good | mua | noise | merges | "
-           "windows | on Z | verdicts applied | Bpod synced | sync check | catch trials "
-           "| joined | state |")
+    hdr = ("| rat | session | units | Th u/l | tool ready | decided | good | mua | noise "
+           "| merges | windows | on Z | verdicts applied | Bpod synced | sync check "
+           "| catch trials | joined | state |")
     md.append(hdr)
-    md.append("|" + "---|" * 17)
+    md.append("|" + "---|" * 18)
     for r in rows:
         t = r["z_tally"]
         dec = r["live_verdicts"] if r["live_verdicts"] is not None else r["z_verdicts"]
@@ -526,9 +593,9 @@ def main():
             sy = "**blocked** -- no Bpod files for this rat"
         else:
             sy = "no"
-        md.append("| %s | `%s` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | **%s** |" % (
+        md.append("| %s | `%s` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | **%s** |" % (
             r["rat"], r.get("row_id", r["session"]), r["n_units"] or "?",
-            r["thresholds"] or "?",
+            r["thresholds"] or "?", tool_cell_md(r),
             dec, t.get("good", 0), t.get("mua", 0), t.get("noise", 0),
             r["z_merges"], r["z_trials"],
             "yes" if r["z_verdicts"] else "no",
@@ -574,6 +641,19 @@ def main():
             md.append("")
             for line in r["provenance"]:
                 md.append("  - %s" % line)
+        tl = r.get("review_tool")
+        if tl:
+            md.append("- review tool built on Z: `%s` (%d build%s kept) -- page %s, "
+                      "merge candidates %s, %d raw-trace shard(s)"
+                      % (tl["path"], tl["n_builds"], "" if tl["n_builds"] == 1 else "s",
+                         "yes" if tl["page"] else "**MISSING**",
+                         "yes" if tl["merge_candidates"] else "**MISSING**",
+                         tl["raw_shards"]))
+        elif r.get("row_id", r["session"]).endswith("]"):
+            pass
+        else:
+            md.append("- review tool built on Z: **no** -- `build_review_for_session.py "
+                      "%s` has not been run" % r["session"])
         if r["artifact"]:
             md.append("- review page: %s" % r["artifact"])
         else:

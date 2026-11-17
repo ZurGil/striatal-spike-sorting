@@ -68,9 +68,15 @@ from collections import Counter
 
 import numpy as np
 
+# `sync_pipeline` is a sibling checkout on this PC and a two-file copy next to the
+# other scripts on the cluster (only dio_decoder is used, and it imports nothing of
+# its own beyond numpy/pandas). Both roots go on the path; whichever exists wins.
 sys.path.insert(0, r"D:\Gil")  # so `sync_pipeline` imports; read-only use
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from striatal_agent.paths import outputs_dir  # noqa: E402
 
-OUT_DIR = r"D:\Gil\spike_sorting_agent\outputs"
+OUT_DIR = outputs_dir()
 CHUNK = 4_000_000  # spikes per pass; keeps peak memory flat regardless of session length
 
 

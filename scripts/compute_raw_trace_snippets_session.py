@@ -36,11 +36,13 @@ REC_ROOT = sys.argv[2]
 GAIN_TO_UV = float(sys.argv[3])
 
 SESSION_ROOT = REC_ROOT
-KO_DIR = rf"{REC_ROOT}\{SESSION_ID}.kilosort\kilosort4\kilosort_original"
-OUT = r"D:\Gil\spike_sorting_agent\outputs"
-REVIEW_DATA_JSON = rf"{OUT}\pipeline_review_data_{SESSION_ID}.json"
-OUT_PATH = rf"{OUT}\raw_trace_snippets_{SESSION_ID}.json"
-PROGRESS_PATH = rf"{OUT}\raw_trace_snippets_{SESSION_ID}_progress.txt"
+KO_DIR = os.path.join(REC_ROOT, f"{SESSION_ID}.kilosort", "kilosort4", "kilosort_original")
+from striatal_agent.paths import outputs_dir
+
+OUT = outputs_dir()
+REVIEW_DATA_JSON = os.path.join(OUT, f"pipeline_review_data_{SESSION_ID}.json")
+OUT_PATH = os.path.join(OUT, f"raw_trace_snippets_{SESSION_ID}.json")
+PROGRESS_PATH = os.path.join(OUT, f"raw_trace_snippets_{SESSION_ID}_progress.txt")
 
 FS = 30000.0
 NT, NT0MIN = 60, 20

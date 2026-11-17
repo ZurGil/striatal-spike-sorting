@@ -17,9 +17,13 @@ from striatal_agent.acg_tools import compute_acg_hist
 
 SESSION_ID = sys.argv[1]
 REC_ROOT = sys.argv[2]
-CLASSIFICATION_JSON = rf"D:\Gil\spike_sorting_agent\outputs\corrected_classification_{SESSION_ID}_with_waveforms.json"
-KS_DIR = rf"{REC_ROOT}\{SESSION_ID}.kilosort\kilosort4\kilosort_original"
-OUT_PATH = rf"D:\Gil\spike_sorting_agent\outputs\pipeline_review_data_{SESSION_ID}.json"
+from striatal_agent.paths import out_path  # noqa: E402
+
+# os.path.join rather than a backslash f-string: this now also runs on the cluster,
+# where the separator is "/" and a hardcoded "\" makes one long filename.
+CLASSIFICATION_JSON = out_path(f"corrected_classification_{SESSION_ID}_with_waveforms.json")
+KS_DIR = os.path.join(REC_ROOT, f"{SESSION_ID}.kilosort", "kilosort4", "kilosort_original")
+OUT_PATH = out_path(f"pipeline_review_data_{SESSION_ID}.json")
 
 FS = 30000.0
 ACG_MAX_LAG_MS = 30.0

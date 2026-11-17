@@ -49,7 +49,14 @@ import time
 import numpy as np
 
 FS = 30000.0
-OUT_DIR = r"D:\Gil\spike_sorting_agent\outputs"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from striatal_agent.paths import outputs_dir  # noqa: E402
+
+# Set by the cluster job; unset on this PC, where it is the old hardcoded path.
+# This step reads the raw probe1.dat, so it belongs on the cluster while the file is
+# still staged there -- which is only possible if the script can write somewhere other
+# than D:\.
+OUT_DIR = outputs_dir()
 
 # CCG/ACG geometry. 0.5 ms bins to 30 ms: fine enough to resolve a refractory dip,
 # coarse enough that a pair with a few thousand spikes still has usable counts.

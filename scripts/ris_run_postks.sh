@@ -18,24 +18,46 @@
 # joint session on a 64 GB machine, reaped for memory pressure, and then blocked behind
 # a live recording. Here it is a second LSF job on a CPU host.
 #
-# The six steps are ordered by what feeds what:
+# The steps are ordered by what feeds what:
 #   1 agent pipeline batches  -> agent_processed/batch_reports/   (raw)
 #   2 consolidate             -> agent_processed/agent_report.json + cluster_*.tsv
 #   3 bombcell                -> $OUTPUTS/bombcell_results_<sid>/ (raw)
 #   4 corrected classification-> $OUTPUTS/corrected_classification_<sid>{.csv,_with_waveforms.json}
 #   5 trodes channel lookup   -> $OUTPUTS/unit_trodes_channel_lookup_<sid>.csv
 #   6 raw cluster points + raw separation metric                   (raw)
+#   7 review data             -> $OUTPUTS/pipeline_review_data_<sid>.json
+#   8 burst and ISI metrics   -> $OUTPUTS/burst_isi_metrics_<sid>.json
+#   9 merge 4-9 into the review data (no new computation, just the join)
+#  10 session timeline        -> $OUTPUTS/session_timeline_<sid>.json        (DIO)
+#  11 merge candidates + raw spike trace snippets                  (raw)
 #
-# Steps 3-6 are each allowed to fail WITHOUT killing the run, for the same reason the
+# STEPS 7-11 WERE ADDED ON 2026-11-17, AND WHY MATTERS
+# ----------------------------------------------------
+# They were originally left out as "the display half": seconds of CPU, and they end in
+# an artifact published from the PC. That was wrong about two of them. Step 11 reads the
+# RAW probe1.dat -- merge candidates pulls 150 waveforms per unit for every co-located
+# pair and the snippets cut 16 spikes per unit out of the recording -- so on the PC it
+# costs 15-20 minutes per session reading 300 GB over SMB from Z, and it can only be
+# done at all while the .rec still exists. Here the file is on local scratch.
+#
+# Gil's standard, 2026-11-17: "merge candidates should happen as part of the building of
+# the review tool in the cluster ... so next time I'll ask you for session, you won't
+# have to build anything." After this, a sorted session arrives on Z with every input
+# the page needs already computed, and the PC only assembles the HTML and publishes it.
+#
+# Step 10 needs the DIO, which IS staged (stage_session_to_ris.ps1 copies <sid>.DIO/
+# into the staging directory as DIO/), and step 9 needs nothing but steps 4-8's output.
+#
+# Steps 3-11 are each allowed to fail WITHOUT killing the run, for the same reason the
 # waveform extractor is in ris_run_session.sh: by the time they run, hours of work sit
 # in the earlier outputs and must still be collectable. Each failure is reported loudly
 # and repeated in the summary at the end, with the exact command to re-run it while the
 # raw file is still on scratch.
 #
-# The display half of the pipeline -- session timeline, merge candidates, the review
-# HTML -- is deliberately NOT here. It needs the DIO and the Bpod file, it is seconds of
-# CPU, and it ends in an artifact published from the PC. Only the raw-bound steps have a
-# reason to be on the cluster.
+# What is still NOT here: assembling the review HTML and publishing it. The first is
+# seconds of CPU on the PC against files this job has already produced, and the second
+# can only be done by Claude through the Artifact tooling. Nothing else that the page
+# needs is left for the PC.
 #
 # Called by ris_submit_postks.sh; not meant to be run by hand.
 #
@@ -108,6 +130,16 @@ done
 tconf="$(dirname "${DATA}")/${SESSION}.trodesconf"
 [ -e "${tconf}" ] && ln -sfn "${tconf}" "${REC_ROOT}/${SESSION}.trodesconf"
 
+# The DIO, for the session timeline (step 10). Staging copies <sid>.DIO/ in as DIO/;
+# build_session_timeline_data.py looks for <rec_root>/<sid>.DIO beside the .kilosort.
+dio="$(dirname "${DATA}")/DIO"
+if [ -d "${dio}" ]; then
+    ln -sfn "${dio}" "${REC_ROOT}/${SESSION}.DIO"
+else
+    echo "NOTE: no DIO/ in the staging directory -- the session timeline (step 10) and"
+    echo "      therefore the merge candidates (step 11a) will not run here."
+fi
+
 N_UNITS=$(${PY} -c "
 import numpy as np, sys
 st = np.load(sys.argv[1]).ravel()
@@ -136,7 +168,7 @@ FAILURES=()
 # layout gather_worker_batches.py already knows how to collect.
 # ---------------------------------------------------------------------------
 echo
-echo "### STEP 1/6  agent pipeline, ${N_BATCHES} batches"
+echo "### STEP 1/11  agent pipeline, ${N_BATCHES} batches"
 PAR_ROOT="${SDIR}/par"
 for w in $(seq 1 "${PARALLEL}"); do
     wks="${PAR_ROOT}/w${w}/${SESSION}.rec/${SESSION}.kilosort"
@@ -170,7 +202,7 @@ while [ "${b}" -lt "${N_BATCHES}" ]; do
 done
 
 echo
-echo "### STEP 2/6  gather + consolidate"
+echo "### STEP 2/11  gather + consolidate"
 ${PY} "${CODE}/gather_worker_batches.py" "${SESSION}" "${REC_ROOT}" \
       --par "${PAR_ROOT}" --workers "${PARALLEL}" --batch_size "${BATCH}" \
    && ${PY} "${CODE}/consolidate_batches_session.py" "${SESSION}" "${REC_ROOT}"
@@ -196,31 +228,68 @@ run_step () {   # run_step <label> <rerun hint> <cmd...>
     return 0
 }
 
-run_step "STEP 3/6  bombcell" \
+run_step "STEP 3/11  bombcell" \
     "${PY} ${CODE}/run_bombcell_session.py ${SESSION} ${REC_ROOT} ${GAIN}" \
     ${PY} "${CODE}/run_bombcell_session.py" "${SESSION}" "${REC_ROOT}" "${GAIN}"
 
-run_step "STEP 4/6  corrected classification" \
+run_step "STEP 4/11  corrected classification" \
     "${PY} ${CODE}/corrected_classification_session.py ${SESSION} ${REC_ROOT}" \
     ${PY} "${CODE}/corrected_classification_session.py" "${SESSION}" "${REC_ROOT}"
 
-run_step "STEP 5/6  trodes channel lookup" \
+run_step "STEP 5/11  trodes channel lookup" \
     "${PY} ${CODE}/build_trodes_channel_lookup_session.py ${SESSION} ${REC_ROOT}" \
     ${PY} "${CODE}/build_trodes_channel_lookup_session.py" "${SESSION}" "${REC_ROOT}"
 
-run_step "STEP 6a/6 raw cluster points" \
+run_step "STEP 6a/11 raw cluster points" \
     "${PY} ${CODE}/raw_cluster_points_session.py ${SESSION} ${REC_ROOT}" \
     ${PY} "${CODE}/raw_cluster_points_session.py" "${SESSION}" "${REC_ROOT}"
 
-run_step "STEP 6b/6 raw separation metric" \
+run_step "STEP 6b/11 raw separation metric" \
     "${PY} ${CODE}/raw_separation_metric_session.py ${SESSION} ${REC_ROOT}" \
     ${PY} "${CODE}/raw_separation_metric_session.py" "${SESSION}" "${REC_ROOT}"
+
+# ---------------------------------------------------------------------------
+# STEPS 7-11  everything the review page needs, computed while the raw file is here.
+#
+# Order is not free: 9 joins 4+6+8 into 7's file, and 11a reads both 7's file (after
+# the join) and 10's timeline. 11a and 11b are the raw-bound pair and the reason the
+# whole block moved here.
+# ---------------------------------------------------------------------------
+run_step "STEP 7/11  review data" \
+    "${PY} ${CODE}/build_pipeline_review_data.py ${SESSION} ${REC_ROOT}" \
+    ${PY} "${CODE}/build_pipeline_review_data.py" "${SESSION}" "${REC_ROOT}"
+
+run_step "STEP 8/11  burst and ISI metrics" \
+    "${PY} ${CODE}/build_burst_isi_metrics_session.py ${SESSION} ${REC_ROOT}" \
+    ${PY} "${CODE}/build_burst_isi_metrics_session.py" "${SESSION}" "${REC_ROOT}"
+
+run_step "STEP 9/11  merge cluster points, separation, bursts and channels in" \
+    "${PY} ${CODE}/merge_review_data_session.py ${SESSION}" \
+    ${PY} "${CODE}/merge_review_data_session.py" "${SESSION}"
+
+run_step "STEP 10/11 session timeline from the DIO" \
+    "${PY} ${CODE}/build_session_timeline_data.py ${SESSION} ${REC_ROOT}" \
+    ${PY} "${CODE}/build_session_timeline_data.py" "${SESSION}" "${REC_ROOT}"
+
+# --max_pairs 3000, not the old default of 150: RESEARCH_LOG 5bd.49 measured that 150
+# discarded 94 % of co-located pairs, and a unit missing from the merge panel reads as
+# "checked, nothing found" when it means "never compared".
+# --uv_per_bit is the session's own gain, passed in by the submitter from the .rec
+# header. The 0.195 default is a SpikeGLX Neuropixels figure, 10.6x too large here.
+run_step "STEP 11a/11 merge candidates" \
+    "${PY} ${CODE}/build_merge_candidates.py ${SESSION} --rec_root ${SDIR} --max_pairs 3000 --uv_per_bit ${GAIN}" \
+    ${PY} "${CODE}/build_merge_candidates.py" "${SESSION}" --rec_root "${SDIR}" \
+          --max_pairs 3000 --uv_per_bit "${GAIN}"
+
+run_step "STEP 11b/11 raw spike trace snippets" \
+    "${PY} ${CODE}/compute_raw_trace_snippets_session.py ${SESSION} ${REC_ROOT} ${GAIN}" \
+    ${PY} "${CODE}/compute_raw_trace_snippets_session.py" "${SESSION}" "${REC_ROOT}" "${GAIN}"
 
 echo
 echo "================================================================"
 echo "finished   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 if [ "${#FAILURES[@]}" -eq 0 ]; then
-    echo "all six steps completed"
+    echo "all eleven steps completed"
 else
     echo "${#FAILURES[@]} STEP(S) FAILED -- everything else is complete and collectable:"
     for f in "${FAILURES[@]}"; do echo "  * ${f}"; done

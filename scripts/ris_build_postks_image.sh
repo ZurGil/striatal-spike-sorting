@@ -36,7 +36,7 @@ The image copies nothing in, so only the Dockerfile goes to the build dir. The
 pipeline's own code is mounted at run time and therefore has to be up to date in
 ${CODE_DIR} -- including striatal_agent/, which the post-KS scripts import.
 
-    ssh compute1 "mkdir -p ${BUILD_DIR} ${CODE_DIR}/striatal_agent"
+    ssh compute1 "mkdir -p ${BUILD_DIR} ${CODE_DIR}/striatal_agent ${CODE_DIR}/sync_pipeline"
     scp docker/Dockerfile.postks compute1:${BUILD_DIR}/Dockerfile
     scp scripts/ris_run_postks.sh scripts/ris_submit_postks.sh scripts/ris_submit_all.sh \\
         scripts/run_pipeline_batch_session.py scripts/gather_worker_batches.py \\
@@ -44,8 +44,15 @@ ${CODE_DIR} -- including striatal_agent/, which the post-KS scripts import.
         scripts/corrected_classification_session.py \\
         scripts/build_trodes_channel_lookup_session.py \\
         scripts/raw_cluster_points_session.py scripts/raw_separation_metric_session.py \\
+        scripts/build_pipeline_review_data.py scripts/build_burst_isi_metrics_session.py \\
+        scripts/merge_review_data_session.py scripts/build_session_timeline_data.py \\
+        scripts/build_merge_candidates.py scripts/compute_raw_trace_snippets_session.py \\
         compute1:${CODE_DIR}/
     scp striatal_agent/*.py compute1:${CODE_DIR}/striatal_agent/
+    # Only dio_decoder is used, by the session timeline, and it imports nothing from
+    # the rest of sync_pipeline -- so two files rather than the whole checkout.
+    scp ../sync_pipeline/__init__.py ../sync_pipeline/dio_decoder.py \\
+        compute1:${CODE_DIR}/sync_pipeline/
 
 -----------------------------------------------------------------------------
 STEP 1 -- Docker Hub login, once per cluster account (interactive)

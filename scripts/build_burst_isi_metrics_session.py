@@ -40,9 +40,11 @@ from striatal_agent.firing_pattern import detect_bursts
 
 SESSION_ID = sys.argv[1]
 REC_ROOT = sys.argv[2]
-KO_DIR = rf"{REC_ROOT}\{SESSION_ID}.kilosort\kilosort4\kilosort_original"
-OUT = r"D:\Gil\spike_sorting_agent\outputs"
-OUT_PATH = rf"{OUT}\burst_isi_metrics_{SESSION_ID}.json"
+KO_DIR = os.path.join(REC_ROOT, f"{SESSION_ID}.kilosort", "kilosort4", "kilosort_original")
+from striatal_agent.paths import outputs_dir
+
+OUT = outputs_dir()
+OUT_PATH = os.path.join(OUT, f"burst_isi_metrics_{SESSION_ID}.json")
 
 FS = 30000.0
 MIN_N_PER_POS = 3

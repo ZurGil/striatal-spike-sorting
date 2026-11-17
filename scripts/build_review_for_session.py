@@ -82,6 +82,20 @@ CLUSTER_INPUTS = [
     "unit_trodes_channel_lookup_%s.csv",
 ]
 
+# From 2026-11-17 the cluster also computes the rest of the raw-bound work: the review
+# data with everything merged in, the timeline, the merge candidates and the raw spike
+# traces (ris_run_postks.sh steps 7-11). When they are on Z this script copies them in
+# and skips recomputing them -- which is the difference between a session being ready
+# to publish and twenty minutes of reading 300 GB back off Z. Sessions sorted before
+# that date have none of them, which is not an error: the steps below just run.
+CLUSTER_EXTRAS = [
+    "pipeline_review_data_%s.json",
+    "burst_isi_metrics_%s.json",
+    "session_timeline_%s.json",
+    "merge_candidates_%s.json",
+    "raw_trace_snippets_%s.json",
+]
+
 
 def say(msg):
     print(msg, flush=True)
@@ -154,6 +168,24 @@ def bring_in_cluster_inputs(sid, rec):
             "staged; see scripts/ris_run_postks.sh for the exact commands."
             % (sid, "\n  ".join(missing)))
     say("    %d already current, %d copied from Z" % (len(already), len(brought)))
+
+    extras, absent = [], []
+    for pattern in CLUSTER_EXTRAS:
+        name = pattern % sid
+        src, dst = os.path.join(src_dir, name), os.path.join(OUT, name)
+        if not os.path.exists(src):
+            absent.append(name)
+            continue
+        if not os.path.exists(dst) or sha1_of(src) != sha1_of(dst):
+            shutil.copy2(src, dst)
+        extras.append(name)
+    if extras:
+        say("    the cluster also built %d of the %d display inputs, taken from Z: %s"
+            % (len(extras), len(CLUSTER_EXTRAS),
+               ", ".join(n.replace("_%s" % sid, "") for n in extras)))
+    if absent:
+        say("    not built on the cluster (will be computed here): %s"
+            % ", ".join(n.replace("_%s" % sid, "") for n in absent))
 
 
 def read_gain(rec, sid):

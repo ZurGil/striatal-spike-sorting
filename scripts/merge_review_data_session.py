@@ -39,12 +39,15 @@ import numpy as np
 import pandas as pd
 
 SESSION_ID = sys.argv[1]
-OUT = r"D:\Gil\spike_sorting_agent\outputs"
-REVIEW_JSON = rf"{OUT}\pipeline_review_data_{SESSION_ID}.json"
-CLUSTER_POINTS_JSON = rf"{OUT}\raw_cluster_points_full_{SESSION_ID}.json"
-SEPARATION_NPY = rf"{OUT}\raw_separation_full_{SESSION_ID}.npy"
-BURST_ISI_JSON = rf"{OUT}\burst_isi_metrics_{SESSION_ID}.json"
-TRODES_LUT_CSV = rf"{OUT}\unit_trodes_channel_lookup_{SESSION_ID}.csv"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from striatal_agent.paths import outputs_dir  # noqa: E402
+
+OUT = outputs_dir()
+REVIEW_JSON = os.path.join(OUT, f"pipeline_review_data_{SESSION_ID}.json")
+CLUSTER_POINTS_JSON = os.path.join(OUT, f"raw_cluster_points_full_{SESSION_ID}.json")
+SEPARATION_NPY = os.path.join(OUT, f"raw_separation_full_{SESSION_ID}.npy")
+BURST_ISI_JSON = os.path.join(OUT, f"burst_isi_metrics_{SESSION_ID}.json")
+TRODES_LUT_CSV = os.path.join(OUT, f"unit_trodes_channel_lookup_{SESSION_ID}.csv")
 
 
 def p80(vals):
