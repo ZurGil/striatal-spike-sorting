@@ -1,10 +1,116 @@
 rat,bpod_file,n_trials,percent_catch_setting,catch_error_setting,setting_changed_mid_session,n_flagged_catch,pct_flagged,n_correct_catch,pct_rewarded_catch,pct_rewarded_noncatch,median_wait_catch_s,median_wait_noncatch_s,n_error,median_wait_error_s,error_catch,verdict
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session1.mat,5,0.0,0.0,,0,0.0,0,,,,,0,,"NO -- errors are signalled, no time investment on errors",NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session10.mat,2,0.15,1.0,,0,0.0,0,,,,,1,3.86,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session2.mat,6,0.0,0.0,PercentCatch 0->0.15; CatchError 0->1,0,0.0,0,,,,,0,,"NO -- errors are signalled, no time investment on errors",NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session3.mat,13,0.15,1.0,,0,0.0,0,,63.6,,1.91,1,4.77,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session4.mat,436,0.15,1.0,,58,13.3,3,0.0,72.2,2.99,1.73,9,3.32,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session5.mat,13,0.15,1.0,,0,0.0,0,,,,,1,2.43,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session6.mat,7,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session7.mat,17,0.15,1.0,,0,0.0,0,,0.0,,1.43,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session8.mat,37,0.15,1.0,,1,2.7,1,0.0,40.0,1.83,1.3,4,0.8,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Apr14_2026_Session9.mat,2,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr15_2026_Session1.mat,3,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr15_2026_Session2.mat,2,0.15,1.0,,0,0.0,0,,0.0,,2.16,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr15_2026_Session3.mat,5,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr15_2026_Session4.mat,587,0.15,1.0,,103,17.5,33,0.0,95.5,6.23,1.17,31,5.83,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Apr15_2026_Session5.mat,6,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr15_2026_Session6.mat,2,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr16_2026_Session1.mat,576,0.15,1.0,,62,10.8,21,0.0,90.6,7.59,1.21,43,6.81,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Apr16_2026_Session2.mat,306,0.15,1.0,,49,16.0,3,0.0,96.2,7.58,1.2,10,6.57,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session1.mat,16,0.15,1.0,,0,0.0,0,,100.0,,2.5,1,0.34,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session10.mat,513,0.15,1.0,,67,13.1,0,,100.0,,1.37,0,,unknown,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session2.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session3.mat,4,0.15,1.0,,0,0.0,0,,,,,2,0.93,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session4.mat,5,0.15,1.0,,0,0.0,0,,0.0,,0.97,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session5.mat,3,0.15,1.0,,0,0.0,0,,100.0,,0.96,1,6.52,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session6.mat,14,0.15,1.0,,0,0.0,0,,,,,2,1.09,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session7.mat,74,0.15,1.0,,11,14.9,0,,75.0,,0.48,5,1.48,yes -- errors are catch trials too,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session8.mat,72,0.15,1.0,,3,4.2,0,,0.0,,0.35,4,0.78,yes -- errors are catch trials too,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_Apr20_2026_Session9.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Begin,Begin01_Dual2AFC_nat_Apr21_2026_Session1.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Begin,Begin01_Dual2AFC_nat_Apr21_2026_Session2.mat,920,0.15,1.0,,121,13.2,0,,,,,0,,unknown,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_Apr24_2026_Session1.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Begin,Begin01_Dual2AFC_nat_Aug03_2026_Session1.mat,448,0.15,1.0,,75,16.7,39,0.0,67.5,2.33,1.23,34,4.45,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug03_2026_Session2.mat,341,0.15,1.0,,52,15.2,22,0.0,64.2,2.17,1.16,30,6.12,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug04_2026_Session1.mat,551,0.15,1.0,,83,15.1,46,0.0,57.6,3.38,1.09,43,3.65,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug05_2026_Session1.mat,86,0.15,1.0,,8,9.3,6,0.0,47.5,3.42,1.13,4,2.46,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug05_2026_Session2.mat,575,0.15,1.0,,72,12.5,31,0.0,62.6,2.24,1.21,70,4.29,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug06_2026_Session1.mat,783,0.15,1.0,,139,17.8,65,0.0,64.4,1.97,1.13,61,4.54,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug07_2026_Session1.mat,1171,0.15,1.0,,172,14.7,68,0.0,58.8,2.93,1.04,154,3.53,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug11_2026_Session1.mat,713,0.15,1.0,,86,12.1,41,0.0,63.5,3.8,1.17,96,3.02,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug13_2026_Session1.mat,300,0.15,1.0,,34,11.3,15,0.0,69.4,1.38,1.29,21,3.92,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug13_2026_Session2.mat,248,0.15,1.0,,30,12.1,11,0.0,64.4,4.36,1.14,11,2.01,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug14_2026_Session1.mat,280,0.15,1.0,,39,13.9,22,0.0,69.0,3.31,1.13,11,6.34,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug17_2026_Session1.mat,220,0.15,1.0,,33,15.0,16,0.0,71.1,5.77,1.38,17,3.77,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug17_2026_Session2.mat,349,0.15,1.0,,50,14.3,32,0.0,62.4,2.47,1.15,23,3.03,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug18_2026_Session1.mat,798,0.15,1.0,,108,13.5,57,0.0,64.7,5.34,1.23,73,4.15,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug20_2026_Session1.mat,508,0.15,1.0,,68,13.4,29,0.0,81.1,6.67,1.23,38,6.2,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug21_2026_Session1.mat,602,0.15,1.0,,99,16.4,46,0.0,69.7,2.63,1.45,66,4.58,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug24_2026_Session1.mat,495,0.15,1.0,,70,14.1,22,0.0,81.6,5.38,1.26,27,4.12,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug25_2026_Session1.mat,758,0.15,1.0,,104,13.7,54,0.0,62.4,4.97,1.25,65,4.0,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug26_2026_Session1.mat,864,0.15,1.0,,115,13.3,68,0.0,68.5,3.59,1.24,75,4.05,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug27_2026_Session1.mat,743,0.15,1.0,,113,15.2,73,0.0,74.5,4.78,1.21,59,4.04,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Aug28_2026_Session1.mat,709,0.15,1.0,,82,11.6,47,0.0,68.4,6.25,1.23,30,5.04,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jul20_2026_Session1.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Begin,Begin01_Dual2AFC_nat_Jul20_2026_Session2.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Begin,Begin01_Dual2AFC_nat_Jul20_2026_Session3.mat,3,0.15,1.0,,0,0.0,0,,50.0,,1.88,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul20_2026_Session4.mat,3,0.15,1.0,,0,0.0,0,,100.0,,3.26,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul20_2026_Session5.mat,528,0.15,1.0,,83,15.7,0,,,,,0,,unknown,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_Jul21_2026_Session1.mat,29,0.15,1.0,,0,0.0,0,,60.0,,1.06,3,3.04,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul21_2026_Session2.mat,899,0.15,1.0,,119,13.2,25,0.0,87.7,6.13,1.39,65,5.26,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jul22_2026_Session1.mat,653,0.15,1.0,,99,15.2,48,0.0,76.1,4.14,1.26,46,4.13,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jul23_2026_Session1.mat,999,0.15,1.0,,145,14.5,59,0.0,84.4,6.84,1.25,50,5.76,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jul24_2026_Session1.mat,888,0.15,1.0,,121,13.6,63,0.0,81.3,6.4,1.36,49,5.49,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jul24_2026_Session2.mat,9,0.15,1.0,,0,0.0,0,,100.0,,2.64,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul24_2026_Session3.mat,8,0.15,1.0,,0,0.0,0,,,,,1,0.22,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul24_2026_Session4.mat,4,0.15,1.0,,0,0.0,0,,50.0,,1.68,1,1.51,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul24_2026_Session5.mat,5,0.15,1.0,,0,0.0,0,,75.0,,1.23,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul24_2026_Session6.mat,5,0.15,1.0,,0,0.0,0,,66.7,,0.79,1,4.02,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul24_2026_Session7.mat,4,0.15,1.0,,0,0.0,0,,100.0,,1.37,1,3.33,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul24_2026_Session8.mat,3,0.15,1.0,,0,0.0,0,,100.0,,1.38,1,2.16,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul27_2026_Session1.mat,7,0.15,1.0,,0,0.0,0,,0.0,,2.53,1,3.86,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul27_2026_Session2.mat,10,0.15,1.0,,0,0.0,0,,100.0,,1.32,1,2.35,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul29_2026_Session1.mat,1250,0.15,1.0,,214,17.1,100,1.0,87.4,6.17,1.41,80,5.28,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jul30_2026_Session1.mat,21,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jul30_2026_Session2.mat,469,0.15,1.0,,63,13.4,33,3.0,85.1,5.58,1.59,22,3.36,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jul31_2026_Session1.mat,383,0.15,1.0,,50,13.1,28,0.0,87.0,5.14,1.45,31,4.67,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jun01_2026_Session1.mat,414,0.15,1.0,,58,14.0,26,0.0,93.3,6.8,1.42,26,6.34,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jun01_2026_Session2.mat,128,0.15,1.0,,15,11.7,7,0.0,95.7,8.51,2.15,8,5.84,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jun02_2026_Session1.mat,280,0.15,1.0,,45,16.1,25,0.0,86.3,6.75,1.49,22,5.61,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jun03_2026_Session1.mat,824,0.15,1.0,,113,13.7,39,0.0,86.3,8.01,1.42,39,6.92,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jun04_2026_Session1.mat,336,0.15,1.0,,44,13.1,20,0.0,91.9,8.48,1.41,20,7.14,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_Jun05_2026_Session1.mat,2,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jun05_2026_Session2.mat,11,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jun05_2026_Session3.mat,22,0.15,1.0,,0,0.0,0,,0.0,,1.18,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jun08_2026_Session1.mat,5,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jun08_2026_Session2.mat,4,0.15,1.0,,0,0.0,0,,0.0,,0.92,1,6.17,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jun10_2026_Session1.mat,3,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_Jun10_2026_Session2.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Begin,Begin01_Dual2AFC_nat_May05_2026_Session1.mat,10,0.15,1.0,,0,0.0,0,,,,,1,0.42,yes -- errors are catch trials too,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_May05_2026_Session2.mat,2,0.15,1.0,,0,0.0,0,,,,,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_May05_2026_Session3.mat,271,0.15,1.0,,37,13.7,0,,0.0,,0.88,2,7.86,yes -- errors are catch trials too,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_May06_2026_Session1.mat,811,0.15,1.0,,127,15.7,16,0.0,91.1,6.1,1.69,32,5.85,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_May07_2026_Session1.mat,790,0.15,1.0,,115,14.6,45,0.0,90.3,6.85,1.45,33,6.49,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_May08_2026_Session1.mat,648,0.15,1.0,,104,16.0,50,0.0,90.2,7.15,1.36,19,5.49,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_May11_2026_Session1.mat,7,0.15,1.0,,0,0.0,0,,0.0,,0.97,0,,unknown,NO CATCH TRIALS
+Begin,Begin01_Dual2AFC_nat_May11_2026_Session2.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Begin,Begin01_Dual2AFC_nat_May11_2026_Session3.mat,,,,,,,,,,,,,,,COULD NOT READ: 0
+Begin,Begin01_Dual2AFC_nat_May11_2026_Session4.mat,41,0.15,1.0,,2,4.9,0,,75.0,,0.86,2,6.51,yes -- errors are catch trials too,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_May11_2026_Session5.mat,315,0.15,1.0,,44,14.0,0,,,,,0,,unknown,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_May11_2026_Session6.mat,194,0.15,1.0,,23,11.9,0,,,,,0,,unknown,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_May11_2026_Session7.mat,43,0.15,1.0,,2,4.7,0,,,,,0,,unknown,"flagged, but no correct catch trial to judge"
+Begin,Begin01_Dual2AFC_nat_May12_2026_Session1.mat,597,0.15,1.0,,82,13.7,28,0.0,94.9,7.21,1.43,17,7.37,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_May13_2026_Session1.mat,711,0.15,1.0,,101,14.2,30,0.0,92.1,7.45,1.58,36,6.46,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_May14_2026_Session1.mat,591,0.15,1.0,,84,14.2,40,0.0,92.1,8.68,1.42,33,6.29,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_May15_2026_Session1.mat,884,0.15,1.0,,130,14.7,41,0.0,92.3,8.22,1.4,35,6.93,yes -- errors are catch trials too,catch trials delivered
+Begin,Begin01_Dual2AFC_nat_May21_2026_Session1.mat,919,0.15,1.0,,161,17.5,0,,,,,0,,unknown,"flagged, but no correct catch trial to judge"
 Popper,Popper_Dual2AFC_nat_Nov09_2026_Session1.mat,632,0.15,0.0,,99,15.7,34,0.0,68.3,5.35,1.02,25,1.21,"NO -- errors are signalled, no time investment on errors",catch trials delivered
 Popper,Popper_Dual2AFC_nat_Nov10_2026_Session1.mat,831,0.15,0.0,,101,12.2,42,0.0,66.4,5.93,1.15,118,1.5,"NO -- errors are signalled, no time investment on errors",catch trials delivered
 Popper,Popper_Dual2AFC_nat_Nov11_2026_Session1.mat,877,0.15,0.0,,103,11.7,49,0.0,87.4,7.13,1.45,102,1.18,"NO -- errors are signalled, no time investment on errors",catch trials delivered
 Popper,Popper_Dual2AFC_nat_Nov12_2026_Session1.mat,1085,0.15,0.0,,176,16.2,70,0.0,75.7,6.61,1.29,92,1.13,"NO -- errors are signalled, no time investment on errors",catch trials delivered
 Popper,Popper_Dual2AFC_nat_Nov13_2026_Session1.mat,924,0.15,0.0,,101,10.9,42,0.0,79.8,6.55,1.27,82,1.1,"NO -- errors are signalled, no time investment on errors",catch trials delivered
 Popper,Popper_Dual2AFC_nat_Nov16_2026_Session1.mat,623,0.15,0.0,,85,13.6,30,0.0,73.0,5.7,1.12,50,1.38,"NO -- errors are signalled, no time investment on errors",catch trials delivered
+Popper,Popper_Dual2AFC_nat_Nov17_2026_Session1.mat,753,0.15,1.0,,83,11.0,24,0.0,75.4,6.26,1.26,84,6.54,yes -- errors are catch trials too,catch trials delivered
 Popper,Popper_Dual2AFC_nat_Oct26_2026_Session1.mat,2,0.0,0.0,,0,0.0,0,,,,,0,,"NO -- errors are signalled, no time investment on errors",NO CATCH TRIALS
 Popper,Popper_Dual2AFC_nat_Oct26_2026_Session2.mat,678,0.0,0.0,PercentCatch 0->0.15,94,13.9,56,0.0,64.8,5.0,1.23,60,1.19,"NO -- errors are signalled, no time investment on errors",catch trials delivered
 Popper,Popper_Dual2AFC_nat_Oct27_2026_Session1.mat,299,0.15,0.0,,36,12.0,21,0.0,75.6,6.11,1.26,25,1.24,"NO -- errors are signalled, no time investment on errors",catch trials delivered

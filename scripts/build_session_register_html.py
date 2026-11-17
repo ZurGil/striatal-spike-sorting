@@ -15,10 +15,12 @@ Publish the result to the register artifact, keeping the same URL:
 """
 from __future__ import print_function
 
+import csv
 import datetime
 import html
 import json
 import os
+import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "outputs")
@@ -149,17 +151,58 @@ def synced_cell(r):
     return '<span class="dim">no</span>'
 
 
+AUDIT_CSV = os.path.join(OUT, "catch_trial_audit.csv")
+MONTHS = dict((m, i) for i, m in enumerate(
+    "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1))
+
+
+def catch_error_corrected_on():
+    """The first Popper Bpod file that runs CatchError=1, as a date, or None.
+
+    The protocol is corrected by hand in Bpod, so this is read out of the audit
+    rather than written here: the banner has to stop saying "every session" the
+    day a session is recorded with the switch on, without anyone remembering to
+    come and edit it.
+    """
+    if not os.path.exists(AUDIT_CSV):
+        return None
+    dated = []
+    with open(AUDIT_CSV) as f:
+        for row in csv.DictReader(f):
+            if row.get("rat") != "Popper":
+                continue
+            m = re.search(r"_([A-Z][a-z]{2})(\d{2})_(\d{4})_", row.get("bpod_file", ""))
+            if not m or m.group(1) not in MONTHS:
+                continue
+            try:
+                on = float(row.get("catch_error_setting") or 0) >= 1
+            except ValueError:
+                on = False
+            dated.append((datetime.date(int(m.group(3)), MONTHS[m.group(1)],
+                                        int(m.group(2))), on))
+    for day, on in sorted(dated):
+        if on:
+            return day.isoformat()
+    return None
+
+
 def banner(rows):
     """The one thing a reader must not miss, at the top, naming the sessions."""
     hit = sorted({r["session"] for r in rows
                   if (r.get("catch") or [{}])[0].get("error_catch", "").startswith("NO")})
     if not hit:
         return ""
+    fixed = catch_error_corrected_on()
+    head = ('EVERY POPPER SESSION BEFORE %s HAS <span class="path">CatchError = 0</span>: '
+            'no catch trials on errors, so no time-investment measure on error trials. '
+            'The setting was corrected on %s and every session from that day carries it.'
+            % (fixed, fixed) if fixed else
+            'EVERY POPPER SESSION SO FAR HAS <span class="path">CatchError = 0</span>: '
+            'no catch trials on errors, so no time-investment measure on error trials.')
     return (
         '<div class="note warn" style="margin:0 0 26px;border-left-width:5px">'
-        '<p style="font-weight:600;color:var(--alert);margin-bottom:8px">'
-        'EVERY POPPER SESSION SO FAR HAS <span class="path">CatchError = 0</span>: '
-        'no catch trials on errors, so no time-investment measure on error trials.</p>'
+        '<p style="font-weight:600;color:var(--alert);margin-bottom:8px">' + head
+        + '</p>'
         '<p>Catch trials on CORRECT choices are present and working in every session '
         'of both rats &mdash; 11&ndash;16&thinsp;%% of trials, never rewarded, and the '
         'rat waits five to eight seconds. What Popper is missing is the other half: '
@@ -210,6 +253,34 @@ def sync_cell(r):
     return chip(worst["verdict"], cls) + '<br><span class="rat">%s</span>' % detail
 
 
+def tool_cell(r):
+    """Is the review tool built and complete on Z -- the first thing Gil asks.
+
+    A page without its merge candidates or its trace shards is worse than no page:
+    an empty panel reads as "checked, nothing there". So "partial" names what is
+    missing instead of saying yes.
+    """
+    t = r.get("review_tool")
+    if not t:
+        return chip("no", "c-alert")
+    missing = []
+    if not t.get("page"):
+        missing.append("page")
+    if not t.get("merge_candidates"):
+        missing.append("merge candidates")
+    if t.get("layout") == "build" and not t.get("raw_shards"):
+        missing.append("raw traces")
+    if missing:
+        return (chip("partial", "c-partial")
+                + '<br><span class="rat">no %s</span>' % esc(", ".join(missing)))
+    if t.get("layout") == "legacy":
+        return (chip("yes", "c-ok") + '<br><span class="rat">pre-build layout '
+                '&middot; traces in the page db</span>')
+    return (chip("yes", "c-ok")
+            + '<br><span class="rat">%s &middot; %s trace shards</span>'
+            % (esc(t.get("build") or "?"), t.get("raw_shards")))
+
+
 def row_html(r):
     t = r["z_tally"]
     dec = r["live_verdicts"] if r["live_verdicts"] is not None else r["z_verdicts"]
@@ -224,11 +295,11 @@ def row_html(r):
     return (
         '<tr>'
         '<td class="rat">%s</td><td class="sid">%s</td>'
-        '<td class="n">%s</td><td class="n">%s</td><td class="n">%s</td><td>%s</td>'
+        '<td class="n">%s</td><td class="n">%s</td><td>%s</td><td class="n">%s</td><td>%s</td>'
         '%s%s%s%s%s'
         '<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>'
         % (esc(r["rat"]), esc(r.get("row_id", r["session"])),
-           n or "?", esc(r["thresholds"] or "?"), dec, bar,
+           n or "?", esc(r["thresholds"] or "?"), tool_cell(r), dec, bar,
            num(t.get("good", 0)), num(t.get("mua", 0)), num(t.get("noise", 0)),
            num(r["z_merges"]), num(r["z_trials"]),
            chip("yes", "c-ok") if r["z_verdicts"] else chip("—", "c-none"),
@@ -320,7 +391,8 @@ def main():
            '</div>',
            '<h2>Sorted sessions</h2>',
            '<div class="scroll"><table><thead><tr>'
-           '<th>Rat</th><th>Sort</th><th>Units</th><th>Th&nbsp;u/l</th><th>Judged</th>'
+           '<th>Rat</th><th>Sort</th><th>Units</th><th>Th&nbsp;u/l</th>'
+           '<th>Tool<br>ready</th><th>Judged</th>'
            '<th>Progress</th><th>Good</th><th>MUA</th><th>Noise</th><th>Merges</th>'
            '<th>Windows</th><th>On&nbsp;Z</th><th>Verdicts<br>applied</th>'
            '<th>Bpod<br>synced</th><th>Sync<br>check</th><th>Catch<br>trials</th>'

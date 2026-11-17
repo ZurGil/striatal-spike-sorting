@@ -34,5 +34,12 @@
     "trial_selections": 29,
     "_note": "Gil reported this review finished on 2026-11-17. 264 of 454 units carry a verdict (137 good, 127 mua, no noise); the 190 without keep their automatic label. Dumped, synced and verified the same day.",
     "review_finished": true
+  },
+  "20260917_100043": {
+    "url": "https://claude.ai/artifact/LxJPCJ8UpRz1LsqhcRji3Y",
+    "verdicts": 0,
+    "merge_verdicts": 0,
+    "trial_selections": 0,
+    "_note": "published 2026-11-17, review not started yet. 508 units; first page built with the cluster points published beside it rather than embedded."
   }
 }

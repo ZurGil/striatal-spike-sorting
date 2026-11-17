@@ -31,7 +31,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 12,
+      "bpod_files": 13,
       "z_verdicts": 260,
       "z_tally": {
         "mua": 120,
@@ -935,11 +935,19 @@
       "row_id": "20260917_100043",
       "n_units": 508,
       "thresholds": "9.0 / 8.0",
-      "artifact": null,
+      "artifact": "https://claude.ai/artifact/LxJPCJ8UpRz1LsqhcRji3Y",
       "tools": [],
       "verdicts_dir": null,
-      "review_tool": null,
-      "cluster_info": false,
+      "review_tool": {
+        "build": "20261117_1227",
+        "layout": "build",
+        "path": "Z:\\Gil\\Shamir_1\\20260917_100043.rec\\20260917_100043.kilosort\\review\\tool\\build_20261117_1227",
+        "n_builds": 1,
+        "page": true,
+        "merge_candidates": true,
+        "raw_shards": 21
+      },
+      "cluster_info": true,
       "superseded_by": null,
       "joins": null,
       "provenance": [],
@@ -975,12 +983,12 @@
         }
       ],
       "snapshots": [],
-      "live_verdicts": null,
-      "live_merges": null,
-      "live_trials": null,
+      "live_verdicts": 0,
+      "live_merges": 0,
+      "live_trials": 0,
       "review_finished": false,
       "state": "NOT REVIEWED",
-      "state_why": "no verdicts anywhere"
+      "state_why": "the page is open and empty"
     },
     {
       "rat": "Shamir",
@@ -989,11 +997,19 @@
       "row_id": "20260918_100248",
       "n_units": 481,
       "thresholds": "9.0 / 8.0",
-      "artifact": null,
+      "artifact": "https://claude.ai/artifact/AuWU4jP4vWn3tELjDBcWfN",
       "tools": [],
       "verdicts_dir": null,
-      "review_tool": null,
-      "cluster_info": false,
+      "review_tool": {
+        "build": "20261117_1341",
+        "layout": "build",
+        "path": "Z:\\Gil\\Shamir_1\\20260918_100248.rec\\20260918_100248.kilosort\\review\\tool\\build_20261117_1341",
+        "n_builds": 1,
+        "page": true,
+        "merge_candidates": true,
+        "raw_shards": 20
+      },
+      "cluster_info": true,
       "superseded_by": null,
       "joins": null,
       "provenance": [],
@@ -1047,7 +1063,7 @@
       "tools": [],
       "verdicts_dir": null,
       "review_tool": null,
-      "cluster_info": false,
+      "cluster_info": true,
       "superseded_by": null,
       "joins": null,
       "provenance": [],
@@ -1277,7 +1293,46 @@
       "synced": false,
       "ks_folder": "kilosort4",
       "sync_check": [],
-      "catch": [],
+      "catch": [
+        {
+          "rat": "Begin",
+          "bpod_file": "Begin01_Dual2AFC_nat_Aug05_2026_Session1.mat",
+          "n_trials": "86",
+          "percent_catch_setting": "0.15",
+          "catch_error_setting": "1.0",
+          "setting_changed_mid_session": "",
+          "n_flagged_catch": "8",
+          "pct_flagged": "9.3",
+          "n_correct_catch": "6",
+          "pct_rewarded_catch": "0.0",
+          "pct_rewarded_noncatch": "47.5",
+          "median_wait_catch_s": "3.42",
+          "median_wait_noncatch_s": "1.13",
+          "n_error": "4",
+          "median_wait_error_s": "2.46",
+          "error_catch": "yes -- errors are catch trials too",
+          "verdict": "catch trials delivered"
+        },
+        {
+          "rat": "Begin",
+          "bpod_file": "Begin01_Dual2AFC_nat_Aug05_2026_Session2.mat",
+          "n_trials": "575",
+          "percent_catch_setting": "0.15",
+          "catch_error_setting": "1.0",
+          "setting_changed_mid_session": "",
+          "n_flagged_catch": "72",
+          "pct_flagged": "12.5",
+          "n_correct_catch": "31",
+          "pct_rewarded_catch": "0.0",
+          "pct_rewarded_noncatch": "62.6",
+          "median_wait_catch_s": "2.24",
+          "median_wait_noncatch_s": "1.21",
+          "n_error": "70",
+          "median_wait_error_s": "4.29",
+          "error_catch": "yes -- errors are catch trials too",
+          "verdict": "catch trials delivered"
+        }
+      ],
       "snapshots": [],
       "live_verdicts": null,
       "live_merges": null,
@@ -1311,7 +1366,27 @@
       "synced": false,
       "ks_folder": "kilosort4",
       "sync_check": [],
-      "catch": [],
+      "catch": [
+        {
+          "rat": "Begin",
+          "bpod_file": "Begin01_Dual2AFC_nat_Aug07_2026_Session1.mat",
+          "n_trials": "1171",
+          "percent_catch_setting": "0.15",
+          "catch_error_setting": "1.0",
+          "setting_changed_mid_session": "",
+          "n_flagged_catch": "172",
+          "pct_flagged": "14.7",
+          "n_correct_catch": "68",
+          "pct_rewarded_catch": "0.0",
+          "pct_rewarded_noncatch": "58.8",
+          "median_wait_catch_s": "2.93",
+          "median_wait_noncatch_s": "1.04",
+          "n_error": "154",
+          "median_wait_error_s": "3.53",
+          "error_catch": "yes -- errors are catch trials too",
+          "verdict": "catch trials delivered"
+        }
+      ],
       "snapshots": [],
       "live_verdicts": null,
       "live_merges": null,
@@ -1345,7 +1420,27 @@
       "synced": false,
       "ks_folder": "kilosort4",
       "sync_check": [],
-      "catch": [],
+      "catch": [
+        {
+          "rat": "Begin",
+          "bpod_file": "Begin01_Dual2AFC_nat_Aug14_2026_Session1.mat",
+          "n_trials": "280",
+          "percent_catch_setting": "0.15",
+          "catch_error_setting": "1.0",
+          "setting_changed_mid_session": "",
+          "n_flagged_catch": "39",
+          "pct_flagged": "13.9",
+          "n_correct_catch": "22",
+          "pct_rewarded_catch": "0.0",
+          "pct_rewarded_noncatch": "69.0",
+          "median_wait_catch_s": "3.31",
+          "median_wait_noncatch_s": "1.13",
+          "n_error": "11",
+          "median_wait_error_s": "6.34",
+          "error_catch": "yes -- errors are catch trials too",
+          "verdict": "catch trials delivered"
+        }
+      ],
       "snapshots": [],
       "live_verdicts": null,
       "live_merges": null,
@@ -1379,7 +1474,27 @@
       "synced": false,
       "ks_folder": "kilosort4",
       "sync_check": [],
-      "catch": [],
+      "catch": [
+        {
+          "rat": "Begin",
+          "bpod_file": "Begin01_Dual2AFC_nat_Aug18_2026_Session1.mat",
+          "n_trials": "798",
+          "percent_catch_setting": "0.15",
+          "catch_error_setting": "1.0",
+          "setting_changed_mid_session": "",
+          "n_flagged_catch": "108",
+          "pct_flagged": "13.5",
+          "n_correct_catch": "57",
+          "pct_rewarded_catch": "0.0",
+          "pct_rewarded_noncatch": "64.7",
+          "median_wait_catch_s": "5.34",
+          "median_wait_noncatch_s": "1.23",
+          "n_error": "73",
+          "median_wait_error_s": "4.15",
+          "error_catch": "yes -- errors are catch trials too",
+          "verdict": "catch trials delivered"
+        }
+      ],
       "snapshots": [],
       "live_verdicts": null,
       "live_merges": null,
@@ -1389,5 +1504,5 @@
       "state_why": "no verdicts anywhere"
     }
   ],
-  "live_source": "outputs/artifact_live_counts.json"
+  "live_source": "D:\\Gil\\spike_sorting_agent\\outputs\\artifact_live_counts.json"
 }

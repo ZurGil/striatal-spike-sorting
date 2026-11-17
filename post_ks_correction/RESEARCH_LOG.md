@@ -9723,3 +9723,93 @@ assuming: 318 of 547 trials completed here (58 %), against 478 of 953 on 2026091
 and 578 of 1085 on Popper 20261112 (53 %). Of the completed trials 168 were rewarded
 (53 %), the same share as Popper's 315 of 578. The CatchError = 1 defect of this session
 (§5bd.60) does not show up as a collapse in either number.
+
+
+### 5bd.64  The raw-bound half moves to the cluster, and two caps that were hiding (2026-11-17)
+
+Gil, after waiting on a merge-candidate build for the second day running:
+
+> "merge candidates should happen as part of the building of the review tool in the
+> cluster. please make sure that all session already have it, so next time i'll ask you
+> for session, you won't have to build anything."
+
+#### Why they were not there, and why that reasoning was wrong
+
+`ris_run_postks.sh` carried a comment saying the display half was "deliberately NOT
+here. It needs the DIO and the Bpod file, it is seconds of CPU, and it ends in an
+artifact published from the PC." Each clause is true of assembling the HTML and false
+of the two steps that matter:
+
+* `build_merge_candidates.py` reads **150 raw waveforms per unit** for every unit in a
+  co-located pair. On 20260917 that is 504 units, and it took **16.5 minutes** reading
+  `probe1.dat` over SMB from Z.
+* `compute_raw_trace_snippets_session.py` cuts 16 spikes per unit out of the same file.
+
+Both are raw-bound, and on the cluster the raw file is on local scratch. The DIO
+objection was simply wrong: `stage_session_to_ris.ps1` has been copying `<sid>.DIO/` in
+all along and nothing was reading it, so the session timeline needed a symlink, not an
+upload. The Bpod file is not involved at any point.
+
+So the job goes from six steps to eleven: 7 review data, 8 burst/ISI metrics, 9 the
+join, 10 session timeline (DIO), 11a merge candidates, 11b raw spike traces. Steps 7-11
+fail individually without killing the job, like 3-6, each printing the command to repeat
+while the raw file is still staged.
+
+Six display scripts had to stop assuming Windows first: they hardcoded
+`D:\Gil\spike_sorting_agent\outputs` and built paths with backslash f-strings. They go
+through `striatal_agent.paths` now (`SPIKE_AGENT_OUTPUTS` wins when set) and
+`os.path.join`. `sync_pipeline.dio_decoder`, which the timeline imports, turns out to
+depend on nothing but numpy and pandas, so two files go to the cluster rather than the
+whole checkout.
+
+#### And then the build refused twice, which is the part worth having
+
+The first 20260917 build was still running under the old arrangement when this was
+written, and it **failed its own checks**:
+
+```
+FAIL  only 3000 of 3669 co-located pairs were analysed
+FAIL  the page is 16.66 MiB, over the 16 MiB artifact limit
+```
+
+**The cap that replaced a cap.** On 2026-11-16 `--max_pairs` went from 150 to 3000
+because 150 discarded 94 % of a session's pairs. 3000 looked generous. 20260917 has
+3669 co-located pairs, so 669 of them were silently dropped -- the same defect, one
+order of magnitude later. There is no safe cap, only an honest one: the default is now
+**0, meaning no cap**, in `build_merge_candidates.py`, in `build_review_for_session.py`
+and in the cluster job. A number there is for debugging one run and nothing else.
+
+**The page outgrew the artifact.** 508 units at ~34 kB each is 16.66 MiB against a
+16 MiB limit. Measuring the payload rather than guessing at it:
+
+| field | size | share |
+| --- | --- | --- |
+| `cluster_points` | 12.06 MiB | **79.3 %** |
+| `waveform_top4` | 2.56 MiB | 16.8 % |
+| `acg_hist` | 0.27 MiB | 1.7 % |
+| everything else | 0.31 MiB | 2.2 % |
+
+The cluster points are the scatter panel, and only the selected unit's are ever drawn.
+So they leave the page the same way the raw traces did last night:
+`data/cluster_points/shard_<n>.json`, 25 units per file, fetched once and cached. The
+page drops from 16.66 MiB to about 5 MiB and stops scaling with unit count, which also
+settles 20260924 and 20260925 at 543 units each. A page built before today has them
+embedded and keeps working -- the JS uses `u.cluster_points` when it is there and only
+fetches when it is not -- and a new check fails the build if the shards do not cover
+every unit, so this cannot be the next thing discovered by Gil instead of by the build.
+
+#### The table answers the question now
+
+`SESSION_STATUS.md` has a `tool ready` column: it reads the newest `build_<stamp>/` on Z
+and reports the page, the merge candidates and the raw-trace shards, naming whichever is
+missing. It understands the pre-`build_` layout, where the traces live in the page's own
+database (20260916 and 20261112), rather than calling those unbuilt. It immediately
+showed that the 15 September concat, whose review Gil finished, has no tool folder on Z
+at all.
+
+#### The cluster is clean
+
+Checked before offering to start new sessions: `/scratch1/fs1/akepecs/zur` empty, the
+`kilosort4` results directory empty, no LSF jobs, ~13 MB total (build contexts, code,
+47 job logs), and `find -user zur` outside `Gil_Zur/` returns nothing on either
+filesystem.
