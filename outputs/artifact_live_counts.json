@@ -26,5 +26,12 @@
     "_note": "Gil reported this review finished on 2026-11-16. 322 of 465 units carry a verdict; the 143 without are 134 Kilosort-mua and 9 Kilosort-good.",
     "review_finished": true
   },
-  "_fields": "verdicts / merge_verdicts / trial_selections are document counts read live from the page's database. review_finished is Gil's own word for 'I am done with this session', which is not the same as every unit carrying a verdict -- he stops when what is left is automatic MUA he does not intend to label."
+  "_fields": "verdicts / merge_verdicts / trial_selections are document counts read live from the page's database. review_finished is Gil's own word for 'I am done with this session', which is not the same as every unit carrying a verdict -- he stops when what is left is automatic MUA he does not intend to label.",
+  "20260914_122553": {
+    "url": "https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8",
+    "verdicts": 0,
+    "merge_verdicts": 0,
+    "trial_selections": 0,
+    "_note": "published 2026-11-17, review not started yet"
+  }
 }

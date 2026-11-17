@@ -34,6 +34,25 @@ PYTHON = u"C:\\\\Users\\\\Adam\\\\anaconda3\\\\envs\\\\phy2_ky\\\\python.exe"
 REC_ROOT = u"F:\\\\Gil\\\\Shamir"
 RAT_ROOT = u"Z:\\\\Gil\\\\Shamir_1"
 
+
+def js_path(p):
+    """A Windows path as a JS string literal's contents (each backslash doubled).
+
+    The constants above are written that way by hand. A session whose ephys never
+    came back to F: -- everything sorted on RIS and archived straight to Z: -- has
+    to name a different root, or the command on the page points at a folder that
+    does not exist. So the roots are overridable per session, and this is the one
+    place that knows how to spell a path for the page.
+    """
+    return p.replace(u"/", u"\\").rstrip(u"\\").replace(u"\\", u"\\\\")
+
+
+for _i, _a in enumerate(sys.argv):
+    if _a == "--rec_root" and _i + 1 < len(sys.argv):
+        REC_ROOT = js_path(sys.argv[_i + 1])
+    elif _a == "--rat_root" and _i + 1 < len(sys.argv):
+        RAT_ROOT = js_path(sys.argv[_i + 1])
+
 # --- 1. one definition of the command, used by the panel and the alert -------------
 A1_OLD = u"""/* Write all three decision collections to disk, named as collect_verdict_dumps.py"""
 A1_NEW = u"""/* The command that finishes the job, with this session's id already in it.

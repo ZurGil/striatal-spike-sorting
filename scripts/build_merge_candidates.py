@@ -72,6 +72,41 @@ def log(msg):
 T0 = time.time()
 
 
+def read_gain_from_rec_header(rec_path, max_bytes=4 * 1024 * 1024):
+    """uV per bit, from the session's own .rec header. The only honest source.
+
+    Trodes writes the header as XML at the front of the .rec file, and every
+    SpikeNTrode carries spikeScalingToUv. A constant in a script cannot know a
+    session's gain, and a wrong one silently rescales the uV axis of every waveform
+    the merge tool draws -- so this reads it, and refuses rather than guessing.
+    """
+    import re
+    if not os.path.exists(rec_path):
+        # a joined session has no .rec of its own; its parts do
+        folder = os.path.dirname(rec_path)
+        siblings = [f for f in sorted(os.listdir(folder)) if f.endswith(".rec")] \
+            if os.path.isdir(folder) else []
+        if not siblings:
+            raise SystemExit(
+                "cannot read the gain: no .rec file at %s and none beside it. "
+                "Pass --uv_per_bit with the session's own spikeScalingToUv." % rec_path)
+        rec_path = os.path.join(folder, siblings[0])
+        log("no .rec of its own; reading the gain from %s" % siblings[0])
+    with open(rec_path, "rb") as fh:
+        head = fh.read(max_bytes).decode("latin-1")
+    found = sorted(set(re.findall(r'spikeScalingToUv="([^"]+)"', head)))
+    if not found:
+        raise SystemExit(
+            "no spikeScalingToUv in the first %d bytes of %s -- pass --uv_per_bit."
+            % (max_bytes, rec_path))
+    if len(found) > 1:
+        raise SystemExit(
+            "%s reports %d different spikeScalingToUv values (%s). One session, one "
+            "gain, so this needs looking at rather than a choice made here."
+            % (rec_path, len(found), ", ".join(found)))
+    return float(found[0])
+
+
 # ----------------------------------------------------------------- correlograms
 def correlogram(t1_s, t2_s, bin_ms=CCG_BIN_MS, max_lag_ms=CCG_MAX_LAG_MS, auto=False):
     """Counts of (t2 - t1) differences per lag bin, in spikes.
@@ -246,10 +281,23 @@ def main():
     ap.add_argument("--max_dist_um", type=float, default=60.0,
                     help="peak channels further apart than this are not candidates; "
                          "a neuron's footprint does not jump across the probe")
-    ap.add_argument("--max_pairs", type=int, default=150)
+    ap.add_argument("--max_pairs", type=int, default=3000,
+                    help="how many of the co-located pairs get the full analysis, "
+                         "ranked by template similarity. The old default of 150 was a "
+                         "cap from the days before correlogram() was vectorised; it "
+                         "discarded 94%% of the pairs in a session to save sixteen "
+                         "seconds, and a unit absent from the merge panel then reads "
+                         "as 'checked, nothing found' when it means 'never compared' "
+                         "(see RESEARCH_LOG 5bd.49). 3000 covers every co-located "
+                         "pair in the sessions sorted so far.")
     ap.add_argument("--n_waveform_spikes", type=int, default=150)
-    ap.add_argument("--uv_per_bit", type=float, default=0.195,
-                    help="PASS THE SESSION'S OWN GAIN, read from its .rec header -- for "
+    ap.add_argument("--uv_per_bit", type=float, default=None,
+                    help="left out, this is READ FROM THE SESSION'S OWN .rec HEADER "
+                         "(spikeScalingToUv), which is the only trustworthy source. "
+                         "Pass it only to override that. The old default was 0.195, "
+                         "and the note below is kept because it explains what that "
+                         "number was and why it was wrong. "
+                         "PASS THE SESSION'S OWN GAIN, read from its .rec header -- for "
                          "every Trodes export here that is 0.018311105685598315, which "
                          "is what the cluster post-KS job and the corrected "
                          "classification use. The 0.195 default is the SpikeGLX figure "
@@ -268,6 +316,12 @@ def main():
     for p in (ks, review_path, timeline_path):
         if not os.path.exists(p):
             raise SystemExit("missing input: %s" % p)
+
+    if args.uv_per_bit is None:
+        args.uv_per_bit = read_gain_from_rec_header(
+            os.path.join(args.rec_root, sid + ".rec", sid + ".rec"))
+        log("gain read from the session's own .rec header: %r uV/bit"
+            % args.uv_per_bit)
 
     # ------------------------------------------------------------------ inputs
     log("loading clustering from %s" % ks)

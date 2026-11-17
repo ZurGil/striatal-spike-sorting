@@ -1,0 +1,183 @@
+[    0.0s] loading clustering from Z:/Gil/Shamir_1\20260914_122553.rec\20260914_122553.kilosort\kilosort4
+[    2.8s] 18984531 spikes, 454 clusters, similar_templates (454, 454)
+[    3.1s] review data: 454 units; timeline: 434 bins of 20s
+[    3.7s] 454 non-noise units of 454
+[   15.8s] pairing units within 60 um
+[   16.1s] 2864 pairs within range
+[   16.1s] keeping top 2864 by template similarity for full analysis
+[   16.1s] 454 units involved; reading raw waveforms
+[   16.1s] probe1.dat memmapped: 260127289 samples x 384 channels
+[   49.8s]   waveforms 10/454
+[   83.2s]   waveforms 20/454
+[  104.2s]   waveforms 30/454
+[  125.2s]   waveforms 40/454
+[  145.1s]   waveforms 50/454
+[  173.9s]   waveforms 60/454
+[  195.8s]   waveforms 70/454
+[  220.3s]   waveforms 80/454
+[  242.9s]   waveforms 90/454
+[  265.7s]   waveforms 100/454
+[  285.6s]   waveforms 110/454
+[  300.4s]   waveforms 120/454
+[  321.5s]   waveforms 130/454
+[  343.3s]   waveforms 140/454
+[  364.1s]   waveforms 150/454
+[  385.6s]   waveforms 160/454
+[  405.2s]   waveforms 170/454
+[  424.9s]   waveforms 180/454
+[  444.4s]   waveforms 190/454
+[  464.0s]   waveforms 200/454
+[  482.1s]   waveforms 210/454
+[  500.3s]   waveforms 220/454
+[  519.0s]   waveforms 230/454
+[  538.3s]   waveforms 240/454
+[  556.5s]   waveforms 250/454
+[  575.0s]   waveforms 260/454
+[  592.9s]   waveforms 270/454
+[  611.2s]   waveforms 280/454
+[  630.5s]   waveforms 290/454
+[  648.2s]   waveforms 300/454
+[  666.1s]   waveforms 310/454
+[  684.7s]   waveforms 320/454
+[  702.5s]   waveforms 330/454
+[  720.2s]   waveforms 340/454
+[  738.0s]   waveforms 350/454
+[  754.0s]   waveforms 360/454
+[  770.2s]   waveforms 370/454
+[  786.0s]   waveforms 380/454
+[  801.8s]   waveforms 390/454
+[  817.9s]   waveforms 400/454
+[  834.1s]   waveforms 410/454
+[  850.4s]   waveforms 420/454
+[  867.0s]   waveforms 430/454
+[  882.2s]   waveforms 440/454
+[  899.2s]   waveforms 450/454
+[  906.0s] computing CCGs and merge metrics for 2864 pairs
+[  906.1s]   pairs 25/2864
+[  906.3s]   pairs 50/2864
+[  906.7s]   pairs 75/2864
+[  907.0s]   pairs 100/2864
+[  907.5s]   pairs 125/2864
+[  907.8s]   pairs 150/2864
+[  908.2s]   pairs 175/2864
+[  908.5s]   pairs 200/2864
+[  909.0s]   pairs 225/2864
+[  909.3s]   pairs 250/2864
+[  909.8s]   pairs 275/2864
+[  910.2s]   pairs 300/2864
+[  910.8s]   pairs 325/2864
+[  911.0s]   pairs 350/2864
+[  912.2s]   pairs 375/2864
+[  912.6s]   pairs 400/2864
+[  913.4s]   pairs 425/2864
+[  914.0s]   pairs 450/2864
+[  914.2s]   pairs 475/2864
+[  915.1s]   pairs 500/2864
+[  915.7s]   pairs 525/2864
+[  916.4s]   pairs 550/2864
+[  917.1s]   pairs 575/2864
+[  917.4s]   pairs 600/2864
+[  917.8s]   pairs 625/2864
+[  918.2s]   pairs 650/2864
+[  918.7s]   pairs 675/2864
+[  919.0s]   pairs 700/2864
+[  919.6s]   pairs 725/2864
+[  919.9s]   pairs 750/2864
+[  920.4s]   pairs 775/2864
+[  921.1s]   pairs 800/2864
+[  921.8s]   pairs 825/2864
+[  922.4s]   pairs 850/2864
+[  923.3s]   pairs 875/2864
+[  924.1s]   pairs 900/2864
+[  924.6s]   pairs 925/2864
+[  925.0s]   pairs 950/2864
+[  925.3s]   pairs 975/2864
+[  925.6s]   pairs 1000/2864
+[  926.2s]   pairs 1025/2864
+[  926.6s]   pairs 1050/2864
+[  927.0s]   pairs 1075/2864
+[  927.4s]   pairs 1100/2864
+[  927.9s]   pairs 1125/2864
+[  928.6s]   pairs 1150/2864
+[  929.0s]   pairs 1175/2864
+[  929.6s]   pairs 1200/2864
+[  930.1s]   pairs 1225/2864
+[  931.1s]   pairs 1250/2864
+[  931.8s]   pairs 1275/2864
+[  932.3s]   pairs 1300/2864
+[  932.9s]   pairs 1325/2864
+[  933.3s]   pairs 1350/2864
+[  933.7s]   pairs 1375/2864
+[  934.0s]   pairs 1400/2864
+[  934.6s]   pairs 1425/2864
+[  935.1s]   pairs 1450/2864
+[  936.1s]   pairs 1475/2864
+[  936.8s]   pairs 1500/2864
+[  937.6s]   pairs 1525/2864
+[  938.1s]   pairs 1550/2864
+[  938.6s]   pairs 1575/2864
+[  939.1s]   pairs 1600/2864
+[  939.8s]   pairs 1625/2864
+[  940.4s]   pairs 1650/2864
+[  940.8s]   pairs 1675/2864
+[  941.9s]   pairs 1700/2864
+[  942.8s]   pairs 1725/2864
+[  943.6s]   pairs 1750/2864
+[  944.3s]   pairs 1775/2864
+[  945.1s]   pairs 1800/2864
+[  945.7s]   pairs 1825/2864
+[  946.3s]   pairs 1850/2864
+[  946.7s]   pairs 1875/2864
+[  947.3s]   pairs 1900/2864
+[  948.2s]   pairs 1925/2864
+[  948.9s]   pairs 1950/2864
+[  949.6s]   pairs 1975/2864
+[  950.2s]   pairs 2000/2864
+[  951.3s]   pairs 2025/2864
+[  951.9s]   pairs 2050/2864
+[  952.8s]   pairs 2075/2864
+[  953.7s]   pairs 2100/2864
+[  954.2s]   pairs 2125/2864
+[  954.9s]   pairs 2150/2864
+[  956.1s]   pairs 2175/2864
+[  957.4s]   pairs 2200/2864
+[  958.0s]   pairs 2225/2864
+[  958.8s]   pairs 2250/2864
+[  959.5s]   pairs 2275/2864
+[  960.1s]   pairs 2300/2864
+[  960.9s]   pairs 2325/2864
+[  961.8s]   pairs 2350/2864
+[  962.6s]   pairs 2375/2864
+[  963.5s]   pairs 2400/2864
+[  964.5s]   pairs 2425/2864
+[  965.4s]   pairs 2450/2864
+[  966.4s]   pairs 2475/2864
+[  967.1s]   pairs 2500/2864
+[  967.7s]   pairs 2525/2864
+[  968.9s]   pairs 2550/2864
+[  970.0s]   pairs 2575/2864
+[  971.7s]   pairs 2600/2864
+[  972.6s]   pairs 2625/2864
+[  973.8s]   pairs 2650/2864
+[  974.7s]   pairs 2675/2864
+[  976.0s]   pairs 2700/2864
+[  977.2s]   pairs 2725/2864
+[  978.7s]   pairs 2750/2864
+[  979.8s]   pairs 2775/2864
+[  981.8s]   pairs 2800/2864
+[  982.7s]   pairs 2825/2864
+[  984.4s]   pairs 2850/2864
+[  988.5s] wrote D:\Gil\spike_sorting_agent\outputs\merge_candidates_20260914_122553.json (9.5 MB)
+[  988.5s] top candidates by CCG dip:
+[  988.5s]   237_243    d=  0.0um sim=0.905 dip=0.1978   flank=168.54 wf_r=0.2394  rate_r=0.5967  merged_viol=0.286%
+[  988.5s]   241_245    d= 51.2um sim=0.025 dip=0.226    flank=0.74   wf_r=0.1034  rate_r=0.0808  merged_viol=0.055%
+[  988.5s]   225_228    d=  0.0um sim=0.926 dip=0.262    flank=331.40 wf_r=0.4027  rate_r=0.5656  merged_viol=0.571%
+[  988.5s]   46_48      d=  0.0um sim=0.813 dip=0.2778   flank=1106.97 wf_r=0.4947  rate_r=0.6623  merged_viol=1.023%
+[  988.5s]   136_137    d=  0.0um sim=0.810 dip=0.2963   flank=1.69   wf_r=0.8718  rate_r=0.0302  merged_viol=0.687%
+[  988.5s]   236_250    d=  0.0um sim=0.858 dip=0.3      flank=5.00   wf_r=0.8985  rate_r=0.329   merged_viol=0.18%
+[  988.5s]   245_249    d= 25.6um sim=0.447 dip=0.303    flank=0.55   wf_r=0.4323  rate_r=0.0301  merged_viol=0.029%
+[  988.5s]   37_38      d=  0.0um sim=0.826 dip=0.3202   flank=201.45 wf_r=-0.1908 rate_r=0.0312  merged_viol=0.833%
+[  988.5s]   239_240    d=  0.0um sim=0.680 dip=0.3208   flank=31.18  wf_r=0.4793  rate_r=0.0504  merged_viol=0.24%
+[  988.5s]   376_377    d=  0.0um sim=0.990 dip=0.3311   flank=25.68  wf_r=0.9689  rate_r=0.3339  merged_viol=0.225%
+[  988.5s]   97_104     d= 25.6um sim=0.672 dip=0.3596   flank=101.51 wf_r=0.6478  rate_r=0.311   merged_viol=0.318%
+[  988.5s]   47_48      d= 52.0um sim=0.756 dip=0.3756   flank=246.69 wf_r=0.49    rate_r=0.0501  merged_viol=0.719%

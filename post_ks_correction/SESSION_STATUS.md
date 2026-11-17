@@ -68,10 +68,10 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 
 ### 20260914_122553  (Shamir)
 
-- NOT REVIEWED -- no verdicts anywhere
+- NOT REVIEWED -- the page is open and empty
 - 454 units, Kilosort thresholds 9.0 / 8.0
 - Bpod sync: not done (42 Bpod files available for this rat)
-- review page: **none built yet**
+- review page: https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
 

@@ -71,6 +71,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOGDIR="$HERE/outputs"
 LOG="$LOGDIR/ris_serial_pipeline.log"
 
+# The interpreter the display half runs under. `python` on PATH is a WindowsApps stub
+# that exits 126, and the `kilosort` env on this machine is an empty shell, so this is
+# spelled out rather than resolved.
+PYEXE="C:/Users/Adam/anaconda3/envs/kilosort4/python.exe"
+
 say() { echo "[$(date '+%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 rssh() { ssh -o BatchMode=yes compute1 "$@" 2>/dev/null | tr -d '\r'; }
 
@@ -135,6 +140,32 @@ results_ready() {
         test -f '$RESULTS/$sid/kilosort4/agent_processed/agent_report.json' && \
         ls '$RESULTS/$sid/outputs/corrected_classification_$sid.csv' >/dev/null 2>&1 && \
         echo yes || echo no" | tail -1
+}
+
+# --- the display half: build the review tool and leave it on Z ----------------
+# A sort nobody can review is not finished. This used to be a separate request every
+# time, and every by-hand build repeated a correction an earlier one had already
+# taught us -- the 150-pair cap, the wrong uV gain, a sync command naming F: for a
+# session that only ever existed on Z:. Those are fixed in the scripts' own defaults
+# now; this is what makes the build happen at all without being asked.
+#
+# It is allowed to fail without stopping the pipeline, for the same reason post-KS
+# steps 3-6 are: by the time it runs the sort is home and verified on Z, and that is
+# the expensive part. A failure here is loud, named in the log, and re-runnable by
+# hand with the command printed beside it.
+build_review_for() {
+  local sid="$1"
+  say "    building the review tool for $sid"
+  if "$PYEXE" "$HERE/scripts/build_review_for_session.py" "$sid" >>"$LOG" 2>&1; then
+    local z
+    z=$(ls -1d "$ZROOT/$sid.rec/$sid.kilosort/review/tool/build_"* 2>/dev/null | tail -1)
+    say "    review tool built and saved: ${z:-see the log}"
+    say "    it still has to be PUBLISHED, which only Claude can do (Artifact tool)."
+  else
+    say "    REVIEW TOOL BUILD FAILED for $sid -- the sort itself is home and verified,"
+    say "    so nothing is lost. Re-run it by hand and read the error:"
+    say "      \"$PYEXE\" scripts/build_review_for_session.py $sid"
+  fi
 }
 
 # --- bring results home, adding only what Z does not already have -------------
@@ -241,6 +272,7 @@ cycle() {
     fi
     if verify_on_z "$sid"; then
       purge_ris "$sid"
+      build_review_for "$sid"
     else
       say "    verification failed; RIS keeps everything. This needs a human."
     fi

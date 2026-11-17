@@ -241,7 +241,7 @@
       "row_id": "20260914_122553",
       "n_units": 454,
       "thresholds": "9.0 / 8.0",
-      "artifact": null,
+      "artifact": "https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8",
       "tools": [],
       "verdicts_dir": null,
       "cluster_info": false,
@@ -280,12 +280,12 @@
         }
       ],
       "snapshots": [],
-      "live_verdicts": null,
-      "live_merges": null,
-      "live_trials": null,
+      "live_verdicts": 0,
+      "live_merges": 0,
+      "live_trials": 0,
       "review_finished": false,
       "state": "NOT REVIEWED",
-      "state_why": "no verdicts anywhere"
+      "state_why": "the page is open and empty"
     },
     {
       "rat": "Shamir",

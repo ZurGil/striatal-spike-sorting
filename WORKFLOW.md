@@ -734,10 +734,48 @@ renumbered: 233+236 was 10001 before four new merges sorted ahead of it.
 #### Building the review tool for a new session — one command
 
 ```
-python scripts/build_review_tool.py <session_id>
+"C:/Users/Adam/anaconda3/envs/kilosort4/python.exe" scripts/build_review_for_session.py <session_id>
 ```
 
-That is the whole thing. It produces `outputs/unit_review_tool_<sid>.html`, complete:
+**This is the command. Nothing else needs choosing.** It finds the session (Z: first,
+then F:, across all three rats), brings the cluster's four post-KS outputs in from
+`cluster_outputs` on Z after comparing them by sha1, reads the session's own gain out
+of its `.rec` header, runs the whole chain below, runs the checks that each past
+mistake earned, and saves the finished page and its merge data to
+
+```
+Z:\Gil\<rat>\<sid>.rec\<sid>.kilosort\review\tool\build_<YYYYMMDD_HHMM>\
+```
+
+with a `MANIFEST.json` naming each file's sha256, the clustering sha1 they were built
+against, and the exact publish parameters. Dated folders only — nothing on Z is
+overwritten or removed, so every build stays and the newest sorts last.
+
+`scripts/ris_serial_pipeline.sh` calls it automatically once a session's results are
+verified on Z, so a sorted session arrives with its review tool already built. A
+failure there is loud and does not stop the pipeline: the sort is already home.
+
+The checks it refuses to save past:
+
+| check | the mistake it catches |
+|---|---|
+| no null `trodes_channel` | the 2026-09-16 bug — the lookup was built and never merged in, so the page showed the 0–383 KS index |
+| every co-located pair analysed | the `--max_pairs 150` cap (5bd.49) — a unit absent from the merge panel reads as *cleared* when it means *never compared* |
+| `uv_per_bit` matches the `.rec` header | the 0.195 SpikeGLX default, 10.6× too large for our Trodes exports |
+| the page's own sync command names a folder that exists | `F:\Gil\Shamir` hardcoded, for sessions sorted on RIS and archived straight to Z |
+| page under 16 MiB | the artifact limit — 454 units is already 15.37 MiB |
+
+Publishing is the only remaining manual step, because it goes through the Artifact
+tooling and only Claude can reach it. Pass the **existing** artifact URL to keep a
+session's verdicts.
+
+The layer underneath, if you ever need it on its own:
+
+```
+python scripts/build_review_tool.py <session_id> [--rec_root <rat root>]
+```
+
+It produces `outputs/unit_review_tool_<sid>.html`, complete:
 unit panels, session timeline and stability windows, AND the merge panel with every
 addition. It runs, in order and failing loudly if any anchor has drifted:
 

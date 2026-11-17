@@ -79,6 +79,19 @@ def main():
     sid = sys.argv[1]
     py = sys.executable
 
+    # The sync command printed on the page names the folder the ephys will be read
+    # from. That used to always be F:, but a session sorted on RIS and archived
+    # straight to Z: never has a copy on F:, and a command naming a folder that does
+    # not exist is worse than no command. So the roots pass through to the patch that
+    # writes the command.
+    extra = {}
+    for flag in ("--rec_root", "--rat_root"):
+        if flag in sys.argv:
+            extra[flag] = sys.argv[sys.argv.index(flag) + 1]
+    sync_extra = []
+    for flag, value in extra.items():
+        sync_extra += [flag, value]
+
     review = os.path.join(OUT, "pipeline_review_data_%s.json" % sid)
     if not os.path.exists(review):
         raise SystemExit("missing %s -- run scripts/build_pipeline_review_data.py %s first"
@@ -99,8 +112,10 @@ def main():
     tmp = []
     for i, (script, what) in enumerate(PATCHES):
         dst = os.path.join(OUT, "_review_tool_stage%d_%s.html" % (i + 1, sid))
-        run([py, os.path.join(SCRIPTS, script), src, dst], "patch %d/%d -- %s"
-            % (i + 1, len(PATCHES), what))
+        args = [py, os.path.join(SCRIPTS, script), src, dst]
+        if script == "patch_review_tool_sync_command.py":
+            args += sync_extra
+        run(args, "patch %d/%d -- %s" % (i + 1, len(PATCHES), what))
         if not os.path.exists(dst):
             raise SystemExit("%s did not write %s" % (script, dst))
         src = dst

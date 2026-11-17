@@ -9519,3 +9519,125 @@ F: still holds its copy. Nothing is deleted from F or from Z by this job, by des
 The session is not in the status table yet because the table lists sorted sessions and
 this one has no sort. It is the next candidate for the RIS queue whenever Gil wants it,
 and the 82-channel map question (map B, from 2026-10-26) applies to it.
+
+
+### 5bd.62  The review tool became part of the sort, after a build that needed three corrections (2026-11-17)
+
+Gil asked to open the next Shamir session waiting for verdicts. The build worked, but it
+needed three corrections on the way, and every one of them was something an earlier
+build had already taught us and that had been fixed in a command line instead of in the
+script. His response was the right one: *"every run of the pipeline require some post
+running correction"*. So this entry is in two halves -- the session, and the thing that
+stops this repeating.
+
+#### The session: 20260914_122553, review tool open
+
+https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8 -- 454 units, published 2026-11-17.
+
+Seven Shamir sessions are sorted and unreviewed (20260914, 20260917, 20260918, 20260922,
+20260923, 20260924, 20260925); 20260914 is the earliest, so it went first.
+
+**Everything expensive was already done on the cluster**, for all seven. The post-KS job
+left all four raw-bound outputs in `cluster_outputs` on Z:
+
+    corrected_classification_<sid>_with_waveforms.json   the per-unit records
+    raw_cluster_points_full_<sid>.json                   PC-space points per unit
+    raw_separation_full_<sid>.npy                        sep_vs_noise / sep_vs_other
+    unit_trodes_channel_lookup_<sid>.csv                 the 1085-1466 ntrode numbers
+
+All four matched Z by sha1, so the build used exactly what the cluster produced. A review
+tool for a new session is assembly, not computation, because the raw-reading steps ran
+where the raw data was staged.
+
+| step | result |
+|---|---|
+| review data | 454 units, ACGs |
+| burst/ISI | 271 flat, 140 excluded high-rate, 16 facilitation, 11 rise-then-dip, 7 dip-then-rise, 7 insufficient, 2 decay |
+| merge-in | `missing: cluster_points=0, separation=0, burst=0, trodes_channel=0` |
+| timeline | 434 bins of 20 s, 548 code-1 trial markers, **no dropped-packet gaps** |
+| merge candidates | **2864 of 2864** co-located pairs analysed, 9.5 MB |
+| the page | 16,117,277 bytes = 15.37 MiB |
+
+Labels as the pipeline left them: 64 GOOD, 109 GOOD+NON-SOMA, 107 MUA, 174 MUA+NON-SOMA.
+`trodes_channel` 1085-1466, no nulls. Strongest merge candidates by CCG dip: 237+243
+(0 um, sim 0.905, dip 0.198), 225+228 (0 um, dip 0.262), 46+48 (0 um, dip 0.278),
+376+377 (0 um, sim 0.990, waveform r 0.969).
+
+Behaviour is clean, unlike the Popper sessions:
+`Shamir01_Dual2AFC_nat_Sep14_2026_Session1.mat`, 547 trials, **CatchError = 1**, 73 catch
+trials (13.3 %), none rewarded, median wait 5.65 s on catch against 1.49 s when rewarded,
+4.96 s on the 56 error trials. 547 Bpod trials against 548 DIO code-1 markers is the
+expected off-by-one: the last trial starts on the rig and never lands in the saved file.
+This session can carry a time-investment analysis.
+
+#### The three corrections, and where each is fixed now
+
+**1. The 150-pair cap was still the default.** 5bd.49 established that cap was obsolete --
+a leftover from before `correlogram()` was vectorised, discarding 94 % of co-located
+pairs to save sixteen seconds -- and rebuilt 20261112 with `--max_pairs 3000`. But only
+that *invocation* changed. This build printed `2714 co-located pairs will NOT be
+analysed`, which is the same bug returning: a unit absent from the merge panel reads as
+"checked, nothing found" when it means "never compared". Fixed in the default, now 3000,
+with the reason in `--help`.
+
+**2. `--uv_per_bit` defaulted to 0.195**, the SpikeGLX figure for Neuropixels 1.0 at gain
+500, which is 10.6x too large for our Trodes exports. The help text said "pass the
+session's own gain" -- an instruction in a help string is not a fix. The default is now
+`None` and the script reads `spikeScalingToUv` out of the session's own `.rec` header,
+refusing rather than guessing if the header has none or disagrees with itself. For
+20260914 that is `0.018311105685598315`, one distinct value across the header.
+
+**3. The sync command on the page hardcoded `F:\Gil\Shamir`.** This session was sorted on
+RIS and archived straight to Z; it has never existed on F. The page would have told Gil
+to run a command naming a folder that is not there. `patch_review_tool_sync_command.py`
+now takes `--rec_root` / `--rat_root`, with one `js_path()` that spells a Windows path
+for a JS string literal and reproduces the hand-written constants exactly, and
+`build_review_tool.py` passes them through.
+
+#### What makes it not repeat: one command, run by the pipeline
+
+`scripts/build_review_for_session.py <sid>` is the whole display half. It finds the
+session itself (Z first, then F, across all three rats, taking whichever copy actually
+holds the sort), brings the cluster's four outputs in after comparing sha1 against Z,
+reads the gain from the `.rec` header, runs the chain, and **refuses to save a build that
+fails any of the checks the three corrections above earned**:
+
+| check | the mistake it catches |
+|---|---|
+| no null `trodes_channel`, nothing missing `cluster_points` / `sep_vs_noise` / `burst_curve` | the 2026-09-16 bug: the lookup built and never merged in |
+| `n_pairs_analysed == n_pairs_in_range` | the 150-pair cap |
+| `uv_per_bit` equals the `.rec` header's value | the 0.195 default |
+| the page's own `--rec` path is a folder that exists | `F:\Gil\Shamir` for a Z-only session |
+| page under 16 MiB | the artifact limit |
+
+Then it saves the page, its merge data and a MANIFEST to the agreed place on Z:
+
+    Z:\Gil\<rat>\<sid>.rec\<sid>.kilosort\review\tool\build_<YYYYMMDD_HHMM>\
+
+Dated folders only -- strictly additive, so nothing on Z is overwritten or removed and
+the newest build sorts last. The MANIFEST names each file's sha256, the clustering sha1
+they were built against, the gain, the publish parameters, and after publishing, the
+artifact URL, so "which artifact holds this session's verdicts" is answerable from the
+session's own folder. 20260914's is `build_20261117_0934`.
+
+`ris_serial_pipeline.sh` calls it the moment a session's results are verified on Z, right
+after `purge_ris`. It is allowed to fail without stopping the pipeline, for the same
+reason post-KS steps 3-6 are: by then the sort is home and verified, which is the
+expensive part. A failure is named in the log with the command to re-run.
+
+Publishing stays manual -- it goes through the Artifact tooling, which only Claude can
+reach -- but it is now a single call with no decisions left in it.
+
+#### Still worth doing
+
+`build_merge_candidates.py` reads raw waveforms from `probe1.dat`, and reading 454 units'
+worth over the network from Z took **16.5 minutes**. That step is raw-bound and belongs
+on the cluster with the others; `ris_run_postks.sh` says the display half is deliberately
+not there because it needs the DIO and the Bpod file, which is true of the timeline step
+(it imports `sync_pipeline.dio_decoder`, not present on the cluster) but not of this one.
+Moving it needs no image rebuild -- the postks image mounts the code at run time -- only
+an scp of the script into `CODE_DIR`.
+
+Page size is also worth watching: 15.37 MiB of 16 MiB for 454 units, about 35 kB each.
+20260924 and 20260925 have 543 units. If either overflows, the per-unit payload has to
+move out to a published data file the way `merge_candidates.json` already is.
