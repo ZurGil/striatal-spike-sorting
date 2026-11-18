@@ -240,6 +240,12 @@ async function initDb(){
     db = await claude.use('db');
   }catch(e){ db = null; }
   if(!db){ document.getElementById('dbStatusText') && (document.getElementById('dbStatusText').textContent='local only (db unavailable)'); return; }
+  db.collection('reassignments').onSnapshot(snap => {
+    snap.docs.forEach(doc => {
+      const d = doc.data();
+      if(d) REASSIGN[doc.id] = d;
+    });
+  });
   db.collection('verdicts').onSnapshot(snap => {
     snap.docs.forEach(doc => {
       const d = doc.data();
@@ -295,32 +301,359 @@ function renderWaveform(container, templ){
   container.innerHTML=''; container.appendChild(svg);
 }
 const SCATTER_FIELD_LABELS = {
-  pc1:'PC1', pc2:'PC2', ptp:'Peak-to-peak', teo_max:'Teager (whole-window max)',
-  psi_trough:'Teager (at trough)', teo2:'Teager (lag-2)',
+  pc1:'PC1', pc2:'PC2', ptp:'Peak-to-peak', teo_max:'Teager (max, thousands)',
+  psi_trough:'Teager (at trough, thousands)', teo2:'Teager (lag-2, thousands)',
 };
 let scatterXField = 'pc1', scatterYField = 'ptp';
 
-function renderScatter(container, pts, xField, yField){
-  if(!pts){ container.innerHTML = '<div class="no-data">cluster data not yet computed for this unit</div>'; return; }
-  const W=300,H=220,padL=8,padR=8,padT=10,padB=10;
-  const svg = svgEl('svg',{viewBox:`0 0 ${W} ${H}`});
-  let allX=[], allY=[];
-  ['noise','other','own'].forEach(cat => { (pts[cat]?.[xField]||[]).forEach(v=>allX.push(v)); (pts[cat]?.[yField]||[]).forEach(v=>allY.push(v)); });
-  if(allX.length===0){ container.innerHTML = '<div class="no-data">no events detected on this channel</div>'; return; }
-  const xmin=Math.min(...allX), xmax=Math.max(...allX), ymin=Math.min(...allY), ymax=Math.max(...allY);
-  const x = v => padL + (v-xmin)/(xmax-xmin+1e-9)*(W-padL-padR);
-  const y = v => padT + (1-(v-ymin)/(ymax-ymin+1e-9))*(H-padT-padB);
-  const colors = {noise:'#9aacbd', other:'#2f8f57', own:'#c2453f'};
-  const order = ['noise','other','own'];
-  order.forEach(cat => {
-    const p = pts[cat]; if(!p || !p[xField]) return;
-    for(let i=0;i<p[xField].length;i++){
-      svg.appendChild(svgEl('circle',{cx:x(p[xField][i]), cy:y(p[yField][i]), r: cat==='own'?2.2:1.6,
-        fill: colors[cat], opacity: cat==='noise'?0.35:0.75}));
-    }
-  });
-  container.innerHTML=''; container.appendChild(svg);
+/* --- one colour per unit, shared with the raw-trace panel --------------------
+   Rebuilt when a unit is selected, and BOTH panels draw from it, so a cluster you
+   pick out by colour in the scatter is the same colour on the traces underneath.
+   That is the point of it: you read the unit number off the legend and type it in.
+   Assignment is by order of first appearance within one unit's view, which keeps
+   neighbours distinct from each other -- the thing that actually matters here --
+   rather than fixing a global colour per unit and letting two neighbours collide. */
+const UNIT_PALETTE = ['#d9a441','#2f6f9f','#3f8f5f','#b0552f','#7f4f9f','#3f9f9f',
+                      '#9f4f7f','#6f7f2f','#4f6fd9','#9f2f4f','#2f9f6f','#8f7f3f'];
+let unitColorMap = {};
+function resetUnitColors(){ unitColorMap = {}; }
+function colorForUnit(unitId){
+  const k = String(unitId);
+  if(!(k in unitColorMap))
+    unitColorMap[k] = UNIT_PALETTE[Object.keys(unitColorMap).length % UNIT_PALETTE.length];
+  return unitColorMap[k];
 }
+
+/* --- which stretches of the session are on screen ---------------------------
+   CW_WINDOWS is what the point clouds were actually detected in: ten 120 s windows
+   spread across the recording. Before 2026-11-18 the panel showed ONE of them --
+   whichever had the most of that unit's own spikes -- and said nothing about it, so
+   a cloud was two minutes out of two hours and a different two minutes for each
+   unit. Every window is kept now and these checkboxes decide which are drawn.
+
+   They can be combined only because the PCA basis is fitted once per channel and
+   stored. Per-window SVDs flip sign between windows (measured: dot products of
+   +0.81, -0.13, -0.99, +0.99 on four channels), so the old clouds were not in
+   comparable coordinates and overlaying them would have been meaningless. */
+const CW_WINDOWS = __CW_WINDOWS__;
+let cwOn = null;                       /* Set of window indices; null = all of them */
+try{
+  const raw = localStorage.getItem('cwOn');
+  if(raw){ const a = JSON.parse(raw); if(Array.isArray(a)) cwOn = new Set(a); }
+}catch(e){}
+function cwSave(){
+  try{
+    if(cwOn === null) localStorage.removeItem('cwOn');
+    else localStorage.setItem('cwOn', JSON.stringify(Array.from(cwOn)));
+  }catch(e){}
+}
+function cwActiveIdx(){
+  const all = CW_WINDOWS.map(w => w.i);
+  return cwOn === null ? all : all.filter(i => cwOn.has(i));
+}
+function cwIsOn(i){ return cwOn === null ? true : cwOn.has(i); }
+function cwToggle(i){
+  if(cwOn === null) cwOn = new Set(CW_WINDOWS.map(w => w.i));
+  if(cwOn.has(i)) cwOn.delete(i); else cwOn.add(i);
+  cwSave();
+}
+
+/* Flatten the ticked windows into one list of points, and count what is behind it.
+   A point is {x, y, cat, unit, w}: cat is own/other/noise, unit is the neighbour it
+   belongs to (null for own and noise), w is the window it came from. */
+function cwPoints(cp, xField, yField){
+  const pts = [];
+  let ownTotal = 0, ownShown = 0, windowsWithData = 0;
+  if(cp && cp.windows){
+    cwActiveIdx().forEach(wi => {
+      const w = cp.windows[String(wi)];
+      if(!w) return;
+      windowsWithData++;
+      ownTotal += (w.n_own || 0);
+      ['noise','other','own'].forEach(cat => {
+        const g = w[cat];
+        if(!g || !g[xField] || !g[yField]) return;
+        for(let i = 0; i < g[xField].length; i++){
+          pts.push({x: g[xField][i], y: g[yField][i], cat: cat, w: wi,
+                    unit: (cat === 'other' && w.other_unit) ? w.other_unit[i] : null});
+        }
+        if(cat === 'own') ownShown += g[xField].length;
+      });
+    });
+  }else if(cp){
+    /* A page built before the windowed clouds: one pooled cloud, no unit labels and
+       no windows. Drawn the old way rather than not at all. */
+    ['noise','other','own'].forEach(cat => {
+      const g = cp[cat];
+      if(!g || !g[xField] || !g[yField]) return;
+      for(let i = 0; i < g[xField].length; i++)
+        pts.push({x: g[xField][i], y: g[yField][i], cat: cat, w: null, unit: null});
+      if(cat === 'own') ownShown += g[xField].length;
+    });
+    ownTotal = ownShown;
+  }
+  return {pts: pts, ownTotal: ownTotal, ownShown: ownShown, nWindows: windowsWithData};
+}
+
+function pointInPolygon(px, py, poly){
+  /* Ray casting. poly is [[x,y], ...] in DATA coordinates, so the test does not
+     change when the panel is resized. */
+  let inside = false;
+  for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+    if(((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi + 1e-12) + xi))
+      inside = !inside;
+  }
+  return inside;
+}
+
+/* Where a region drawn by hand is kept until it is applied. Nothing here changes a
+   spike: it writes a PROPOSAL, the same discipline as merges -- spike_clusters.npy
+   is never rewritten in place, the manifest is applied when the session is synced
+   and can be read, argued with and deleted first. */
+let REASSIGN = {};                     /* doc id -> {source_unit, target_unit, ...} */
+
+function renderScatter(container, cp, xField, yField, uid){
+  container.innerHTML = '';
+  const head = document.createElement('div');
+  head.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px 6px;margin-bottom:6px;align-items:center;';
+  container.appendChild(head);
+
+  /* The window checkboxes, labelled by where they sit in the session. */
+  if(CW_WINDOWS.length && cp && cp.windows){
+    const lab = document.createElement('span');
+    lab.style.cssText = 'font-size:9px;color:var(--text-3);margin-right:2px;';
+    lab.textContent = 'minutes:';
+    head.appendChild(lab);
+    CW_WINDOWS.forEach(w => {
+      const has = !!cp.windows[String(w.i)];
+      const b = document.createElement('button');
+      const on = cwIsOn(w.i) && has;
+      b.textContent = Math.round(w.t0_s / 60) + '–' + Math.round(w.t1_s / 60);
+      b.title = has ? ('window ' + w.i + ': ' + w.t0_s.toFixed(0) + '–' +
+                       w.t1_s.toFixed(0) + ' s' + (cwIsOn(w.i) ? '' : ' (off)'))
+                    : 'no events detected on this channel in this window';
+      b.disabled = !has;
+      b.style.cssText = 'font-size:9px;padding:1px 5px;border-radius:4px;cursor:' +
+        (has ? 'pointer' : 'default') + ';border:1px solid ' +
+        (on ? 'var(--accent)' : 'var(--border)') + ';background:' +
+        (on ? 'var(--accent-soft)' : 'transparent') + ';color:' +
+        (has ? (on ? 'var(--accent)' : 'var(--text-3)') : 'var(--border)') + ';';
+      if(has) b.addEventListener('click', () => {
+        cwToggle(w.i); renderScatter(container, cp, xField, yField, uid);
+      });
+      head.appendChild(b);
+    });
+    const all = document.createElement('button');
+    all.textContent = cwOn === null ? 'none' : 'all';
+    all.style.cssText = 'font-size:9px;padding:1px 5px;border-radius:4px;cursor:pointer;' +
+      'border:1px solid var(--border);background:transparent;color:var(--text-3);';
+    all.addEventListener('click', () => {
+      cwOn = (cwOn === null) ? new Set() : null;
+      cwSave(); renderScatter(container, cp, xField, yField, uid);
+    });
+    head.appendChild(all);
+  }
+
+  if(!cp){
+    const d = document.createElement('div');
+    d.className = 'no-data';
+    d.textContent = 'cluster data not yet computed for this unit';
+    container.appendChild(d); return;
+  }
+  const got = cwPoints(cp, xField, yField);
+  if(!got.pts.length){
+    const d = document.createElement('div');
+    d.className = 'no-data';
+    d.textContent = cwActiveIdx().length ? 'no events detected on this channel'
+                                         : 'no windows ticked';
+    container.appendChild(d); return;
+  }
+
+  const W = 300, H = 220, padL = 8, padR = 8, padT = 10, padB = 10;
+  const svg = svgEl('svg', {viewBox: '0 0 ' + W + ' ' + H});
+  svg.style.cssText = 'display:block;width:100%;touch-action:none;';
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+  got.pts.forEach(p => {
+    if(p.x < xmin) xmin = p.x; if(p.x > xmax) xmax = p.x;
+    if(p.y < ymin) ymin = p.y; if(p.y > ymax) ymax = p.y;
+  });
+  const sx = v => padL + (v - xmin) / (xmax - xmin + 1e-9) * (W - padL - padR);
+  const sy = v => padT + (1 - (v - ymin) / (ymax - ymin + 1e-9)) * (H - padT - padB);
+  const ix = c => xmin + (c - padL) / (W - padL - padR) * (xmax - xmin + 1e-9);
+  const iy = c => ymin + (1 - (c - padT) / (H - padT - padB)) * (ymax - ymin + 1e-9);
+
+  const seen = {};
+  ['noise', 'other', 'own'].forEach(cat => {
+    got.pts.forEach(p => {
+      if(p.cat !== cat) return;
+      let fill, r, op;
+      if(cat === 'own'){ fill = '#c2453f'; r = 2.2; op = 0.8; }
+      else if(cat === 'noise'){ fill = '#9aacbd'; r = 1.6; op = 0.32; }
+      else { fill = colorForUnit(p.unit); r = 1.7; op = 0.78; seen[p.unit] = fill; }
+      svg.appendChild(svgEl('circle', {cx: sx(p.x), cy: sy(p.y), r: r, fill: fill,
+                                       opacity: op}));
+    });
+  });
+  const lassoPath = svgEl('polyline', {points: '', fill: 'rgba(79,111,217,0.10)',
+                                       stroke: '#4f6fd9', 'stroke-width': 1.4});
+  svg.appendChild(lassoPath);
+  container.appendChild(svg);
+
+  /* --- legend: the numbers to type into the box ----------------------------- */
+  const legend = document.createElement('div');
+  legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:5px;font-size:9px;color:var(--text-3);';
+  const chip = (color, text) => {
+    const s = document.createElement('span');
+    s.style.cssText = 'display:inline-flex;align-items:center;gap:3px;';
+    s.innerHTML = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' +
+                  color + '"></span>';
+    const t = document.createElement('span'); t.textContent = text;
+    s.appendChild(t); legend.appendChild(s);
+  };
+  chip('#c2453f', 'unit ' + uid + ' (this unit)');
+  Object.keys(seen).sort((a, b) => a - b).forEach(o => chip(seen[o], 'unit ' + o));
+  chip('#9aacbd', 'unassigned');
+  container.appendChild(legend);
+
+  const cap = document.createElement('div');
+  cap.style.cssText = 'font-size:9px;color:var(--text-3);margin-top:3px;';
+  cap.textContent = got.nWindows + ' window' + (got.nWindows === 1 ? '' : 's') +
+    ' · ' + got.ownShown + ' of this unit’s ' + got.ownTotal +
+    ' detected spikes drawn (the rest are a subsample)';
+  container.appendChild(cap);
+
+  /* --- drawing a region by hand --------------------------------------------- */
+  const tools = document.createElement('div');
+  tools.style.cssText = 'margin-top:6px;font-size:9px;color:var(--text-3);';
+  const drawBtn = document.createElement('button');
+  drawBtn.textContent = 'Select a region';
+  drawBtn.style.cssText = 'font-size:9px;padding:2px 8px;border-radius:5px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer;font-weight:600;';
+  tools.appendChild(drawBtn);
+  const form = document.createElement('div');
+  tools.appendChild(form);
+  container.appendChild(tools);
+
+  const pending = document.createElement('div');
+  pending.style.cssText = 'margin-top:5px;font-size:9px;';
+  container.appendChild(pending);
+
+  const drawPending = () => {
+    pending.innerHTML = '';
+    const mine = Object.keys(REASSIGN).filter(k => String(REASSIGN[k].source_unit) === String(uid));
+    if(!mine.length) return;
+    mine.sort().forEach(k => {
+      const r = REASSIGN[k];
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:6px;color:var(--text-3);margin-top:2px;';
+      const txt = document.createElement('span');
+      txt.innerHTML = '&rarr; unit <b>' + r.target_unit + '</b>: ' + r.n_selected_dots +
+        ' dots, ~' + r.n_estimated + ' spikes, ' + (r.windows || []).length +
+        ' window(s), ' + (r.x_field || '?') + '/' + (r.y_field || '?');
+      const del = document.createElement('button');
+      del.textContent = 'remove';
+      del.style.cssText = 'font-size:9px;padding:0 5px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-3);cursor:pointer;';
+      del.addEventListener('click', () => {
+        if(db) db.collection('reassignments').doc(k).delete().catch(e => console.error(e));
+        delete REASSIGN[k]; drawPending();
+      });
+      row.appendChild(txt); row.appendChild(del);
+      pending.appendChild(row);
+    });
+  };
+  drawPending();
+
+  let drawing = false, poly = [];
+  const toData = evt => {
+    const box = svg.getBoundingClientRect();
+    const cx = (evt.clientX - box.left) / box.width * W;
+    const cy = (evt.clientY - box.top) / box.height * H;
+    return [ix(cx), iy(cy)];
+  };
+  const paint = () => {
+    lassoPath.setAttribute('points',
+      poly.map(p => sx(p[0]).toFixed(1) + ',' + sy(p[1]).toFixed(1)).join(' '));
+  };
+  const finish = () => {
+    drawing = false;
+    svg.style.cursor = '';
+    drawBtn.textContent = 'Select a region';
+    if(poly.length < 3){ poly = []; paint(); form.innerHTML = ''; return; }
+    const inside = got.pts.filter(p => pointInPolygon(p.x, p.y, poly));
+    const own = inside.filter(p => p.cat === 'own');
+    const others = inside.filter(p => p.cat === 'other');
+    const grey = inside.filter(p => p.cat === 'noise');
+    const est = got.ownShown ? Math.round(got.ownTotal * own.length / got.ownShown) : 0;
+    form.innerHTML = '';
+    if(!own.length){
+      const s = document.createElement('span');
+      s.style.cssText = 'margin-left:8px;color:var(--alert);';
+      s.textContent = 'no spikes of unit ' + uid + ' in that region';
+      form.appendChild(s);
+      return;
+    }
+    const s = document.createElement('span');
+    s.style.cssText = 'margin-left:8px;';
+    s.innerHTML = '<b>' + own.length + '</b> dots of unit ' + uid + ' (&asymp;<b>' +
+      est + '</b> of its ' + got.ownTotal + ' spikes in the ticked windows) &rarr; unit ';
+    const box = document.createElement('input');
+    box.type = 'number'; box.min = '0'; box.placeholder = '#';
+    box.style.cssText = 'width:52px;font-size:9px;padding:1px 3px;margin:0 4px;';
+    const ok = document.createElement('button');
+    ok.textContent = 'Approve';
+    ok.style.cssText = 'font-size:9px;padding:2px 8px;border-radius:5px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer;font-weight:600;';
+    const note = document.createElement('div');
+    note.style.cssText = 'color:var(--text-3);margin-top:3px;';
+    note.innerHTML = 'ignores ' + others.length + ' point(s) of other units and ' +
+      grey.length + ' unassigned &middot; the region is applied to <b>every</b> spike ' +
+      'in the ticked windows when the session is synced, not just to the dots drawn';
+    ok.addEventListener('click', () => {
+      const target = parseInt(box.value, 10);
+      if(!(target >= 0)){ box.style.borderColor = 'var(--alert)'; return; }
+      if(String(target) === String(uid)){
+        note.innerHTML = '<span style="color:var(--alert)">that is this unit</span>';
+        return;
+      }
+      const id = uid + '_' + Date.now();
+      const rec = {
+        session: SESSION_ID, source_unit: Number(uid), target_unit: target,
+        x_field: xField, y_field: yField, polygon: poly.map(p => [+p[0].toFixed(3), +p[1].toFixed(3)]),
+        windows: cwActiveIdx(), n_selected_dots: own.length, n_estimated: est,
+        n_own_total_in_windows: got.ownTotal, n_other_in_region: others.length,
+        n_unassigned_in_region: grey.length, ts: Date.now(),
+      };
+      REASSIGN[id] = rec;
+      if(db) db.collection('reassignments').doc(id).set(rec).catch(e => console.error(e));
+      poly = []; paint(); form.innerHTML = ''; drawPending();
+    });
+    form.appendChild(s); form.appendChild(box); form.appendChild(ok);
+    form.appendChild(note);
+  };
+  drawBtn.addEventListener('click', () => {
+    if(drawing){ finish(); return; }
+    drawing = true; poly = []; paint(); form.innerHTML = '';
+    svg.style.cursor = 'crosshair';
+    drawBtn.textContent = 'Cancel';
+  });
+  svg.addEventListener('pointerdown', e => {
+    if(!drawing) return;
+    poly = [toData(e)]; paint();
+    svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener('pointermove', e => {
+    if(!drawing || !poly.length) return;
+    const p = toData(e);
+    const last = poly[poly.length - 1];
+    if(Math.abs(p[0] - last[0]) + Math.abs(p[1] - last[1]) > 0) poly.push(p);
+    paint();
+  });
+  svg.addEventListener('pointerup', e => {
+    if(!drawing || !poly.length) return;
+    try{ svg.releasePointerCapture(e.pointerId); }catch(err){}
+    finish();
+  });
+}
+
 
 function renderAcg(container, u){
   const hist = u.acg_hist;
@@ -439,10 +772,14 @@ function renderBurstCurve(container, curve, shape){
 
 let rawSpikesCache = {};  // uid -> data or null, avoids re-fetching on repeated toggle
 const RAW_TRACES_INITIAL_N = 8;  // "Show" reveals this many; "Show more" reveals the rest
-const OTHER_UNIT_PALETTE = ['#2f6f9f','#3f8f5f','#b07d2f','#7f4f9f','#3f9f9f','#9f4f7f','#6f7f2f','#9f2f4f'];
+/* The colour comes from the SHARED map (see colorForUnit, up with the scatter), so a
+   neighbour drawn yellow in the scatter is drawn yellow here too -- that is what makes
+   the legend's unit number usable. colorMap is still filled in, because the legend
+   below the traces lists only the units these traces actually contain. */
 function colorForOtherUnit(colorMap, unitId){
-  if(!(unitId in colorMap)) colorMap[unitId] = OTHER_UNIT_PALETTE[Object.keys(colorMap).length % OTHER_UNIT_PALETTE.length];
-  return colorMap[unitId];
+  const c = colorForUnit(unitId);
+  colorMap[unitId] = c;
+  return c;
 }
 function renderRawTracesLegend(container, uid, colorMap){
   container.innerHTML = '';
@@ -564,6 +901,11 @@ async function fetchClusterPoints(uid){
   if(cpShardCache[n] === undefined){
     let shard = null;
     try{
+      /* One path, two formats. A shard built from 2026-11-18 carries the windowed
+         clouds (every window kept, each point labelled with the unit it matched); an
+         older one carries a single pooled chunk. renderScatter tells them apart by
+         whether a unit has `windows`, and draws the old one the old way rather than
+         refusing it. */
       const r = await fetch('data/cluster_points/shard_' + n + '.json');
       if(r.ok) shard = await r.json();
     }catch(e){ /* opened from disk, or not published: the panel says so */ }
@@ -1055,6 +1397,8 @@ function reasonText(u){
 let tlLastUid = null;
 function renderDetail(uid){
   if(uid !== tlLastUid){ pendingStart = null; tlSaveState = ''; tlLastUid = uid; }
+  /* One colour assignment per unit's view, shared by the scatter and the traces. */
+  resetUnitColors();
   const u = byId[uid];
   const core = u.label.replace('+NON-SOMA','');
   const v = verdicts[uid];
@@ -1076,7 +1420,7 @@ function renderDetail(uid){
       <div class="panel"><div class="panel-label">KS waveform (top 4 channels)</div><div class="wave"></div></div>
       <div class="panel">
         <div class="panel-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-          <span>Raw-data scatter: own (red) / co-located (green) / noise (gray)</span>
+          <span>Raw-data scatter: this unit (red) / each neighbour its own colour / unassigned (gray)</span>
           <span style="display:flex;gap:4px;text-transform:none;">
             <select id="scatterXSel" style="font-size:9px;"></select>
             <span style="color:var(--text-3);">vs</span>
@@ -1137,7 +1481,7 @@ function renderDetail(uid){
      it holds, and renderScatter renders a null as "not yet computed" rather than
      throwing, so changing an axis mid-fetch is harmless. */
   let cpHere = u.cluster_points || null;
-  const drawScatter = () => renderScatter(clusEl, cpHere, scatterXField, scatterYField);
+  const drawScatter = () => renderScatter(clusEl, cpHere, scatterXField, scatterYField, uid);
   if(cpHere){
     drawScatter();
   }else{
@@ -1251,6 +1595,32 @@ print(f"cluster points for {len(cluster_points)} unit(s) -> {CLUSTER_POINTS_PATH
       f"({os.path.getsize(CLUSTER_POINTS_PATH) / 1048576.0:.2f} MiB, published beside "
       f"the page rather than inside it)")
 
+# --- the windowed point clouds -----------------------------------------------
+# build_cluster_windows.py keeps all ten 120 s windows instead of the single best
+# chunk, and labels every point with the unit it matched. Its per-unit payloads are
+# sharded beside the page exactly like the old pooled clouds; its window table goes
+# INTO the page, because the checkbox row needs it before any shard has landed.
+CLUSTER_WINDOWS_SRC = out_path(f"cluster_windows_{SESSION_ID}.json")
+cw_windows = []
+if os.path.exists(CLUSTER_WINDOWS_SRC):
+    with open(CLUSTER_WINDOWS_SRC, encoding="utf-8") as f:
+        cw_doc = json.load(f)
+    cw_windows = cw_doc.get("windows", [])
+    cw_units = dict((uid, {"peak_channel": rec.get("peak_channel"),
+                           "windows": rec.get("windows", {})})
+                    for uid, rec in cw_doc["units"].items() if rec.get("windows"))
+    with open(CLUSTER_POINTS_PATH, "w", encoding="utf-8") as f:
+        json.dump(cw_units, f)
+    print(f"windowed cluster points for {len(cw_units)} unit(s) in "
+          f"{len(cw_windows)} windows -> {CLUSTER_POINTS_PATH} "
+          f"({os.path.getsize(CLUSTER_POINTS_PATH) / 1048576.0:.2f} MiB); the single-chunk "
+          f"clouds from raw_cluster_points are superseded")
+else:
+    print("no cluster_windows file for this session -- the panel keeps the old "
+          "single-chunk clouds and shows no window checkboxes")
+
+html = html.replace("__CW_WINDOWS__", json.dumps(
+    [{"i": w["i"], "t0_s": w["t0_s"], "t1_s": w["t1_s"]} for w in cw_windows]))
 html = html.replace("__UNITS_JSON__", json.dumps(units))
 html = html.replace("__TIMELINE_JSON__", json.dumps(timeline) if timeline else "null")
 html = html.replace("__SESSION_ID__", SESSION_ID)

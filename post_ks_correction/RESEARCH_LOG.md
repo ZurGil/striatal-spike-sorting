@@ -9981,3 +9981,72 @@ the page to re-fetch the file.
 One known cosmetic lie left: the panel's copy says "clusters within 60 um of this
 unit", and for this one pair that is now 62.1. Fixing it means republishing index.html
 under him, so it waits for the next rebuild.
+
+### 5bd.67 The raw-data scatter gets its windows, its colours, and a hand-drawn region
+
+Gil asked for three things on the top-right scatter: a colour per neighbour instead of
+one green for all of them, checkboxes to add or remove stretches of the session, and a
+way to lasso a region and move his own spikes inside it to a named unit. Working out
+what the panel was actually showing changed what each of those costs.
+
+**What the panel had been showing.** `raw_cluster_points_session.py` detects events on
+a unit's peak channel in five 120 s chunks, keeps **the one chunk with the most of that
+unit's own spikes**, discards the other four, and caps each category at 250 points. So
+the cloud was two minutes of a two-hour session, a *different* two minutes for each
+unit, and that was never said anywhere on the page. Gil had been reading it as a sample
+of the whole recording. It also stored only own/other/noise -- which unit a green point
+belonged to was never recorded, so per-unit colour was not a rendering change, it was
+missing data.
+
+**Three things the rebuild had to fix, two of them found by measuring.**
+
+*The PCA basis was per chunk.* PC1 and PC2 came from an SVD of each chunk's own
+snippets. Checking the same channel across two windows on 20260922_144404:
+
+    ch 343  dot +0.806      ch 254  dot -0.131  (sign flipped)
+    ch 130  dot -0.987 (flipped)   ch 370  dot +0.989
+
+An SVD fixes an axis only up to sign, and sometimes window 2's "PC1" is a different
+axis altogether. Two windows were therefore **not drawn in the same coordinates**, so
+overlaying them would have been meaningless and a region drawn on one could never be
+applied to another. `build_cluster_windows.py` now fits **one basis per channel**,
+pooled over two windows, sign-fixed by making each component negative at the mean
+snippet's trough, and writes it to `cluster_basis_<sid>.json` so the step that later
+applies a region can reproduce it exactly.
+
+*The read was channel-major, and probe1.dat is sample-major.* Measured on Z: 20 s of
+ONE channel costs **4.1 s**; 20 s of all 384 costs **4.5 s**. The stride pulls the span
+either way. The old loop paid that per unit per chunk. Reading window-major instead --
+each window's span read once in 10 s slices, every channel detected from it -- took a
+session from **2.9 hours to 14 minutes** while doubling the number of windows. The
+first trial run, before this, was 44 s per channel and would have been 3 h a session.
+
+*"Other" has to mean co-located.* Labelling a point by whatever unit it matched put
+**58 distinct units** in one window on channel 5 -- distant spikes cross threshold here
+too. The legend is meant to name the two or three clusters sitting on this channel, so
+"other" stays what the panel always meant: units whose peak channel is this one.
+Everything else is background, as before.
+
+**Built:** ten 120 s windows, each point carrying its matched unit, caps 80 own / 70
+other / 40 noise per window. Four sessions in 57 minutes: 478, 503, 543 and 543 units,
+14.8-16.9 MiB each. Shards grew from 14 to 18-20 MiB, pages stayed at 3.9-4.7 MiB. A
+unit with every box ticked now shows ~1700 points instead of 750 from one chunk.
+
+**The panel.** One colour map per selected unit, shared by the scatter and the raw
+traces, so a neighbour drawn yellow above is yellow below and the legend's number is
+the number to type. A checkbox per window labelled by its minutes. A freehand region
+that counts how many of this unit's dots fall inside, scales that to how many spikes
+it really represents, and writes a **proposal** -- source unit, target unit, the two
+axes, the polygon in data coordinates, the ticked windows -- to a `reassignments`
+collection. Nothing is applied: same discipline as merges, spike_clusters.npy is never
+rewritten in place.
+
+**What is NOT built, and the question it raises.** The step that applies a proposal.
+And measuring the coverage turned up the thing to settle first: ten 120 s windows are
+**16.9 % of a 118-minute recording**. A region restricted to the ticked windows can
+therefore only ever move about a sixth of a unit's spikes, leaving identical spike
+shapes in the unit for the other five sixths -- a split in time, which nobody wants.
+Gil said the region should apply only within the ticked windows; that is right for
+*choosing* the region and wrong for *applying* it. The apply step should scan the whole
+session on the affected channel (one pass, ~15 min, all proposals at once) and the
+windows should describe where the region was drawn, not where it bites. Put to him.
