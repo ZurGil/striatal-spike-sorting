@@ -9904,3 +9904,80 @@ Two numbers worth keeping. 605 of 1106 trials completed is 55 %, in line with 58
 20260914, 50 % on 20260916 and 53 % on Popper 20261112, so nothing about this session is
 unusual. And unit 10008 appears among the strongest at both cue events — a merged unit,
 which is the merges arriving in the analysis rather than stopping at the manifest.
+
+### 5bd.66 One pair past the gate, and what the band outside it actually holds
+
+Gil, reviewing 20260918_100248: "why i dont see unit 422 as optional match for unit
+425?" He had just marked both GOOD, one minute apart, and they look alike.
+
+They are 62.1 um apart and the shortlist gate is 60. `build_merge_candidates.py:377`
+is a hard edge -- geometry first, nothing else gets in -- and the pad lattice puts the
+next rung exactly 2.1 um outside it: 16 um across, 60 um down. Both units are in the
+panel with 13 and 14 neighbours of their own; they just miss each other.
+
+So the question worth answering was not "why this pair" but "what is in the band the
+gate excludes". Measured on this session:
+
+    separation      pairs   median sim   sim>0.3   sim>0.5
+    <= 60 um         3283       0.218       1207       553
+    60-70 um          845       0.039         26         1
+    70-80 um         1043       0.012          8         1
+    80-100 um         557       0.008          2         0
+
+Every one of the 845 in the 60-70 band sits at 62.1 um -- the band IS that one rung.
+I computed the CCG for all 26 with similarity above 0.3, and not one shows a
+refractory dip: ratios run 0.62 to 6.67 against the far flanks, flat or peaked at zero
+lag, never the collapse that marks one neuron split in two.
+
+And the calibration that settles whether the gate is costing anything. Across the five
+sessions judged so far, 125 accepted merges:
+
+    20260914          29    0 um x18, 25.6 x5, 32 x5, 52 x1
+    20260915 concat   31    0 x17, 25.6 x7, 32 x5, 40 x1, 52 x1
+    20260916           8    0 x4, 25.6 x1, 32 x2, 40 x1
+    20260917          30    0 x15, 25.6 x11, 32 x2, 40 x2
+    20261112          27    0 x15, 25.6 x7, 32 x4, 40 x1
+
+Two thirds are same-channel and the farthest two ever accepted were 52 um. The gate at
+60 sits one rung above the top of the range where a merge has ever been said yes to,
+which is the right place for it. Widening it to 70 would add 845 pairs per session to
+click through for the 26 that clear the similarity floor and the zero that clear the
+CCG.
+
+`scripts/add_merge_pair.py` is the answer instead: name a pair, and it is computed and
+inserted into an existing merge_candidates file. It imports the builder's own
+`correlogram`, `ccg_metrics` and `refractory_violations` and reads the per-unit
+payloads already in the file, so the record is identical to what a rebuild at a wider
+gate would have written -- copying the formulas into a second script would be the one
+way to produce a pair that looks comparable and is not. It refuses if
+spike_clusters.npy no longer matches the sha1 stamped in the file, and it refuses if
+either unit has no stored waveform (a unit with no in-gate neighbour at all is absent
+from the file, and that case genuinely needs the raw probe1.dat). Added pairs are
+listed in the header under `manual_pairs` with their distance and how far past the
+gate they are, so the file never implies the sweep covered them.
+
+422_425 took 6 seconds, almost all of it loading 30.2M spike times off Z:
+
+    distance 62.1 um   template similarity 0.1274   waveform r 0.765
+    amplitude 201.7 vs 208.6 uV (ratio 0.97)
+    refractory window: 16 observed, 12.0 predicted by the 2-5 ms shoulders
+                       -> dip ratio 1.33, Poisson p 0.899
+    footprint: 4 shared channels, centres 54.3 um apart, profile r 0.04
+
+Same size, similar single-channel shape, and that is where the resemblance stops. The
+footprint profile correlation of 0.04 says the two fall off differently across the
+channels they share, their amplitude centres of mass are 54 um apart, and the
+correlogram has slightly MORE in the refractory window than beside it. The panel
+rejects it on the similarity floor (0.127 below 0.50) and shows the reason on the row,
+which is the honest display: it is in front of him with its evidence, and the evidence
+says two neurons.
+
+Published as the data file alone -- `data/merge_candidates.json` replaced, every other
+file kept, and the page's database never touched. Gil was reviewing while this went
+out: 151 verdicts before, 151 after, including his own GOOD on 422 and 425. Decisions
+are keyed by pair_id, so adding a pair_id can only ever add a row. He needs to reload
+the page to re-fetch the file.
+
+One known cosmetic lie left: the panel's copy says "clusters within 60 um of this
+unit", and for this one pair that is now 62.1. Fixing it means republishing index.html
+under him, so it waits for the next rebuild.
