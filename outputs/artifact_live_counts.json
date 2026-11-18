@@ -1,81 +1,82 @@
 {
-  "20260914_122553": {
-    "_note": "Gil reported this review finished on 2026-11-17. 264 of 454 units carry a verdict (137 good, 127 mua, no noise); the 190 without keep their automatic label. Dumped, synced and verified the same day.",
-    "merge_verdicts": 31,
-    "review_finished": true,
-    "trial_selections": 29,
-    "url": "https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8",
-    "verdicts": 264
-  },
-  "20260915_084812_103710_concat": {
-    "_note": "Gil reported this review finished on 2026-11-16. 322 of 465 units carry a verdict; the 143 without are 134 Kilosort-mua and 9 Kilosort-good.",
-    "merge_verdicts": 33,
-    "review_finished": true,
-    "trial_selections": 26,
-    "url": "https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb",
-    "verdicts": 322
-  },
-  "20260916_110311": {
-    "merge_verdicts": 10,
-    "trial_selections": 20,
-    "url": "https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap",
-    "verdicts": 240
-  },
-  "20260917_100043": {
-    "_note": "Gil reported this review finished on 2026-11-17. 363 of 508 units carry a verdict (155 good, 208 mua, no noise); the 145 without keep their automatic label. 42 pairs judged: 30 merge, 11 separate, 1 unsure. Dumped, synced and verified the same day -- all nine checks, 475 units and 1106 trials in synced/ after 22 merge groups.",
-    "merge_verdicts": 42,
-    "review_finished": true,
-    "trial_selections": 29,
-    "url": "https://claude.ai/artifact/LxJPCJ8UpRz1LsqhcRji3Y",
-    "verdicts": 363
-  },
-  "20260918_100248": {
-    "_note": "published 2026-11-17, review not started yet. 481 units, all 3283 co-located pairs compared, page 4.30 MiB.",
-    "merge_verdicts": 0,
-    "trial_selections": 0,
-    "url": "https://claude.ai/artifact/AuWU4jP4vWn3tELjDBcWfN",
-    "verdicts": 0
-  },
-  "20260922_144404": {
-    "_note": "published 2026-11-17 from the backfill, review not started yet. 478 units, all 3430 co-located pairs compared, page 3.89 MiB, 42 files live.",
-    "merge_verdicts": 0,
-    "trial_selections": 0,
-    "url": "https://claude.ai/artifact/CHDv3SjMPCoezGbu2Q7nzW",
-    "verdicts": 0
-  },
-  "20260923_105129": {
-    "_note": "published 2026-11-17 from the backfill, review not started yet. 503 units, all 3663 co-located pairs compared, page 4.18 MiB, 44 files live.",
-    "merge_verdicts": 0,
-    "trial_selections": 0,
-    "url": "https://claude.ai/artifact/563NiJTGm4V51f4ZxwRAEb",
-    "verdicts": 0
-  },
-  "20260924_121751": {
-    "_note": "published 2026-11-17 from the backfill, review not started yet. 543 units, all 4235 co-located pairs compared, page 4.61 MiB, 46 files live.",
-    "merge_verdicts": 0,
-    "trial_selections": 0,
-    "url": "https://claude.ai/artifact/Qczrgr3CB5Un86bFdZuV5R",
-    "verdicts": 0
-  },
-  "20260925_103539": {
-    "_note": "published 2026-11-17 from the backfill, review not started yet. 543 units, all 4147 co-located pairs compared, page 4.74 MiB, 46 files live.",
-    "merge_verdicts": 0,
-    "trial_selections": 0,
-    "url": "https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw",
-    "verdicts": 0
-  },
-  "20261112_082028": {
-    "merge_verdicts": 31,
-    "trial_selections": 18,
-    "url": "https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG",
-    "verdicts": 260
-  },
-  "_checked": "2026-11-17 (20260914_122553 only; the others were read 2026-11-16)",
-  "_collections": [
-    "verdicts",
-    "merge_verdicts",
-    "trial_selections"
-  ],
-  "_fields": "verdicts / merge_verdicts / trial_selections are document counts read live from the page's database. review_finished is Gil's own word for 'I am done with this session', which is not the same as every unit carrying a verdict -- he stops when what is left is automatic MUA he does not intend to label.",
-  "_what": "Document counts read live from each review page's own database on claude.ai, using the Artifact data tooling. Python cannot reach those databases, so this file is how the counts get into scripts/session_status_report.py. Re-read the pages and rewrite this file whenever Gil says he has done more reviewing."
+ "20260914_122553": {
+  "_note": "Gil reported this review finished on 2026-11-17. 264 of 454 units carry a verdict (137 good, 127 mua, no noise); the 190 without keep their automatic label. Dumped, synced and verified the same day.",
+  "merge_verdicts": 31,
+  "review_finished": true,
+  "trial_selections": 29,
+  "url": "https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8",
+  "verdicts": 264
+ },
+ "20260915_084812_103710_concat": {
+  "_note": "Gil reported this review finished on 2026-11-16. 322 of 465 units carry a verdict; the 143 without are 134 Kilosort-mua and 9 Kilosort-good.",
+  "merge_verdicts": 33,
+  "review_finished": true,
+  "trial_selections": 26,
+  "url": "https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb",
+  "verdicts": 322
+ },
+ "20260916_110311": {
+  "merge_verdicts": 10,
+  "trial_selections": 20,
+  "url": "https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap",
+  "verdicts": 240
+ },
+ "20260917_100043": {
+  "_note": "Gil reported this review finished on 2026-11-17. 363 of 508 units carry a verdict (155 good, 208 mua, no noise); the 145 without keep their automatic label. 42 pairs judged: 30 merge, 11 separate, 1 unsure. Dumped, synced and verified the same day -- all nine checks, 475 units and 1106 trials in synced/ after 22 merge groups.",
+  "merge_verdicts": 42,
+  "review_finished": true,
+  "trial_selections": 29,
+  "url": "https://claude.ai/artifact/LxJPCJ8UpRz1LsqhcRji3Y",
+  "verdicts": 363
+ },
+ "20260918_100248": {
+  "_note": "Gil asked for the verdicts to be extracted and the session synced on 2026-11-18, which is how he says a review is finished. 341 of 481 units carry a verdict (148 good, 193 mua, no noise); the 140 without keep their automatic label. 44 pairs judged: 39 merge, 3 separate, 2 unsure -- 30 merge groups after transitive closure. Dumped, synced and verified the same day, all nine checks.",
+  "merge_verdicts": 44,
+  "review_finished": true,
+  "trial_selections": 37,
+  "url": "https://claude.ai/artifact/AuWU4jP4vWn3tELjDBcWfN",
+  "verdicts": 341
+ },
+ "20260922_144404": {
+  "_note": "published 2026-11-17 from the backfill, review not started yet. 478 units, all 3430 co-located pairs compared, page 3.89 MiB, 42 files live.",
+  "merge_verdicts": 0,
+  "trial_selections": 0,
+  "url": "https://claude.ai/artifact/CHDv3SjMPCoezGbu2Q7nzW",
+  "verdicts": 0
+ },
+ "20260923_105129": {
+  "_note": "published 2026-11-17 from the backfill, review not started yet. 503 units, all 3663 co-located pairs compared, page 4.18 MiB, 44 files live.",
+  "merge_verdicts": 0,
+  "trial_selections": 0,
+  "url": "https://claude.ai/artifact/563NiJTGm4V51f4ZxwRAEb",
+  "verdicts": 0
+ },
+ "20260924_121751": {
+  "_note": "published 2026-11-17 from the backfill, review not started yet. 543 units, all 4235 co-located pairs compared, page 4.61 MiB, 46 files live.",
+  "merge_verdicts": 0,
+  "trial_selections": 0,
+  "url": "https://claude.ai/artifact/Qczrgr3CB5Un86bFdZuV5R",
+  "verdicts": 0
+ },
+ "20260925_103539": {
+  "_note": "published 2026-11-17 from the backfill, review not started yet. 543 units, all 4147 co-located pairs compared, page 4.74 MiB, 46 files live.",
+  "merge_verdicts": 0,
+  "trial_selections": 0,
+  "url": "https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw",
+  "verdicts": 0
+ },
+ "20261112_082028": {
+  "merge_verdicts": 31,
+  "trial_selections": 18,
+  "url": "https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG",
+  "verdicts": 260
+ },
+ "_checked": "2026-11-18 (20260918_100248 read live today; the others earlier, see each note)",
+ "_collections": [
+  "verdicts",
+  "merge_verdicts",
+  "trial_selections"
+ ],
+ "_fields": "verdicts / merge_verdicts / trial_selections are document counts read live from the page's database. review_finished is Gil's own word for 'I am done with this session', which is not the same as every unit carrying a verdict -- he stops when what is left is automatic MUA he does not intend to label.",
+ "_what": "Document counts read live from each review page's own database on claude.ai, using the Artifact data tooling. Python cannot reach those databases, so this file is how the counts get into scripts/session_status_report.py. Re-read the pages and rewrite this file whenever Gil says he has done more reviewing."
 }

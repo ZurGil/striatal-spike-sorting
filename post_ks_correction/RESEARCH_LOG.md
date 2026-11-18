@@ -10148,3 +10148,49 @@ will act on that until the animal is already acting on it.
 
 Outputs: `outputs/confidence_coding/{summary,decoding,behaviour_waiting_time}.csv`
 and one `<session>_units.csv` per session. Nothing on Z was touched.
+
+### 5bd.69 20260918_100248 reviewed, synced and responding (2026-11-18)
+
+Gil finished the 18 September review and asked for the verdicts to be extracted and
+the session synced. Read live from `https://claude.ai/artifact/AuWU4jP4vWn3tELjDBcWfN`:
+
+    unit verdicts      341 of 481   148 good, 193 mua, no noise
+    merge verdicts      44 pairs    39 merge, 3 separate, 2 unsure
+    trial selections    37 units
+
+The 39 accepted pairs close into **30 merge groups**, which is the most of any
+session so far -- 20260917 had 30 groups from 42 judged pairs, 20260914 had 29 from
+31. The 140 units he did not touch keep their automatic label, as always.
+
+Every merge verdict carries `spike_clusters_sha1 = ed37a39849ab51bb5f66f4592c56c2fa6b3c4537`
+and the file on Z hashes to exactly that, so the clustering he judged is the
+clustering that was synced. That includes the pair `422_425` added by hand on
+2026-11-17 (§5bd.66) -- it is still in the candidate file and he left it unjudged,
+which is a verdict of its own kind and costs nothing.
+
+`scripts/sync_session.py` with the dumps, then `verify_verdicts_in_dataset.py`:
+
+    T1 fingerprints              manifests and merge verdicts all stamped ed37a39849ab
+    T2 good/mua labels           275 verdicts carried into quality_label
+    T3 noise exclusions          0 noise verdicts, all absent
+    T4 unjudged untouched        138 unjudged units keep their automatic label
+    T5 merges                    30 merge groups applied, parents absent
+    T6 separates respected       5 pairs judged not-a-merge, none merged
+    T7 stability windows         37 restricted units match trial by trial
+    T8 every verdict accounted   341/341 reached the dataset
+    T9 spikes reference units    441 distinct unit ids, all present
+
+All nine pass. `synced/` holds 441 units, 1115 trials, 49,652,796 spikes, every
+trial sync_valid, Bpod `Shamir01_Dual2AFC_nat_Sep18_2026_Session1.mat` auto-matched,
+23509/23509 events matched and a leave-one-out worst case of 33.5 ms.
+
+Two things worth noting rather than worrying about. `sync_status = needs_review`
+again, as on all six other sessions: it is the residual of ONE straight line across
+a session whose clocks drift 2375 ppm apart, and the conversion is local
+interpolation, whose holdout median is 6e-8 ms. And one dropped-packet gap, 0.068 s
+at t = 30 s, 2049 samples -- trials overlapping it are flagged, not removed.
+
+The register was regenerated and republished (Version 11), and
+`outputs/artifact_live_counts.json` now carries the live counts for this session.
+20260918 moves from NOT REVIEWED to SAVED, REVIEW CLOSED; seven sorts are now
+synced with verdicts applied.

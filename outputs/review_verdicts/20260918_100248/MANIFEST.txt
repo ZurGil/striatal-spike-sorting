@@ -1,0 +1,16 @@
+VERDICT DUMP -- 20260918_100248
+written 2026-11-18T15:59:41 from the review tool's live database
+source  https://claude.ai/artifact/AuWU4jP4vWn3tELjDBcWfN
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       341   {'mua': 193, 'good': 148}
+merge verdicts       44   {'merge': 39, 'unsure': 2, 'separate': 3}
+trial selections     37
+
+read live 2026-11-18; Gil asked for the sync
+
+sha256                                                            file
+9869a876c3b8c6600c4481afd84a2c979cd3b6c26ddba4ea13d54f0256098a72  verdicts.json  20540 bytes
+7375ccb9b9a176a5ab8c671e17d6ad2c102c5a12a8fc9352c9f84c3030ae44a3  merge_verdicts.json  16548 bytes
+faa3c29c6e1297a010bea175dd8954ae1cf870666ea02968409478822dbf011b  trial_selections.json  18730 bytes
+3b1d2b6822e00a64d2679e3c791d62abbbe4fc1b82cee0f8e2062c809cf7fe99  manual_verdicts.csv  7595 bytes
