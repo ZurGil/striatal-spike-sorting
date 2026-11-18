@@ -10050,3 +10050,101 @@ Gil said the region should apply only within the ticked windows; that is right f
 *choosing* the region and wrong for *applying* it. The apply step should scan the whole
 session on the affected channel (one pass, ~15 min, all proposals at once) and the
 windows should describe where the region was drawn, not where it bites. Put to him.
+
+### 5bd.68 Is the post-cue response scaled with confidence? Six synced sessions say yes, as a population (2026-11-18)
+
+Gil asked whether the response just after the cue, or at the choice port, scales
+with decision confidence, and said to assume for now a 1-to-1 map between DV and
+confidence while adding "I'm not sure". He was right not to be, and the data says
+where the assumption breaks.
+
+`scripts/confidence_coding_quick_check.py` runs the whole thing over every synced
+session: 20260914_122553, 20260915_084812, 20260915_103710, 20260916_110311,
+20260917_100043 (Shamir) and 20261112_082028 (Popper). 2349 completed trials, 750
+good units, 2086 unit-epoch regressions.
+
+**Three definitions of confidence, carried side by side.** `absDV` is |DV|, Gil's
+assumption, which is stimulus strength. `conf_norm` is P(correct | DV, choice)
+from each session's own psychometric fit -- the normative quantity, which is high
+on easy-correct and LOW on easy-error. `wait` is the animal's own report: how long
+it stays at the side port when no reward comes. The three agree on correct trials
+and separate on errors, which is where the test lives.
+
+**The behaviour settles the definition first.** Pooled over the five Shamir
+sessions (CatchError = 1 there, so both curves exist; see
+outputs/READ_ME_CatchError_0_NO_ERROR_CATCH_TRIALS.txt), z(log wait) against |DV|,
+with trial index and session as fixed effects:
+
+    correct, reward withheld (catch)   slope +0.649   t = 3.09   n = 239
+    error                              slope +0.052   t = 0.16   n = 228
+    trial index                        slope +0.003   t = 0.05
+
+so it is not satiety. The gap between the two curves at matched |DV| widens with
+evidence: +0.11 z at |DV| < 0.2 and +0.57 z (t = 2.16) above 0.6. **At the same
+stimulus strength the rat invests very differently depending on whether it got it
+right, so |DV| is not confidence.** It is confidence restricted to correct trials.
+The error curve is flat rather than falling, which is the one place this is weaker
+than the textbook result -- there are only 16 errors above |DV| = 0.6 in all five
+sessions put together.
+
+**One trap found while building it.** The first behaviour table came out inverted,
+correct waits SHORTER than error waits. "Unrewarded" was the wrong trial set: 51
+of 318 trials in 20260914 are correct, non-catch and Rewarded = 0, i.e. the rat
+left before the valve, median wait 1.2 s against 5.7 s on real catch trials.
+A time investment is a correct CATCH trial or an error, nothing else.
+
+**Single units barely do it; the population does.** With choice side, log MT and
+trial index in every model and BH-FDR at q = 0.05, pooled over all six sessions:
+
+    epoch   n     |DV| sig        P(correct) sig   shuffle null
+    base    452   1  (0.2 %)      0                0.1 expected
+    stim    427   6  (1.4 %)      0                0.1
+    cue     471   27 (5.7 %)      17 (3.6 %)       0.0
+    chin    467   28 (6.0 %)      37 (7.9 %)       0.1
+    wait    269   0               4                0.1
+
+The pre-stimulus baseline at 0.2 % is the control that matters: the method does
+not manufacture confidence cells out of drift. But 6 % is a thin harvest, and the
+classic X pattern -- slope positive on correct, negative on error, one neuron --
+is essentially absent: 0 units at cue, 2 at chin, out of 471.
+
+**The population read-out is where it lives.** Ridge, 5-fold CV, against both a
+permutation null and a circular-shift null that preserves slow drift:
+
+    choice side (positive control)   R2 0.72 - 0.90 at cue and chin, 6/6 sessions
+                                     R2 ~ 0 at baseline, 6/6
+    |DV|                             R2 0.03 - 0.19, significant in 4/6
+    P(correct | DV, choice)          R2 0.05 - 0.27, significant in 4/6
+    |DV|, CORRECT TRIALS ONLY        R2 0.04 - 0.13, significant in 4/6
+
+and the one that answers the question most directly, decoding correct vs error
+BEFORE any feedback exists:
+
+    AUC at cue end        0.62, 0.73, 0.77, 0.79  (4 of 6 sessions, p <= 0.03)
+    AUC at choice port    0.62, 0.70, 0.70, 0.75, 0.75, 0.86  (6 of 6)
+    AUC at baseline       at chance in 5 of 6
+
+**Evoked, not a mood.** 20260917_100043's baseline decoded outcome at AUC 0.655,
+which would have made the whole thing a pre-trial state effect. Subtracting each
+cell's own 300 ms pre-stimulus rate, same cells, same trials: error prediction
+survives at the choice port in 6/6 (AUC 0.656 - 0.851) and at cue end in 3/6, and
+the |DV| and P(correct) read-outs survive in every session that had the trials to
+support them. What is left at cue end after the subtraction is 0.78 (20260917),
+0.75 (20261112) and 0.61 (20260914).
+
+**Power is the limiting factor, not the brain.** The two sessions that show
+nothing, 20260915_103710 (172 completed trials) and 20260914_122553 (318), are the
+two shortest. Everything with 478 trials or more is significant on every measure.
+A confidence experiment on these rats wants 600+ completed trials a session.
+
+**What is NOT there.** The animal's own waiting time is not predictable from the
+cue-end or choice-port population (R2 at or below 0 in every session) once the
+window is guarded so it cannot contain the withdrawal itself -- and the unguarded
+version gave R2 = 0.15, which was the rat leaving the port, not its confidence.
+The only epoch where the wait is readable is the wait itself (20260917: R2 = 0.222,
+18 of 269 units individually significant). So: the population knows how likely it
+is to be right, well before feedback; it does not visibly carry how long the animal
+will act on that until the animal is already acting on it.
+
+Outputs: `outputs/confidence_coding/{summary,decoding,behaviour_waiting_time}.csv`
+and one `<session>_units.csv` per session. Nothing on Z was touched.
