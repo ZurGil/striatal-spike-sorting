@@ -10194,3 +10194,60 @@ The register was regenerated and republished (Version 11), and
 `outputs/artifact_live_counts.json` now carries the live counts for this session.
 20260918 moves from NOT REVIEWED to SAVED, REVIEW CLOSED; seven sorts are now
 synced with verdicts applied.
+
+### 5bd.70 The confidence analysis, restricted to sessions that can answer it (2026-11-18)
+
+Gil asked which session had only ~300 trials, for the analysis to be re-run on
+sessions with at least 500, and how many such sessions exist.
+
+**Which sessions are small.** Completed trials, not logged trials, is what an
+analysis spends -- a trial where the rat broke fixation never reached a choice.
+`scripts/count_completed_trials.py` walks every .rec of every rat, finds its Bpod
+file the way the sync pipeline does, and reports both. On the six synced sessions:
+
+    20260915_103710   172      20260916_110311   478
+    20260915_084812   198      20261112_082028   578
+    20260914_122553   318      20260918_100248   593
+                               20260917_100043   605
+
+The ~300 one is **20260914_122553**, and the two halves of 15 September are smaller
+still. Completed runs 45-62 % of logged across all 57 recordings.
+
+**How many sessions could carry this.** 57 recordings have a Bpod file; **23 have
+>= 500 completed trials** -- 18 Shamir, 2 Popper, 3 Begin. Only four of those are
+synced, and only three of those have Gil's verdicts on them: 20260917 (605),
+20260918 (593), 20261112 (578). 20260911_100049 (565) is synced but never reviewed,
+so its "good" units are Kilosort's opinion, not his. The other 19 are the queue:
+20261001 (697), 20261028 (687), 20261013 (657), 20260929 (655), 20260910 (654),
+20260930 (632), 20261016 (615) and on down.
+
+**Re-run on the three curated sessions >= 500.** Same code, `--min_completed 500`.
+Per-unit shares roughly double against the six-session pool:
+
+    epoch   n     |DV| sig        P(correct) sig    6-session pool was
+    base    214   0   (0.0 %)     2  (0.9 %)        0.2 % / 0.0 %
+    stim    200   6   (3.0 %)     5  (2.5 %)        1.4 % / 0.0 %
+    cue     225   24  (10.7 %)    25 (11.1 %)       5.7 % / 3.6 %
+    chin    224   22  (9.8 %)     40 (17.9 %)       6.0 % / 7.9 %
+    wait    212   0                7 (3.3 %)        0.0 % / 1.5 %
+
+and 24 of 212 units at the wait epoch track the animal's own time investment. The
+pre-stimulus baseline stays at 0.0 %, which is the control that makes the rest
+readable. Population read-out, all three sessions significant against both nulls:
+correct-vs-error at the choice port **AUC 0.748 / 0.778 / 0.862**, at cue end
+0.727 / 0.636 / 0.791, and the baseline-subtracted version holds at the port in
+all three (0.773 / 0.787 / 0.851).
+
+**20260918 behaves like the others**, which is the first independent test of the
+result since it was synced only today: conf_norm R2 0.146 at the choice port,
+error prediction AUC 0.778, nothing at baseline.
+
+**The raster.** Gil: "it would be cool if I could actually see the neuron activity
+and also see the results." `scripts/confidence_unit_raster.py` draws one unit's
+every completed trial aligned to cue end, correct block above error, sorted by
+evidence within each, with the choice poke marked on every row and the counted
+window shaded -- then the same trials as PSTHs and the fitted means beside it. The
+cue drives a 30 Hz transient, five times the effect in question, so each PSTH
+carries an inset on its own y scale over the counted window; without it the four
+evidence curves lie on top of each other and the figure shows nothing. Unit 287:
+4.1 -> 6.6 Hz across evidence when correct, 3.7 -> 3.2 Hz when wrong.

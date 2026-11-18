@@ -64,8 +64,15 @@ SESSIONS = {
     "20260915_103710": r"Z:/Gil/Shamir_1/20260915_103710.rec/20260915_103710.kilosort/synced_from_concat",
     "20260916_110311": r"Z:/Gil/Shamir_1/20260916_110311.rec/20260916_110311.kilosort/synced",
     "20260917_100043": r"Z:/Gil/Shamir_1/20260917_100043.rec/20260917_100043.kilosort/synced",
+    "20260918_100248": r"Z:/Gil/Shamir_1/20260918_100248.rec/20260918_100248.kilosort/synced",
     "20261112_082028": r"Z:/Gil/Popper/20261112_082028.rec/20261112_082028.kilosort/synced",
+    # Synced long ago but never reviewed: its "good" labels are Kilosort's, not Gil's.
+    # Kept out of the default set and run only when asked, because pooling a
+    # hand-curated unit population with an automatic one hides which is which.
+    "20260911_100049": r"Z:/Gil/Shamir_1/20260911_100049.rec/20260911_100049.kilosort/synced",
 }
+UNREVIEWED = {"20260911_100049"}
+DEFAULT_SESSIONS = [s for s in sorted(SESSIONS) if s not in UNREVIEWED]
 # CatchError = 0 here, so the error "wait" is our feedback delay and means nothing.
 NO_ERROR_CATCH = {"20261112_082028"}
 
@@ -647,7 +654,14 @@ def behaviour_table(t, sid):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sessions", nargs="*", default=sorted(SESSIONS))
+    ap.add_argument("--sessions", nargs="*", default=DEFAULT_SESSIONS)
+    ap.add_argument("--min_completed", type=int, default=0,
+                    help="skip a session with fewer completed trials than this. The "
+                         "two sessions that showed nothing in the first run were the "
+                         "two shortest (172 and 318), so this is the knob for asking "
+                         "the question again with only the sessions that can answer "
+                         "it. Counted after the sync_valid and recording-gap filters, "
+                         "which is the number the analysis actually spends.")
     ap.add_argument("--out", default=OUT)
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -658,6 +672,12 @@ def main():
         if not os.path.isdir(S):
             print("skip %s: no synced folder" % sid)
             continue
+        if args.min_completed:
+            n_done = len(build_trials(S, sid))
+            if n_done < args.min_completed:
+                print("skip %s: %d completed trials, under the %d asked for"
+                      % (sid, n_done, args.min_completed))
+                continue
         t, out, null, dec = analyse_session(sid, S)
         out.to_csv(os.path.join(args.out, "%s_units.csv" % sid), index=False)
 
