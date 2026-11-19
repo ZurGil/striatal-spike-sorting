@@ -10947,3 +10947,50 @@ both more robust and more honest than asserting the absence of the disease.
 
 20260925's own page already had all six (Version 7, §5bd.79). 20260916 and 20261112 are
 part-reviewed on the older pre-build layout and were left alone.
+
+### 5bd.83 The brief for whoever writes the new task (2026-11-19)
+
+Gil asked what file is needed to write the modified task, and for a prompt he can
+hand to a fresh agent, with one instruction that must never be forgotten: *"ruin our
+current function task is the worst can happen"* -- the new task is added to Bpod as a
+new protocol, and everything already on that computer keeps running exactly as it is.
+
+**What is actually needed is not on this PC.** The protocol source has never been
+here. `D:\Gil\sync_pipeline\TASK_TIMELINE.md` says it was traced from
+`stateMatrix.m`, but no `.m` survives on D: or Z:. The session file names the folder
+it came from, though -- `GUI.soundA` is
+`C:\Users\KepecsLab\Documents\BpodUser\Protocols\Dual2AFC_nat\naturalsounds165\frogs2.wav`
+-- so the request is precise: that whole protocol folder, `BpodUser\Settings\*.mat`
+(the hardware configuration, which is where the sync-word mechanism lives), one
+`Session Settings` file, and one recent data file.
+
+**Everything else the writer needs was read out of the data instead**, from
+`Shamir01_Dual2AFC_nat_Sep25_2026_Session1.mat`: the 40 states in order, the full GUI
+parameter set with its panels and tabs, and the `Custom` field list. Three findings
+from that dump matter for the design and were not previously written down:
+
+- `GUI.BlockTable` exists and is fully formed (`BlockNumberL/R`, `BlockLenL/R`,
+  `RewL/RewR`, `NoiseL/NoiseR`, `CategoryBoundary`) but is switched **off** -- block
+  length 5000, reward multiplier 1 both sides. The reward-block manipulation of
+  5bd.74 is therefore mostly verification of an existing code path, not new code.
+- `AuditoryStimulusType = 3`, the natural-sound morph, so the post-decision burst of
+  5bd.75 is a short mixture of the same two wavs, not a click train. The three
+  conditions have to be matched in duration, RMS and source sounds, differing only in
+  mixing ratio.
+- `Custom` already carries `PsychtoolboxStartup` AND `PulsePalParamStimulus`, and the
+  settings carry a `HiFiModule` struct, so which path actually plays the sound is an
+  open question -- and it decides whether "stop the sound on centre-port-out" is easy.
+
+**Three contracts the new state machine has to keep**, all of them ours rather than
+Bpod's: the DIO word is the state number, so state 1 must stay the trial's first
+state and the total must stay under 64; no state shorter than 0.1 ms (3 samples at
+30 kHz); and existing state names (`start_Lin`/`start_Rin` define "a choice was
+made" in `bpod_loader.compute_trial_completed`) and `Custom` field names keep their
+meanings. The file-name convention is safe -- `session_discovery` matches on the date
+and `SessionN` only, never the protocol name, so a renamed protocol still
+auto-matches its recording.
+
+The brief is `docs/bpod_new_task_agent_prompt.md`. It opens by telling the agent to
+write the never-modify rule to its own memory before reading a single file, and asks
+for a SHA-256 of the protocol folder before and after as the proof. Saved here too as
+`feedback_bpod_protocol_additive_only`.
