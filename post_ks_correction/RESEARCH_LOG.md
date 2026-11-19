@@ -10888,3 +10888,62 @@ for Gil's word.
 
 So the apply step, the drift figure and the manifest format are built and proven on
 four minutes; the whole-session numbers and the figure are one ~45-minute run away.
+
+### 5bd.82 The fixes reach the sessions that had not been reviewed yet, and stop being able to leave (2026-11-19)
+
+> "i just started 24 session, and all the color correction, corsur corrections etc are
+> not applied for this session yet. in genral, make sure all these correction we made
+> today will apply for every future session running on the cluster as well"
+
+Correct, and the reason is simple: the pages for 22, 23 and 24 September were
+assembled on 2026-11-17 and 2026-11-18, before any of today's work. A published page
+is a file, not a view of the code -- it does not improve when the builder does.
+
+**The three rebuilt.** `build_review_for_session.py` for 20260922_144404,
+20260923_105129 and 20260924_121751, then republished to their EXISTING urls so their
+databases survive:
+
+    20260922_144404   https://claude.ai/artifact/CHDv3SjMPCoezGbu2Q7nzW   Version 4
+    20260923_105129   https://claude.ai/artifact/563NiJTGm4V51f4ZxwRAEb   Version 4
+    20260924_121751   https://claude.ai/artifact/Qczrgr3CB5Un86bFdZuV5R   Version 4
+
+Only the page was published. The cluster-point and raw-trace shards and the merge
+candidates were compared byte for byte against the live listing first and are
+identical, so there was no reason to re-upload ~100 MB of unchanged data per session
+-- a publish keeps the files it leaves out. New dated build folders on Z as usual
+(`build_20261119_1327` / `_1328`), nothing overwritten.
+
+**Future sessions were already covered, by construction.** `ris_build_postks_image.sh`
+ships the cluster the DATA scripts only -- pipeline batches, bombcell, classification,
+cluster points, review data, burst/ISI, timeline, merge candidates, trace snippets --
+and never `build_review_html.py`. The page is assembled on the PC by
+`ris_serial_pipeline.sh` calling `build_review_for_session.py`, out of this working
+tree. So a session sorted next week gets whatever the builder says then.
+
+**Which is exactly the kind of claim that quietly stops being true.** Nothing in the
+build checked that the assembled page actually contains the scatter tool: the patch
+chain asserts ITS anchors, but an edit to `build_review_html.py` that dropped the
+cursor fix would assemble, check, save to Z and publish, and the fault would surface
+only the next time Gil tried to mark a region. The build now asserts each fix in the
+page it just made, by its own token, and refuses to save a page missing one:
+
+    getScreenCTM                     the cursor fix (5bd.76)
+    getBoundingClientRect().width    the measured viewBox (5bd.77)
+    markDots                         the confirmation recolour (5bd.76)
+    OWN_FILL                         this unit's red for events pulled in (5bd.79)
+    source_units                     push / pull / unassign (5bd.78)
+    resetBtn                         the reset button (5bd.76)
+
+Tested in both directions, because a check nobody has seen fail is not a check:
+renaming `OWN_FILL` in the builder stops the build with *"FAIL the page is missing
+events pulled into this unit taking this unit's red rather than the next palette slot
+(5bd.79) -- 1 check(s) failed, not saving this build"*, and restoring it passes.
+
+The first version of that guard was wrong in an instructive way. It looked for
+`preserveAspectRatio="none"` as a marker of the blurred-scatter regression (5bd.77) --
+but the page carries that string inside the comment that explains why the approach was
+abandoned, so the check fired on a correct page. Asserting the presence of the cure is
+both more robust and more honest than asserting the absence of the disease.
+
+20260925's own page already had all six (Version 7, §5bd.79). 20260916 and 20261112 are
+part-reviewed on the older pre-build layout and were left alone.
