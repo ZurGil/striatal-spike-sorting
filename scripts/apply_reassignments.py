@@ -151,22 +151,65 @@ def match_units(times, spike_times, spike_clusters):
     return who
 
 
+def read_block(fh, n_chan, a, b, chan_idx):
+    """One span of the .dat, read through an ordinary file handle.
+
+    NOT a memmap. A sequential pass over 255 GB of mapped file grows the page cache
+    until the machine is short of memory -- which is what killed the first full run of
+    this script, 18 % of the way in, while it was using barely any memory of its own.
+    Buffered reads give the same bytes and let the cache be reclaimed behind us.
+    """
+    fh.seek(a * n_chan * 2)
+    raw = np.frombuffer(fh.read((b - a) * n_chan * 2), dtype=np.int16)
+    return raw.reshape(-1, n_chan)[:, chan_idx]
+
+
+def _flush(acc, channels, out_dir, part):
+    for ch in channels:
+        if not acc[ch]["t"]:
+            continue
+        d = {"time": np.concatenate(acc[ch]["t"]).astype(np.int64),
+             "unit": np.concatenate(acc[ch]["u"]).astype(np.int32)}
+        for k in FIELDS:
+            v = np.concatenate(acc[ch]["f"][k]).astype(np.float32)
+            d[k] = v / TEO_SCALE if k in SCALED else v
+        np.savez_compressed(
+            os.path.join(out_dir, "chan%03d_part%03d.npz" % (ch, part)), **d)
+        acc[ch]["t"], acc[ch]["u"] = [], []
+        acc[ch]["f"] = dict((k, []) for k in FIELDS)
+
+
 def scan(reader, cfg, channels, basis, spike_times, spike_clusters,
-         start, stop, out_dir, flush_every=120):
+         start, stop, out_dir, flush_every=120, block_min=15.0, resume=False):
     """One sequential pass over [start, stop), detecting on every channel that matters.
 
-    Writes one npz per channel. The read is the cost, and the read is per SPAN, so
-    every channel rides along on the same bytes.
+    The read is the cost, and the read is per SPAN, so every channel rides along on the
+    same bytes. Results are flushed to a part file every `block_min` minutes of
+    session, so a run that is interrupted loses one block rather than everything, and
+    --resume can skip the blocks already on disk.
     """
     acc = dict((ch, {"t": [], "u": [],
                      "f": dict((k, []) for k in FIELDS)}) for ch in channels)
     step = SLICE_SEC * FS
-    s, n_done, last_log = start, 0, time.time()
+    block = int(block_min * 60 * FS)
+    s, last_log = start, time.time()
     chan_idx = np.array(channels)
+    fh = open(reader.path, "rb", buffering=0)
+    part = 0
+    next_flush = start + block
     while s < stop:
+        if resume and os.path.exists(os.path.join(
+                out_dir, "chan%03d_part%03d.npz" % (channels[0], part))) \
+                and s + block <= stop:
+            log("  resume: part %03d already on disk, skipping to %.1f min"
+                % (part, (s + block) / FS / 60.0))
+            s = min(stop, s + block)
+            part += 1
+            next_flush = s + block
+            continue
         s1 = min(stop, s + step)
         a, b = max(0, s - PAD), min(reader.n_samples, s1 + PAD)
-        blk = np.asarray(reader._arr[a:b, chan_idx])       # only the columns we need
+        blk = read_block(fh, cfg.n_chan, a, b, chan_idx)
         off = s - a
         for k, ch in enumerate(channels):
             filt = highpass_filter(blk[:, k].astype(np.float32), FS, cfg.highpass_hz,
@@ -187,7 +230,10 @@ def scan(reader, cfg, channels, basis, spike_times, spike_clusters,
             acc[ch]["f"]["teo2"].append(teo2)
         del blk
         s = s1
-        n_done += 1
+        if s >= next_flush or s >= stop:
+            _flush(acc, channels, out_dir, part)
+            part += 1
+            next_flush = s + block
         if time.time() - last_log > flush_every:
             frac = (s - start) / float(stop - start)
             el = time.time() - T0
@@ -195,15 +241,21 @@ def scan(reader, cfg, channels, basis, spike_times, spike_clusters,
                 % (100 * frac, el / 60.0, (el / max(frac, 1e-6) - el) / 60.0))
             last_log = time.time()
 
+    fh.close()
+    # Stitch the parts into the one file per channel the measurement reads.
     for ch in channels:
-        if not acc[ch]["t"]:
+        parts = sorted(glob.glob(os.path.join(out_dir, "chan%03d_part*.npz" % ch)))
+        if not parts:
             continue
-        d = {"time": np.concatenate(acc[ch]["t"]).astype(np.int64),
-             "unit": np.concatenate(acc[ch]["u"]).astype(np.int32)}
-        for k in FIELDS:
-            v = np.concatenate(acc[ch]["f"][k]).astype(np.float32)
-            d[k] = v / TEO_SCALE if k in SCALED else v
+        keep = {}
+        for p in parts:
+            with np.load(p) as z:
+                for k in z.files:
+                    keep.setdefault(k, []).append(z[k])
+        d = dict((k, np.concatenate(v)) for k, v in keep.items())
         np.savez_compressed(os.path.join(out_dir, "chan%03d.npz" % ch), **d)
+        for p in parts:
+            os.remove(p)
         log("  channel %3d: %d events -> chan%03d.npz" % (ch, len(d["time"]), ch))
 
 
@@ -273,6 +325,11 @@ def main():
                          "for a decision. 0 means the whole session.")
     ap.add_argument("--skip-scan", action="store_true",
                     help="reuse an existing scan and only redo the measurement")
+    ap.add_argument("--block-min", type=float, default=15.0,
+                    help="flush results to a part file every N minutes of session, so "
+                         "an interrupted run loses one block instead of everything")
+    ap.add_argument("--resume", action="store_true",
+                    help="skip blocks whose part files are already on disk")
     args = ap.parse_args()
 
     sid = args.session_id
@@ -329,7 +386,7 @@ def main():
 
     if not args.skip_scan:
         scan(reader, cfg, channels, basis, spike_times, spike_clusters, 0, stop,
-             scan_dir)
+             scan_dir, block_min=args.block_min, resume=args.resume)
 
     # ------------------------------------------------------------------ the measurement
     bin_s = 120.0
