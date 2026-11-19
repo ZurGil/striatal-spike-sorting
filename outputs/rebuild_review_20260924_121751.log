@@ -1,0 +1,172 @@
+========================================================================
+review tool for 20260924_121751
+========================================================================
+
+=== where it lives
+    rat        Shamir
+    recording  Z:\Gil\Shamir_1\20260924_121751.rec
+    sort       Z:\Gil\Shamir_1\20260924_121751.rec\20260924_121751.kilosort\kilosort4
+    clustering spike_clusters.npy sha1 84fe9ac1cf667d30c8de22783bd89104451d4829
+
+=== the cluster's post-KS outputs
+    4 already current, 0 copied from Z
+    not built on the cluster (will be computed here): pipeline_review_data.json, burst_isi_metrics.json, session_timeline.json, merge_candidates.json, raw_trace_snippets.json
+
+=== gain
+    spikeScalingToUv = 0.018311105685598315 uV/bit, from the session's own .rec header
+
+=== cluster_info.tsv (sync_pipeline will not run without it)
+    already there, left alone: Z:\Gil\Shamir_1\20260924_121751.rec\20260924_121751.kilosort\kilosort4\cluster_info.tsv
+
+=== review data: already built (use --force to rebuild)
+
+=== session timeline: already built
+
+=== merge candidates: already built
+
+=== raw spike traces: already computed
+
+=== the page
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\build_review_tool.py 20260924_121751 --rec_root Z:\Gil\Shamir_1 --rat_root Z:\Gil\Shamir_1
+timeline: 543 units x 506 bins of 20.0s, 933 trial markers (TTL code 1)
+cluster points for 543 unit(s) -> D:\Gil\spike_sorting_agent\outputs\cluster_points_20260924_121751.json (13.88 MiB, published beside the page rather than inside it)
+windowed cluster points for 543 unit(s) in 10 windows -> D:\Gil\spike_sorting_agent\outputs\cluster_points_20260924_121751.json (19.31 MiB); the single-chunk clouds from raw_cluster_points are superseded
+wrote D:\Gil\spike_sorting_agent\outputs\unit_review_pipeline_20260924_121751.html 4796258 bytes
+source 4796258 bytes
+  ok: css
+  ok: js
+  ok: panel markup
+  ok: panel render
+  ok: filter option
+  ok: filter logic
+  ok: list marker
+wrote D:\Gil\spike_sorting_agent\outputs\_review_tool_stage1_20260924_121751.html (4826361 bytes, +28259)
+read  D:\Gil\spike_sorting_agent\outputs\_review_tool_stage1_20260924_121751.html (4824040 bytes)
+  ok  dip constants + shoulder/Poisson thresholds
+  ok  poissonCdf / dipStats / mFootprint helpers
+  ok  dipClass on shoulders + Poisson
+  ok  row-level dipStats
+  ok  collapsed-row dip tag uses the shoulder ratio
+  ok  mergeBody: dipStats, rate ratio, new-violation count
+  ok  CCG legend: shoulders, Poisson p, flank disagreement
+  ok  merged ACG: firing rates above it + violation count
+  ok  across-channel footprint chart
+  ok  panel blurb states 'worth a look' in full
+  ok  empty-list wording
+  ok  verdict stamps both dip metrics
+wrote D:\Gil\spike_sorting_agent\outputs\_review_tool_stage2_20260924_121751.html (4836958 bytes)
+  contains mFootprint           2
+  contains poissonCdf           2
+  contains SHOULDER_LO          4
+  contains dip_ratio_far_flank  1
+read  D:\Gil\spike_sorting_agent\outputs\_review_tool_stage2_20260924_121751.html (4834472 bytes)
+  ok  verdict buttons: plain attributes instead of embedded JSON
+  ok  verdict + goto click handlers
+  ok  remove the merge panel from under the timeline
+  ok  merge panel moved to the bottom of the unit view
+  ok  back-navigation slot at the top of the detail
+  ok  render the back chip
+  ok  isTwin + unit navigation
+  ok  twins count as worth a look
+  ok  open-the-other-unit button on each row
+  ok  twin tag
+  ok  KS similarity shown on the collapsed row
+  ok  styles for twin tag, goto button, back chip
+  ok  blurb explains twins with the measured chance rate
+wrote D:\Gil\spike_sorting_agent\outputs\_review_tool_stage3_20260924_121751.html (4841336 bytes)
+read  D:\Gil\spike_sorting_agent\outputs\_review_tool_stage3_20260924_121751.html (4838770 bytes)
+  ok  footprint score + the tunable selection rule
+  ok  isWorthLook rides on the tiers
+  ok  two ranked tiers instead of one OR'd list
+  ok  headline counts + the threshold controls
+  ok  empty-state wording
+  ok  the blurb states the new rule in full
+  ok  section headers between the tiers
+  ok  show-all button names the reasons
+  ok  threshold inputs wired to a re-render
+  ok  row tags: strict drift, rejected
+  ok  a rejected row states which test it failed
+  ok  body text uses the strict drift threshold
+  ok  styles for the tier headers and the rule controls
+wrote D:\Gil\spike_sorting_agent\outputs\_review_tool_stage4_20260924_121751.html (4854387 bytes)
+  ok: full trial_selections cache (declaration)
+  ok: full trial_selections cache (snapshot)
+  ok: exportAllForSync()
+  ok: export-all button
+  ok: refreshExportAllCount()
+  ok: button wiring
+wrote D:\Gil\spike_sorting_agent\outputs\_review_tool_stage5_20260924_121751.html
+  ok: syncCommand() + copySyncCommand()
+  ok: command panel
+  ok: button labelled step 1
+  ok: fill the command on render
+  ok: copy button wiring
+  ok: alert uses syncCommand()
+wrote D:\Gil\spike_sorting_agent\outputs\_review_tool_stage6_20260924_121751.html
+
+=== base page
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\build_review_html.py 20260924_121751
+
+=== patch 1/6 -- possible-merges panel
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\patch_review_tool_merge_panel.py D:\Gil\spike_sorting_agent\outputs\unit_review_pipeline_20260924_121751.html D:\Gil\spike_sorting_agent\outputs\_review_tool_stage1_20260924_121751.html
+
+=== patch 2/6 -- shoulder dip, Poisson test, footprint, rates
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\patch_review_tool_merge_v2.py D:\Gil\spike_sorting_agent\outputs\_review_tool_stage1_20260924_121751.html D:\Gil\spike_sorting_agent\outputs\_review_tool_stage2_20260924_121751.html
+
+=== patch 3/6 -- verdict buttons, panel at bottom, unit jump, twins
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\patch_review_tool_merge_v3.py D:\Gil\spike_sorting_agent\outputs\_review_tool_stage2_20260924_121751.html D:\Gil\spike_sorting_agent\outputs\_review_tool_stage3_20260924_121751.html
+
+=== patch 4/6 -- footprint score; similarity rejects; drift only excuses
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\patch_review_tool_merge_v4.py D:\Gil\spike_sorting_agent\outputs\_review_tool_stage3_20260924_121751.html D:\Gil\spike_sorting_agent\outputs\_review_tool_stage4_20260924_121751.html
+
+=== patch 5/6 -- export-all-for-sync button
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\patch_review_tool_export_all.py D:\Gil\spike_sorting_agent\outputs\_review_tool_stage4_20260924_121751.html D:\Gil\spike_sorting_agent\outputs\_review_tool_stage5_20260924_121751.html
+
+=== patch 6/6 -- the sync command on the page, with a copy button
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\patch_review_tool_sync_command.py D:\Gil\spike_sorting_agent\outputs\_review_tool_stage5_20260924_121751.html D:\Gil\spike_sorting_agent\outputs\_review_tool_stage6_20260924_121751.html --rec_root Z:\Gil\Shamir_1 --rat_root Z:\Gil\Shamir_1
+
+======================================================================
+wrote D:\Gil\spike_sorting_agent\outputs\unit_review_tool_20260924_121751.html
+      4861910 bytes (4.64 MiB of the 16 MiB artifact limit)
+      renderMergePanel   2
+      mFootprint         2
+      dipStats           7
+      data-mvf           2
+      mergeGoto          2
+      exportAllForSync   2
+      exportAllBtn       2
+      syncCommand        5
+      copyCmdBtn         3
+
+publish it WITH its data file:
+  file_path = outputs/unit_review_tool_20260924_121751.html
+  files     = {"data/merge_candidates.json": "outputs/merge_candidates_20260924_121751.json"}
+  capabilities = {"db": {}, "downloads": true}
+  pass the EXISTING artifact url to keep its verdicts.
+
+=== raw spike traces -> the files published beside the page
+    543 units with traces, in 22 shards of 25, largest 2.3 MiB
+
+=== cluster points -> the files published beside the page
+    543 units, in 22 shards of 25, largest 1.5 MiB
+    page's sync command points at Z:\Gil\Shamir_1
+
+=== checks
+    units             543
+    co-located pairs  4235 analysed of 4235 in range
+    raw spike traces  543 of 543 units
+    cluster points    543 of 543 units
+    page              4861910 bytes (4.64 MiB of the 16 MiB limit)
+    all checks passed
+
+=== saved on Z
+    Z:\Gil\Shamir_1\20260924_121751.rec\20260924_121751.kilosort\review\tool\build_20261119_1327
+    the page, merge_candidates.json and a MANIFEST.json naming both sha256s
+
+=== publish it
+    file_path    = outputs/unit_review_tool_20260924_121751.html
+    files        = 45 entries, split into 2 publishes to the SAME url (a publish keeps the files it leaves out):
+                   outputs\publish_files_20260924_121751_part1.json
+                   outputs\publish_files_20260924_121751_part2.json
+    capabilities = {"db": {}, "downloads": true}
+    pass the EXISTING artifact url to keep its verdicts.

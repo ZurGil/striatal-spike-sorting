@@ -356,9 +356,35 @@ def check(sid, page, gain, with_traces, n_trace_docs, biggest_shard,
         problems.append("the page is %.2f MiB, over the %d MiB artifact limit"
                         % (size / 1048576.0, limit // 1048576))
 
+    html = open(page, encoding="utf-8").read()
+
+    # The scatter's hand-drawn region tool, feature by feature. Every one of these was
+    # a defect Gil reported and we fixed on 2026-11-19, and nothing else in this build
+    # would notice if an edit to build_review_html.py dropped one: the page would
+    # assemble, publish and look right, and the fault would only show up the next time
+    # he tried to mark a region. So they are asserted here, in the build, rather than
+    # trusted to stay.
+    for token, what in (
+            ("getScreenCTM", "the cursor fix -- without it the lasso draws where the "
+                             "cursor is not (5bd.76)"),
+            ("getBoundingClientRect().width",
+             "the measured viewBox. The first cursor fix used "
+             "preserveAspectRatio=\"none\", which cured the offset by stretching every "
+             "dot into an ellipse; measuring the element instead is what keeps the "
+             "scatter sharp (5bd.77). Checking for the stretch itself is no good -- "
+             "the page carries that string in a comment explaining this"),
+            ("markDots", "the confirmation recolour of selected events (5bd.76)"),
+            ("OWN_FILL", "events pulled into this unit taking this unit's red rather "
+                         "than the next palette slot (5bd.79)"),
+            ("source_units", "the three-way move: push, pull, or off every unit "
+                             "(5bd.78)"),
+            ("resetBtn", "the reset button that restores a scatter's original "
+                         "assignment (5bd.76)")):
+        if token not in html:
+            problems.append("the page is missing %s" % what)
+
     # The command the page tells Gil to run. It used to hardcode F:\Gil\Shamir, which
     # does not exist for a session sorted on RIS and archived straight to Z:.
-    html = open(page, encoding="utf-8").read()
     m = re.search(r"--rec \"(.*?)\\\\' \+", html)
     if not m:
         problems.append("cannot find the --rec path in the page's sync command")
