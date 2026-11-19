@@ -470,18 +470,22 @@ function renderScatter(container, cp, xField, yField, uid){
     container.appendChild(d); return;
   }
 
-  const W = 300, H = 220, padL = 8, padR = 8, padT = 10, padB = 10;
-  /* preserveAspectRatio="none" is not cosmetic. The stylesheet forces
-     .panel svg{width:100%;height:220px}, so on a 700 px panel the element is
-     700x220 while the viewBox is 300x220. Under the DEFAULT xMidYMid meet that
-     letterboxes: the drawing is 300 px wide, centred, with ~200 px of dead space
-     each side -- and a hand-drawn region lands nowhere near the cursor. Letting
-     it stretch removes the dead space AND more than doubles the horizontal
-     resolution the polygon is recorded at. Both axes are already scaled
-     independently to the data, so stretching costs nothing. */
-  const svg = svgEl('svg', {viewBox: '0 0 ' + W + ' ' + H,
-                            preserveAspectRatio: 'none'});
+  /* The stylesheet forces .panel svg{width:100%;height:220px}, so on a 700 px
+     panel the ELEMENT is 700x220. A fixed 300x220 viewBox under the default
+     xMidYMid meet therefore letterboxes -- the drawing sits in a 300 px strip
+     with dead space either side, which is what made a hand-drawn region land
+     away from the cursor. preserveAspectRatio="none" fixed the cursor but
+     stretched every dot into an ellipse, which reads as a blurred scatter.
+     The fix that costs neither: measure the element and make the viewBox match
+     it, so one viewBox unit is one CSS pixel, nothing is letterboxed, nothing is
+     stretched, and the polygon is recorded at full screen resolution. */
+  const H = 220, padL = 8, padR = 8, padT = 10, padB = 10;
+  const svg = svgEl('svg', {viewBox: '0 0 300 ' + H});
   svg.style.cssText = 'display:block;width:100%;touch-action:none;';
+  container.appendChild(svg);
+  const measured = Math.round(svg.getBoundingClientRect().width);
+  const W = measured >= 120 ? measured : 300;   /* 0 if the panel is not laid out yet */
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
   let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
   got.pts.forEach(p => {
     if(p.x < xmin) xmin = p.x; if(p.x > xmax) xmax = p.x;
@@ -510,8 +514,7 @@ function renderScatter(container, cp, xField, yField, uid){
   });
   const lassoPath = svgEl('polyline', {points: '', fill: 'rgba(79,111,217,0.10)',
                                        stroke: '#4f6fd9', 'stroke-width': 1.4});
-  svg.appendChild(lassoPath);
-  container.appendChild(svg);
+  svg.appendChild(lassoPath);   /* already in the container, appended above to be measured */
 
   /* --- legend: the numbers to type into the box ----------------------------- */
   const legend = document.createElement('div');
@@ -592,6 +595,10 @@ function renderScatter(container, cp, xField, yField, uid){
   container.appendChild(pending);
 
   /* --- what has been marked, shown on the dots themselves -------------------- */
+  const markNote = document.createElement('div');
+  markNote.style.cssText = 'font-size:9px;color:var(--text-2);margin-top:3px;';
+  container.appendChild(markNote);
+
   const myKeys = () => Object.keys(REASSIGN)
     .filter(k => String(REASSIGN[k].source_unit) === String(uid) &&
                  REASSIGN[k].x_field === xField && REASSIGN[k].y_field === yField);
@@ -613,6 +620,7 @@ function renderScatter(container, cp, xField, yField, uid){
      shown, because a polygon in pc1/ptp means nothing on a different pair. */
   const markDots = () => {
     restoreDots();
+    const tally = {};
     myKeys().forEach(k => {
       const r = REASSIGN[k];
       if(!r.polygon || r.polygon.length < 3) return;
@@ -620,13 +628,26 @@ function renderScatter(container, cp, xField, yField, uid){
       got.pts.forEach(p => {
         if(p.cat !== 'own') return;
         if(!pointInPolygon(p.x, p.y, r.polygon)) return;
+        /* A WHITE RING, not just the target colour. The first version only
+           repainted the fill, and the regions Gil draws are by definition inside
+           the target unit's own cloud -- 68 dots turned unit 98's colour amongst
+           354 dots already that colour is invisible, which is exactly what he
+           reported. The ring reads against any density. */
         p._el.setAttribute('fill', col);
-        p._el.setAttribute('r', 2.6);
+        p._el.setAttribute('r', 3.2);
         p._el.setAttribute('opacity', 1);
-        p._el.setAttribute('stroke', '#1b1b20');
-        p._el.setAttribute('stroke-width', 0.7);
+        p._el.setAttribute('stroke', '#ffffff');
+        p._el.setAttribute('stroke-width', 1.2);
+        /* and on top of everything except the lasso */
+        svg.insertBefore(p._el, lassoPath);
+        tally[r.target_unit] = (tally[r.target_unit] || 0) + 1;
       });
     });
+    const parts = Object.keys(tally).sort((a, b) => a - b)
+      .map(t => tally[t] + ' dot' + (tally[t] === 1 ? '' : 's') + ' &rarr; unit ' + t);
+    markNote.innerHTML = parts.length
+      ? 'marked (white ring): ' + parts.join(' &middot; ')
+      : '';
   };
 
   const drawPending = () => {

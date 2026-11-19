@@ -10604,3 +10604,46 @@ They sit on OPPOSITE sides of pc1 (the first spans +692..+10477, the second
 he "typed a wrong unit and then remarked it", but both documents carry target 98,
 so the wrong number is not what distinguishes them. Put to him before anything is
 applied; the apply step would otherwise take both.
+
+### 5bd.77 Drawing the regions instead of describing them, and two bad fixes corrected (2026-11-19)
+
+Gil marked a third region to check the tool and said flatly that the previous
+reading was wrong: "you are supposed to see 100 elevated events in one side, and
+98 in the other side of the x axis." He is right, and plotting the cloud rather
+than reasoning from the polygon bounds is what shows it.
+`scripts/plot_marked_regions.py` draws a unit's cloud from the same
+`cluster_points_<sid>.json` the page draws from and overlays every saved polygon.
+
+**Unit 100's channel carries exactly two clusters, split along pc1.** Right of
+pc1=0 is unit 100 proper (794 own dots); left of it is unit 98's cluster (638 dots,
+and 98 is the ONLY other unit on this channel) with a scatter of unit 100's spikes
+sitting inside it. So the three regions read:
+
+    16:07:40  solid    RIGHT cloud, 491 own -> 98   unit 100's OWN body. The mistake.
+    16:09:25  dashed   LEFT cloud,   62 own -> 98   the intended correction
+    16:22:33  dotted   LEFT cloud,   68 own -> 98   the same region re-drawn to test
+
+The first would move ~1437 of unit 100's 2323 spikes -- 62 % of the unit -- into
+98, which is not a reassignment but a merge done by accident. The earlier note in
+§5bd.76 that "the wrong number is not what distinguishes them" was the wrong
+question: the target was 98 every time, and what distinguishes them is WHICH CLOUD
+was lassoed. Nothing was applied, so nothing was damaged.
+
+**Two fixes from Version 4 were wrong and are corrected in Version 5.**
+
+*The scatter went blurry.* `preserveAspectRatio="none"` fixed the cursor by letting
+the drawing stretch, which turns every dot into a horizontal ellipse -- 2.3x on a
+wide panel. Replaced: the svg is appended first, its rendered width measured, and
+the viewBox set to that width, so one viewBox unit is one CSS pixel. Nothing is
+letterboxed, nothing is stretched, and the polygon still records at full screen
+resolution. Falls back to 300 if the panel is not laid out yet.
+
+*The reassignment colour "didn't appear".* It did -- invisibly. A region drawn for
+reassignment is by definition inside the TARGET unit's cloud, so repainting 68 dots
+in unit 98's colour amongst 354 dots already that colour changes nothing a person
+can see. Marked dots now get a WHITE RING (r 3.2, 1.2 px stroke) over the target
+colour, are raised to the top of the z-order, and a line under the scatter counts
+them: "marked (white ring): 68 dots -> unit 98". The ring reads at any density.
+
+Version 5 of `https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw`. The stale
+16:07:40 region is still in the db, left for Gil to confirm before deletion.
