@@ -64,6 +64,14 @@ name instead.
 Then add a line to your `MEMORY.md` index pointing at it. Do this first. Re-read
 it before every file write.
 
+**You are working on a read-only SNAPSHOT, not on the rig.** The Bpod computer is
+not reachable from where you are running, and that is deliberate: the guarantee that
+the running task is safe is that you never had access to it, not that you were
+careful. The snapshot lives in the folder Gil will name, its files are marked
+read-only, and an attempt to write one will fail — if that happens, stop, do not
+clear the read-only flag, and say what you were trying to do. You write only into
+the new-protocol folder. Gil carries the finished folder to the rig himself.
+
 Practical form of the rule:
 
 - New protocol folder: `<BpodUser>\Protocols\<NewName>\<NewName>.m` plus its own
@@ -75,9 +83,10 @@ Practical form of the rule:
 - If a helper is shared and used unchanged, call it where it is — do not touch it.
 - Never write into the existing protocol folder, its `Session Settings`, or any
   `Data\` folder.
-- Before you start: `Get-FileHash -Algorithm SHA256` (recursively) every file under
-  the existing protocol folder and save the list. After you finish: run it again and
-  show both lists are identical. That proof is part of the deliverable.
+- Before you start: `Get-FileHash -Algorithm SHA256` (recursively) every file in the
+  snapshot and save the list. After you finish: run it again and show both lists are
+  identical. That proof is part of the deliverable — it is what lets Gil copy your
+  folder to the rig without reading every line first.
 
 ## 1. What you are building
 
@@ -94,8 +103,10 @@ could read as a date; see §7.
 
 ## 2. The files you need, and where they are
 
-On the Bpod computer (paths recovered from the session file's saved settings — the
-protocol folder is `C:\Users\KepecsLab\Documents\BpodUser\Protocols\Dual2AFC_nat\`):
+These are copied out of the Bpod computer for you as a read-only snapshot (the
+protocol folder there is
+`C:\Users\KepecsLab\Documents\BpodUser\Protocols\Dual2AFC_nat\`, recovered from the
+session file's saved settings):
 
 1. **The whole existing protocol folder**, every `.m` and `.mat` in it, including
    subfolders — the main protocol file, the state-matrix builder, the stimulus
@@ -111,8 +122,10 @@ protocol folder is `C:\Users\KepecsLab\Documents\BpodUser\Protocols\Dual2AFC_nat
 4. **One recent data file**, e.g.
    `Z:\Gil\Shamir_1\bpod\Shamir01_Dual2AFC_nat_Sep25_2026_Session1.mat` — ground
    truth for what the protocol saves.
-5. **The Bpod_Gen2 version** (folder + git revision if available). Not to modify —
-   to know which API you are writing against.
+5. **The `Bpod_Gen2` folder** (or at least its `Functions\`), with its version or git
+   revision. Read-only reference: it tells you which API you are writing against, and
+   it is what an emulator run here would need. Never write into it, in the snapshot
+   or anywhere else.
 
 Everything in §5 below was measured from file 4 and can be trusted without
 re-deriving it. Everything about *code structure* must come from files 1–3: do not
@@ -344,9 +357,14 @@ state-machine change and is **out of scope** unless Gil asks.
    trial (NaN where not applicable), never only on the trials where the feature fired.
 8. The protocol name contains no `Xxx##_####` date-like pattern (the data-file
    matcher reads the first such token as the session date).
-9. The code runs in MATLAB without error in Bpod's emulator mode, if available. **Do
-   not run it on the rig and do not run it on a rat** — that is Gil's call, with a
-   test session, with no animal first.
+9. Every file you wrote passes MATLAB's `checkcode` with no errors. MATLAB R2019b is
+   installed on this machine (`C:\Program Files\MATLAB\R2019b\bin\matlab.exe`) — run
+   it headless, e.g.
+   `matlab -batch "checkcode('<file>','-cyc')"`, and if the `Bpod_Gen2` snapshot is
+   present, try an emulator run too. Note that this MATLAB may be an older release
+   than the rig's, so a clean run here is a smoke test, not proof. **Never run
+   anything on the rig and never on a rat** — that is Gil's call, with a no-animal
+   test session first.
 
 ## 8. How to work
 
