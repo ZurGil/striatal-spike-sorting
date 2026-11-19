@@ -10696,3 +10696,25 @@ Version 6 of `https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw`. The apply step
 still does not exist -- §5bd.67's open question about windows-choose-the-region
 versus whole-session-apply is unchanged, and it now has three verbs to honour
 instead of one.
+
+### 5bd.79 Both directions used in anger, and the colour they came out in (2026-11-19)
+
+Gil used Version 6 on unit 100 and the database now holds exactly two regions, the
+three mistaken ones having been removed through the new buttons:
+
+    16:38:23  scatter 100  sources [98]  -> 100   262 dots, ~1534 spikes   RIGHT cloud
+    16:38:46  scatter 100  sources [100] -> 98     67 dots, ~ 196 spikes   LEFT cloud
+
+That is the channel cleaned in both directions in one sitting: unit 98's events
+that had landed inside unit 100's cluster are pulled into 100, and unit 100's
+events sitting inside 98's cluster are pushed to 98. The `breakdown` field carries
+the per-group counts, and both records use the new shape.
+
+**The colour bug he caught.** The pull came out BLUE where it should have been the
+red of unit 100. `targetColor` went through `colorForUnit`, which allocates from
+`UNIT_PALETTE` -- but the scatter's own unit is drawn in a fixed `#c2453f` and is
+not in that palette at all, so asking for it returned the next free palette slot
+(blue) AND quietly advanced the palette index for every neighbour drawn afterwards.
+Events moved INTO the unit whose panel you are on now take that unit's red.
+
+Version 7 of `https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw`.

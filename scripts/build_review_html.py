@@ -624,7 +624,14 @@ function renderScatter(container, cp, xField, yField, uid){
                       : (p.cat === 'other' ? (p.unit == null ? '?' : String(p.unit)) : '');
   const srcKeySet = r => recSources(r).map(v => v === null ? '' : String(v));
   const targetLabel = r => recTarget(r) === null ? 'unassigned' : ('unit ' + recTarget(r));
-  const targetColor = r => recTarget(r) === null ? '#5b6670' : colorForUnit(recTarget(r));
+  /* The scatter's own unit is drawn in a FIXED red and is not in the palette, so
+     asking colorForUnit for it hands back whatever palette slot is next (blue, in
+     Gil's 98 -> 100 pull) and also quietly shifts the palette for every later
+     neighbour. Events moved INTO this unit must take this unit's red. */
+  const OWN_FILL = '#c2453f';
+  const targetColor = r => recTarget(r) === null ? '#5b6670'
+                         : (String(recTarget(r)) === String(uid) ? OWN_FILL
+                                                                 : colorForUnit(recTarget(r)));
 
   const myKeys = () => Object.keys(REASSIGN)
     .filter(k => String(recScatter(REASSIGN[k])) === String(uid) &&
