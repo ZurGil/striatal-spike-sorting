@@ -10251,3 +10251,96 @@ cue drives a 30 Hz transient, five times the effect in question, so each PSTH
 carries an inset on its own y scale over the counted window; without it the four
 evidence curves lie on top of each other and the figure shows nothing. Unit 287:
 4.1 -> 6.6 Hz across evidence when correct, 3.7 -> 3.2 Hz when wrong.
+
+### 5bd.71 Four sessions on the confidence question, and the matcher finally has error bars (2026-11-18)
+
+Gil asked for the confidence analysis on the four sessions that are sorted, reviewed
+and synced -- 20260916, 20260917, 20260918, 20261112 -- and separately whether a neuron
+can be followed from one session into the next.
+
+**The four-session run.** `outputs/confidence_coding_four/`. 20260916 is the one
+addition over yesterday's restricted run; at 478 completed trials it sits just under the
+500 cut and it behaves like the other three, which is the point of including it.
+
+    epoch   units   scale with |DV|   with P(correct|DV,choice)   shuffle expectation
+    base      286   1  (0.3 %)        4  (1.4 %)                 0.30 units
+    stim      265   7  (2.6 %)        9  (3.4 %)                 0.30
+    cue       298   31 (10.4 %)       26 (8.7 %)                 0.24
+    chin      293   24 (8.2 %)        45 (15.4 %)                0.22
+    wait      277   0  (0.0 %)        11 (4.0 %)                 0.34
+
+25 of 277 units track the animal's own waiting time at the wait epoch. The baseline row
+is the control that makes the rest worth reading: one unit in 286, against a shuffle
+expectation of 0.3.
+
+Error prediction before any feedback, AUC at the choice port and, in brackets, with each
+cell's own 300 ms pre-stimulus rate subtracted: 20260916 0.695 (0.656), 20260917 0.748
+(0.773), 20260918 0.778 (0.787), 20261112 0.862 (0.851). At the cue end: 0.623 (0.527),
+0.727 (0.779), 0.636 (0.556), 0.791 (0.751). Population |DV| read-out at the port runs
+0.019-0.189 R^2 and P(correct) 0.087-0.265 -- the normative quantity beats raw stimulus
+strength at the port in all four, which is the same ordering as before and is the
+signature of a confidence signal rather than a difficulty signal.
+
+**Matching the same neuron across sessions: built and calibrated.**
+`scripts/match_units_across_sessions.py`. Features are electrical only -- correlation of
+the peak-to-peak footprint over channels within 60 um of the peak site, correlation of
+the full waveform matrix over the shared channels, and centroid distance -- combined by
+a Fisher discriminant fit on the session's own split-half control. Nothing functional
+enters, because these sessions are a learning series and matching on responses would
+manufacture the stability the series exists to measure ([[project-cross-session-neuron-tracking]]).
+
+Only pairs within 80 um of each other are even scored. Two units 600 um apart are not a
+hard case, and counting them as correct rejections would inflate precision into
+meaninglessness, so every number below is "among units that could plausibly be confused".
+
+Two controls, both from the split halves that `extract_unit_waveforms.py` saved during
+the sorts:
+
+    20260917, 508 units, 480 same-neuron and 9452 different-neuron candidate pairs
+    score = +0.706*r_amp +0.662*r_shape +0.250*(-d/100um)
+    same neuron       median 1.341   5th pct 1.248
+    different neuron  median -0.255  95th pct 0.846   max 1.338
+
+    all units present, reciprocal best match     94.1 % recall, 99.8 % precision
+    half the second set deleted (the real case)  94.8 % recall, 99.9 % precision at 0.78
+
+The second control is the one that matters and it was missing from the first version of
+the script. With every unit present, reciprocal-best-match can hardly go wrong -- each
+unit has a true partner waiting. Across sessions many units are simply not there the
+next day, and two orphans can pair with each other, which no mutual-best rule catches.
+Deleting half the second half-set at random makes half the units orphans; at a score
+floor of 0.78 the procedure leaves them unmatched and buys 0.2 false matches in 240.
+
+Recall tops out at ~94 % and not 100 % because 28 of 508 units have their own two halves
+more than 80 um apart by centroid, so they are never offered as a candidate to
+themselves. That is a feature of the centroid estimate on thin units, not of the score.
+
+**The three real matches.** Threshold from each A-session's own control, drift estimated
+from the confident pairs and applied:
+
+    20260916 -> 20260917   472 x 508 units   y +9.7 um   290 matches
+    20260917 -> 20260918   508 x 481 units   y +5.0 um   314 matches
+    20260916 -> 20260918   472 x 481 units   y +7.5 um   270 matches
+
+**And the check that needs no ground truth** (`scripts/match_chain_check.py`): follow
+16 -> 17 -> 18 and compare against the direct 16 -> 18 match, computed independently.
+The chain survives for 204 units, the direct match also found 174 of those, and the two
+routes name the **same 18 September unit in 154 of 174, 88.5 %**. Every disagreement is
+at least one error somewhere in three matches, so 88.5 % is a floor on agreement and
+cannot be produced by a procedure with a high error rate.
+
+The 20 disagreements all have the same shape. The id gap between what the chain says and
+what the direct match says is 1 for eight of them and at most 8 for all twenty, and
+**19 of 20 are a pair the merge tool itself flagged as within 60 um** -- two of them
+pairs Gil judged `merge`. So the two routes never disagree about where on the probe the
+cell is; they disagree about which of two adjacent clusters it is, which is the
+over-split problem and not a matching failure. Resolving merge groups before matching
+should absorb most of it, and that is the next step rather than a caveat to live with.
+
+**What this does not yet do.** Merges are not resolved -- the waveforms are keyed to raw
+Kilosort cluster ids, so a merged pair still appears as two footprints and must be
+averaged by spike count before matching ([[project-merge-tool-semantics]]). 20260916's
+sort of record is Kilosort 4.1.7 and the other two are 4.0.24, which is the uniformity
+confound already on the books; matching is on raw waveforms so the version does not
+enter the score, but unit yield differs between them. And Popper cannot be matched to
+Shamir at all, so 20261112 sits outside this.
