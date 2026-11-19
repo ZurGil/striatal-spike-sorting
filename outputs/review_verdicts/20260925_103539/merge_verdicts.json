@@ -760,13 +760,13 @@
   "dip_poisson_p": 0.9619976536117176,
   "dip_ratio": 1.1550387596899225,
   "dip_ratio_far_flank": 1.1953,
-  "note": "",
+  "note": "Decided 2026-11-19: Gil confirmed 81 stays in the 77/78/79/81/83/84/85 group. This pair was never judged on its own -- it follows from 77+81 and 77+79, both of which he accepted. Changed from unsure so the record matches the dataset.",
   "pair_id": "79_81",
   "quality_label": "good",
   "spike_clusters_sha1": "cefd160e43f70aaf3cad4f08ab959520359223f1",
   "unit_a": 79,
   "unit_b": 81,
-  "verdict": "unsure",
+  "verdict": "merge",
   "waveform_corr": 0.8201
  },
  "79_83": {
@@ -816,13 +816,13 @@
   "dip_poisson_p": 0.9999972542352014,
   "dip_ratio": 1.5054945054945055,
   "dip_ratio_far_flank": 1.5159,
-  "note": "",
+  "note": "Decided 2026-11-19: Gil confirmed 81 stays in the 77/78/79/81/83/84/85 group. This pair was never judged on its own -- it follows from 77+81 and 77+84, both of which he accepted. Changed from unsure so the record matches the dataset.",
   "pair_id": "81_84",
   "quality_label": "good",
   "spike_clusters_sha1": "cefd160e43f70aaf3cad4f08ab959520359223f1",
   "unit_a": 81,
   "unit_b": 84,
-  "verdict": "unsure",
+  "verdict": "merge",
   "waveform_corr": 0.3395
  },
  "81_85": {
@@ -830,13 +830,13 @@
   "dip_poisson_p": 0.9999999999999986,
   "dip_ratio": 1.792857142857143,
   "dip_ratio_far_flank": 1.6421,
-  "note": "",
+  "note": "Decided 2026-11-19: Gil confirmed 81 stays in the 77/78/79/81/83/84/85 group. This pair was never judged on its own -- it follows from 77+81 and 77+85, both of which he accepted. Changed from unsure so the record matches the dataset.",
   "pair_id": "81_85",
   "quality_label": "good",
   "spike_clusters_sha1": "cefd160e43f70aaf3cad4f08ab959520359223f1",
   "unit_a": 81,
   "unit_b": 85,
-  "verdict": "unsure",
+  "verdict": "merge",
   "waveform_corr": 0.7664
  },
  "83_84": {

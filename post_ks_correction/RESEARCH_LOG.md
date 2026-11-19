@@ -10819,3 +10819,72 @@ keep rather than a worry.
 The register was regenerated and republished (Version 12), and
 `outputs/artifact_live_counts.json` carries this session's live counts. 20260925 moves
 from NOT REVIEWED to SAVED, REVIEW CLOSED; eight Shamir sorts now carry his verdicts.
+
+### 5bd.81 The region becomes a rule, and the grey pile turns out to be somebody else's (2026-11-19)
+
+Gil answered both questions from §5bd.80 in one line: **merge** (81 stays in the
+77-85 group) and **Option B, plus a drift check** (a region applies to the whole
+session, not only inside the windows it was drawn on).
+
+#### The merge, recorded rather than argued with
+
+The three pairs he had left `unsure` -- 79_81, 81_84, 81_85 -- were set to `merge` in
+the artifact database, each with a note saying the pair was never judged on its own
+and follows from pairs he did accept. Re-dumped, re-synced, and the verification is
+now **9 of 9**: `T6 PASS, 0 pair(s) judged not-a-merge`. The dataset did not change --
+it was already merged -- but the record now says what he decided instead of
+contradicting itself, and `verified=true` in the stamp.
+
+#### Why a boundary drawn in window 3 can mean anything in minute 115
+
+Only because §5bd.67's builder stored the PCA basis in its own file instead of
+refitting per window. `scripts/apply_reassignments.py` reloads
+`cluster_basis_<sid>.json`, re-detects with exactly `build_cluster_windows`'s
+detection (4.5 MAD, 1 ms dead time, 60-sample snippets), and projects onto the stored
+axes. The check that it is the same space: unit 100's own cloud in window 0 comes
+back with pc1 spanning -22372.1 to 10918.8 against the page's -22372 to 10919, the
+same 74 points, the same ptp range. Had the basis been refit, PC1's sign alone would
+have flipped the cloud.
+
+It writes a MANIFEST -- spike indices to relabel, plus the sample times of events that
+matched no spike -- and never a new `spike_clusters.npy`, the same rule merges follow.
+
+#### What the measurement found, which changes what nine regions mean
+
+`build_cluster_windows` draws a detection grey when it matched no sorted spike **or
+when it matched a unit that does not peak on this channel**. That second clause is
+there for a good reason -- a spike 500 um away still crosses threshold here, and
+colouring it as a neighbour would put 58 units in a legend meant for three -- but it
+means the grey pile is two different things wearing one colour, and the checkbox
+calls both of them "unassigned".
+
+On four minutes of session, the regions sourced from the grey pile take
+
+    2688  spikes that other units currently own
+       6  spikes that are genuinely unsorted
+
+So "sweep up the unassigned" is not recovering what Kilosort missed. It is taking
+spikes off neighbouring units, decided from the shape on ONE channel where Kilosort
+decided it from all 384. Fifteen of the eighteen regions tick that box -- deliberately,
+since only the panel's own unit is ticked by default -- and in the mixed ones the grey
+part dominates: region `279_1795108203341` moves 964 spikes of which 958 are
+off-channel. The three that do not touch it (`98->100`, `100->98`, `122->126`) are
+clean unit-to-unit moves.
+
+This is a defect in the tool's vocabulary, not in Gil's judgement, and the fix is to
+split the grey category in the page: "unsorted" and "unit N, peaks elsewhere" are
+different offers and should not share a checkbox.
+
+#### The run that was stopped
+
+The full-session pass was killed at 18.1 % by the harness's memory-pressure reaper. The
+script was using almost no memory of its own; the memmap was. A sequential pass over
+255 GB of mapped file grows the page cache until the machine is short, so the reader
+is now an ordinary buffered file handle -- byte-for-byte identical output, verified
+array by array on the trial -- and results flush to a part file every 15 minutes of
+session instead of living in RAM until the end, with `--resume` to pick up the blocks
+already written. **Not restarted on my own**, per the reaper's instruction; it waits
+for Gil's word.
+
+So the apply step, the drift figure and the manifest format are built and proven on
+four minutes; the whole-session numbers and the figure are one ~45-minute run away.

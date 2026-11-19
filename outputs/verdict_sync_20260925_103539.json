@@ -1,6 +1,6 @@
 {
   "session_id": "20260925_103539",
-  "synced_at": "2026-11-19T12:40:32",
+  "synced_at": "2026-11-19T12:57:26",
   "kilosort_dir": "Z:/Gil/Shamir_1/20260925_103539.rec\\20260925_103539.kilosort\\kilosort4",
   "applied": {
     "verdicts": {
@@ -15,7 +15,7 @@
     },
     "merge_verdicts": {
       "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20260925_103539\\merge_verdicts.json",
-      "sha1": "59330dc3da3204ab140e95863ee622b7f758b6fb",
+      "sha1": "cb3944ff26fc5f82781f1681ddd6f78b0fee6462",
       "n_documents": 61
     }
   },
@@ -28,6 +28,6 @@
     "--rat_root",
     "Z:/Gil/Shamir_1"
   ],
-  "verified": false,
-  "verify_exit_code": 1
+  "verified": true,
+  "verify_exit_code": 0
 }
