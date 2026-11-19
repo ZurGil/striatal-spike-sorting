@@ -10994,3 +10994,56 @@ The brief is `docs/bpod_new_task_agent_prompt.md`. It opens by telling the agent
 write the never-modify rule to its own memory before reading a single file, and asks
 for a SHA-256 of the protocol folder before and after as the proof. Saved here too as
 `feedback_bpod_protocol_additive_only`.
+
+### 5bd.84 The protocol source arrives, and answers three of its own questions (2026-11-19)
+
+Gil put the Bpod computer's `Bpod` and `BpodUser` trees on `I:\for_creating_new_task`.
+Copied to `D:\Gil\bpod_task\snapshot\` -- the protocol, the other seven protocols, the
+two system settings files, `BpodFunctions`, `DefaultSettings.mat` and the whole
+`Bpod_Gen2` install including `Firmware\`; file counts match the source exactly
+(462 / 234 / 47 / 2). The 4.8 GB of session data was left behind, we have the `.mat`
+files we need on Z. Then `attrib +R /S /D`: **746 of 746 files read-only**, and an
+`Add-Content` to `stateMatrix.m` raises `UnauthorizedAccessException`. SHA-256 of all
+746 in `snapshot_sha256_before.txt`. The writer works at
+`D:\Gil\bpod_task\new_protocol\`, and the rig is unreachable from there by
+construction rather than by instruction.
+
+Reading it answered three of the five open questions, and two of the answers shrink
+the job.
+
+**The free-response scaffold is already in the state machine.** Our sessions take the
+`else % frequency task` branch (`AuditoryTrial=1`, `ClickTask=0`, consistent with the
+40-state list having no `wait_Sin_start`), where
+
+    sma = AddState(sma, 'Name', 'stimulus_delivery',...
+        'Timer', TaskParameters.GUI.AuditoryStimulusTime - TaskParameters.GUI.MinSampleAud,...
+        'StateChangeConditions', {CenterPortOut,'wait_Sin','Tup','wait_Sin'},...
+
+ends on **either** centre-port-out or the timer. With both parameters at 0.35 the
+timer is zero -- which is precisely the 0.000 s pass-through measured on all 605
+trials in 5bd.75. So Gil's change is mostly `MinSampleAud` down and
+`AuditoryStimulusTime` up, not a new state machine.
+
+**But the sound would not stop.** `SoftCode 21` -> `PsychToolboxSoundServer('Play',1)`,
+`22` -> `('Stop',1)` (the `HiFiModule` calls are present and commented out, which
+settles that question too). `22` is sent in `early_withdrawal` and `No_Stim` --
+and nowhere on the path through `stimulus_delivery` to `wait_Sin`, because a 0.35 s
+sound ends by itself and never needed stopping. Raise the ceiling to 2 s and the
+stimulus plays on into the choice and the waiting period. That, plus whether the
+waveform is even rendered long enough, is the real work in the free-sampling change.
+
+**The 6-bit state word is firmware, and covers new states for free.** In
+`Bpod/Firmware/Bpod_MainModule_0_5/Bpod_MainModule_0_5.ino`, line 650
+`SyncRegWrite((State+1))` on entering every state and line 508 `SyncRegWrite(0)` to
+reset. So the DIO code is the 1-indexed state number by construction -- `PreITI_start`
+= 1, gaps = 0, exactly as measured in `docs/bpod_mcu_sync_wiring.md` -- and any state
+added gets its own code with no output action. `SyncRegWrite` SPI-transfers one byte,
+so the 63 ceiling is ours (six wired lines), not Bpod's, and state 64 would alias
+silently. Also worth knowing before anyone reaches for an output action: `BNCState`
+and `WireState` are already spoken for in this protocol, by the photometry epoch
+markers and the video trigger.
+
+All three are now written into `docs/bpod_new_task_agent_prompt.md` §9 as verified
+answers, with the two remaining questions (the per-trial look-ahead buffer in
+`updateCustomDataFields.m`, and whether the block path works end to end) left for the
+writer.

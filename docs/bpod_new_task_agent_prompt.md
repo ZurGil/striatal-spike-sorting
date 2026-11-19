@@ -103,10 +103,28 @@ could read as a date; see §7.
 
 ## 2. The files you need, and where they are
 
-These are copied out of the Bpod computer for you as a read-only snapshot (the
-protocol folder there is
-`C:\Users\KepecsLab\Documents\BpodUser\Protocols\Dual2AFC_nat\`, recovered from the
-session file's saved settings):
+All of this is already in your read-only snapshot at `D:\Gil\bpod_task\snapshot\`
+(746 files, every one marked read-only; copied 2026-11-19 from the Bpod computer via
+`I:\for_creating_new_task`). On the rig the protocol lives at
+`C:\Users\KepecsLab\Documents\BpodUser\Protocols\Dual2AFC_nat\`. In the snapshot:
+
+```
+snapshot\BpodUser\Protocols\Dual2AFC_nat\      the protocol, 114 files
+    Dual2AFC_nat.m  stateMatrix.m  updateCustomDataFields.m  SoftCodeHandler.m
+    MainPlot.m  helpers\  naturalsounds165\  TruncatedExponential.m  ...
+snapshot\BpodUser\Protocols\                    seven other protocols, as reference
+snapshot\BpodUser\Settings Files\               BpodSystemSettings.mat, BpodInputConfig.mat
+snapshot\BpodUser\Data\Shamir01\Dual2AFC_nat\Session Settings\DefaultSettings.mat
+snapshot\BpodUser\BpodFunctions\
+snapshot\Bpod\                                  the Bpod_Gen2 install, incl. Firmware\ and .git
+```
+
+Note both `Dual2AFC_nat\` and `Bpod\` carry their own `.git` — read the history if it
+helps, but never commit, stage, checkout or stash in them.
+
+Write your new protocol folder to `D:\Gil\bpod_task\new_protocol\<NewName>\`.
+
+The list below is what you have and why it is there:
 
 1. **The whole existing protocol folder**, every `.m` and `.mat` in it, including
    subfolders — the main protocol file, the state-matrix builder, the stimulus
@@ -387,19 +405,67 @@ If anything is ambiguous, ask. If something seems to require touching an existin
 file, stop and ask — there is always an additive alternative, and if there is not,
 that is a decision for Gil, not for you.
 
-## 9. Questions to answer from the source before you design anything
+## 9. Five questions about the source — three are already answered
 
-1. Is the free-response scaffold already in the state machine? `stimulus_delivery`
-   has a duration of exactly 0.000 s on every completed trial — is that a state that
-   already waits for center-port-out and is simply configured to end immediately?
-2. How is the sound played — HiFi module, PsychToolbox, PulsePal? (`Custom` carries
-   both `PsychtoolboxStartup` and `PulsePalParamStimulus`, and the settings carry a
-   `HiFiModule` struct, so more than one path may exist.) How is a waveform loaded,
-   triggered, and **stopped**?
-3. How is the 6-bit state-number sync word produced — Bpod's own sync configuration,
-   or explicit per-state output actions in the state matrix?
+These were answered by reading the snapshot on 2026-11-19. They are verified, not
+guesses; confirm them as you go but do not spend time re-deriving them.
+
+**1. The free-response scaffold is ALREADY in the state machine.** Our sessions run
+the `else % frequency task` branch of `stateMatrix.m` (`AuditoryTrial = 1`,
+`ClickTask = 0` — consistent with our 40-state list, which has no `wait_Sin_start`).
+There, `stimulus_delivery` reads
+
+```matlab
+sma = AddState(sma, 'Name', 'stimulus_delivery',...
+    'Timer', TaskParameters.GUI.AuditoryStimulusTime - TaskParameters.GUI.MinSampleAud,...
+    'StateChangeConditions', {CenterPortOut,'wait_Sin','Tup','wait_Sin'},...
+    'OutputActions', {'BNCState',BNC2OutST});
+```
+
+It already ends on **either** centre-port-out **or** the timer. With
+`AuditoryStimulusTime = MinSampleAud = 0.35` the timer is 0, which is exactly the
+0.000 s pass-through we measured. **So free sampling is primarily a parameter
+change** — `MinSampleAud` down to 0.05–0.10, `AuditoryStimulusTime` up to the ceiling
+— not a new state machine. What is NOT solved, and is the real work in §6A:
+
+- Is the loaded waveform long enough to cover the longer window, or is it rendered at
+  `AuditoryStimulusTime` / a fixed 0.35 s somewhere upstream? Find where the sound is
+  built and make the length follow the ceiling.
+- **The sound is not stopped when the rat withdraws after the minimum.** `SoftCode 22`
+  (stop) is sent in `early_withdrawal` and `No_Stim`, but `wait_Sin` sends no stop —
+  it never needed one, because a 0.35 s sound ends by itself. With a 2 s ceiling the
+  stimulus would play on into the choice and the waiting period. Fixing that is part
+  of the feature, and it must not disturb the states' timing.
+
+**2. The sound is PsychToolbox, not the HiFi module.** `SoftCodeHandler.m`:
+`softCode == 21` -> `PsychToolboxSoundServer('Play', 1)`, `22` ->
+`PsychToolboxSoundServer('Stop', 1)`; the `HiFiModule.play/stop` lines are present but
+commented out. The trigger is `'SoftCode',21` in `stimulus_delivery_trigger`, which
+also waits on `BNC1High` for hardware confirmation of playback. A stop path therefore
+already exists and works — it is simply not wired into the withdrawal-after-minimum
+path.
+
+**3. The 6-bit state word comes from the Bpod FIRMWARE, automatically.** In
+`Bpod/Firmware/Bpod_MainModule_0_5/Bpod_MainModule_0_5.ino`:
+
+```c
+SyncRegWrite((State+1));   // line 650: output binary state code, corrected for zero index
+SyncRegWrite(0);           // line 508: reset the sync lines (between trials)
+```
+
+So **every state, including any state you add, broadcasts its own number with no
+output action needed** — which is why `PreITI_start` reads as 1 and the gaps read as
+0. `SyncRegWrite` pushes one byte over SPI to a latched register, so the hardware
+could carry 255; our ceiling of 63 comes from the six lines actually wired to the
+recording controller, and a state number above 63 would alias to a wrong code
+silently. Do not touch firmware, and do not add BNC or wire output actions for sync —
+`BNCState` and `WireState` in this protocol are already in use for the photometry
+epochs and the video trigger.
+
+**Still open, answer these yourself:**
+
 4. Where are per-trial parameters drawn (the look-ahead buffer: some `Custom` arrays
    are longer than `nTrials`), and where would a new per-trial condition such as the
-   PDE type naturally be drawn and saved?
+   PDE type naturally be drawn and saved? Start from `updateCustomDataFields.m`.
 5. Does the existing block code path actually work, end to end, with a non-trivial
    `BlockTable`?
