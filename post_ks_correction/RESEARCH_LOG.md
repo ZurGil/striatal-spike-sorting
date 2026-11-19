@@ -10382,3 +10382,60 @@ two-route consistency check. `outputs/unit_matching/matching_figure.png`.
 Drawing panel E is what caught the drift bug in §5bd.71 -- the panel said the probe had
 not moved while the matcher's own printout claimed +5 um, and only one of them could be
 right. That is the argument for the figure in one line.
+
+### 5bd.73 One rat at a time, and the matching panel that proved nothing (2026-11-18)
+
+Two corrections from Gil, both right.
+
+**Popper does not belong in the pooled confidence numbers.** 20261112 is a different
+animal, so pooling per-unit counts across it and Shamir answers no question. Re-run on
+the three Shamir sessions alone, `outputs/confidence_coding_shamir/`:
+
+    epoch   units   |DV|          P(correct|DV,choice)   was, with Popper in
+    base      232   1  (0.4 %)    4  (1.7 %)             0.3 % / 1.4 %
+    stim      215   5  (2.3 %)    9  (4.2 %)             2.6 % / 3.4 %
+    cue       241   25 (10.4 %)   16 (6.6 %)             10.4 % / 8.7 %
+    chin      231   18 (7.8 %)    18 (7.8 %)             8.2 % / 15.4 %
+    wait      222   0             10 (4.5 %)             0 % / 4.0 %
+
+25 of 222 units still track the animal's own waiting time. The |DV| column barely
+moves, which is worth saying out loud -- but **P(correct) at the choice port halves,
+15.4 % to 7.8 %**. Popper's session had 27 of its 62 units significant for P(correct)
+at the port, far above anything in Shamir, and pooling let one animal's session carry
+the headline. The per-session decoding was never affected (it was always reported
+session by session: AUC 0.695 / 0.748 / 0.778 for 16, 17, 18 September), which is why
+this did not show up until the pooled counts were split.
+
+**The depth panel was circular and has been replaced.** Gil: "isn't it trivial that if
+you match their footing location, the depth will match on linear line". Yes -- centroid
+distance is one of the three features in the score, so matched pairs lie on the
+identity line by construction and the panel demonstrated nothing but its own
+definition. It only ever earned its place by catching the drift bug (§5bd.71).
+
+The replacement is a quantity the matcher never sees at any stage: **firing rate**.
+Matched pairs across 17 to 18 September correlate at **r = 0.85 in log rate** and agree
+to a median factor of 1.38 across a day; the same units with their partners shuffled
+give r = 0.06. Absolute spike amplitude in uV is also independent of the score -- both
+waveform features are Pearson correlations, which are scale-free -- and matched pairs
+agree there at **r = 0.84**, median amplitude ratio 1.09.
+
+**And the question he actually asked: who gets matched?** "How many good units found
+their match vs other units." Split by his own review labels, the share of units that
+find a partner in the next session:
+
+                       16 -> 17 Sep        17 -> 18 Sep
+    good               87 of 114 (76 %)    111 of 155 (72 %)
+    mua                85 of 113 (75 %)    132 of 208 (63 %)
+    never judged      124 of 232 (53 %)     72 of 145 (50 %)
+    noise               4 of 13  (31 %)     --
+
+The ordering is the sanity check: units Gil kept match most often, units he never
+reached match half the time, and the thirteen he called noise mostly fail to match at
+all. A matcher pairing things at random would not produce that gradient.
+
+One more check that costs nothing and is independent of everything above: of the 214
+matched pairs on 17 -> 18 where BOTH units carry a hand verdict, **179 (84 %) carry the
+SAME verdict**, and the matcher is never shown a label.
+
+Both figures regenerated: `outputs/confidence_coding_shamir/confidence_figure_shamir.png`
+and `outputs/unit_matching/matching_figure.png`.

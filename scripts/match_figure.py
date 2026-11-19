@@ -162,53 +162,102 @@ def panel_d(ax, W, ids):
             transform=ax.transAxes, ha="right", va="bottom", fontsize=8, color=MUTED)
 
 
+def firing_rates(session):
+    """Spikes per second per raw Kilosort cluster. Cached -- the arrays are on Z."""
+    cache = os.path.join(OUT, "rates_%s.npy" % session)
+    if os.path.exists(cache):
+        return np.load(cache)
+    p = "Z:/Gil/Shamir_1/%s.rec/%s.kilosort/kilosort4/" % (session, session)
+    cl = np.load(p + "spike_clusters.npy").astype(int)
+    st = np.load(p + "spike_times.npy")
+    r = np.bincount(cl) / (float(st.max()) / 30000.0)
+    np.save(cache, r)
+    return r
+
+
 def panel_e(ax, W):
+    """Depth agreement would be circular -- centroid distance is one of the three
+    features, so matched pairs lie on the identity line by construction and the
+    panel proves nothing. Firing rate is never shown to the matcher at any point."""
     m = pd.read_csv(os.path.join(OUT, "%s__%s_matches.csv" % (B, C)))
-    ya = dict((int(u), float(y)) for u, y in zip(W[B]["unit_ids"],
-                                                 W[B]["centroid"][:, :, 1].mean(axis=1)))
-    yb = dict((int(u), float(y)) for u, y in zip(W[C]["unit_ids"],
-                                                 W[C]["centroid"][:, :, 1].mean(axis=1)))
-    x = np.array([ya[u] for u in m.unit_a])
-    y = np.array([yb[u] for u in m.unit_b])
-    ax.plot([x.min(), x.max()], [x.min(), x.max()], "-", color=MUTED, lw=1.0)
-    ax.plot(x, y, ".", color=C_SAME, ms=4, alpha=0.8)
-    ax.set_xlabel("depth on 17 Sep ($\\mu$m)")
-    ax.set_ylabel("depth of its match\non 18 Sep ($\\mu$m)")
-    ax.set_title("E   The probe is where it was")
-    ax.text(0.03, 0.95, "%d matched units\nmedian shift %+.1f $\\mu$m, "
-                        "spread %.1f $\\mu$m"
-            % (len(x), np.median(y - x), np.percentile(np.abs(y - x - np.median(y - x)),
-                                                       68)),
-            transform=ax.transAxes, va="top", fontsize=8.5, color=INK)
-    ax.text(0.97, 0.06, "centroid averaged over both halves.\nthe matcher estimates"
-                        " and removes this\noffset before scoring anything",
-            transform=ax.transAxes, ha="right", va="bottom", fontsize=8, color=MUTED)
+    rb, rc = firing_rates(B), firing_rates(C)
+    x = np.array([rb[u] for u in m.unit_a])
+    y = np.array([rc[u] for u in m.unit_b])
+    ok = (x > 0) & (y > 0)
+    x, y = x[ok], y[ok]
+    rng = np.random.RandomState(0)
+    ysh = y[rng.permutation(len(y))]
+    lo, hi = 0.02, 60
+    ax.plot([lo, hi], [lo, hi], "-", color=MUTED, lw=1.0, zorder=1)
+    ax.plot(x, ysh, ".", color="#cfcfcf", ms=4, zorder=2,
+            label="same units, partners shuffled  r = %.2f"
+                  % np.corrcoef(np.log10(x), np.log10(ysh))[0, 1])
+    ax.plot(x, y, ".", color=C_SAME, ms=4.5, zorder=3,
+            label="matched pairs  r = %.2f" % np.corrcoef(np.log10(x), np.log10(y))[0, 1])
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
+    ax.set_xlabel("firing rate on 17 Sep (Hz)")
+    ax.set_ylabel("firing rate of its match\non 18 Sep (Hz)")
+    ax.set_title("E   A check the matcher never saw")
+    ax.legend(frameon=False, fontsize=8, loc="upper left")
+    ax.text(0.97, 0.03, "firing rate enters nothing in the score.\nmatched pairs agree"
+                        " to a median factor\nof 1.38 across a day; absolute spike\n"
+                        "amplitude agrees at r = 0.84",
+            transform=ax.transAxes, ha="right", va="bottom", fontsize=8, color=MUTED,
+            bbox=dict(fc="white", ec="none", alpha=0.85, pad=1.5))
 
 
-def panel_f(ax, ch):
-    n_chain = len(ch)
-    agree = int(ch.agrees.sum())
-    n_ab = len(pd.read_csv(os.path.join(OUT, "%s__%s_matches.csv" % (A, B))))
-    n_bc = len(pd.read_csv(os.path.join(OUT, "%s__%s_matches.csv" % (B, C))))
-    bars = [("matched\n16 to 17", n_ab), ("matched\n17 to 18", n_bc),
-            ("reaches 18 Sep\nboth ways", n_chain),
-            ("and name the\nsame unit", agree)]
-    xs = np.arange(len(bars))
-    cols = [COL[A], COL[B], "#6b8f71", "#2f6f9f"]
-    b = ax.bar(xs, [v for _, v in bars], 0.62, color=cols, edgecolor="white", lw=1.2)
-    for r, (_, v) in zip(b, bars):
-        ax.text(r.get_x() + r.get_width() / 2, v + 7, "%d" % v, ha="center", fontsize=9)
+def verdicts(session):
+    p = os.path.join(ROOT, "outputs", "review_verdicts", session, "manual_verdicts.csv")
+    d = pd.read_csv(p)
+    return dict(zip(d.unit.astype(int), d.verdict))
+
+
+def panel_f(ax, W, ch):
+    """Which units find a partner -- split by Gil's own label, because 'how many units
+    matched' means nothing without knowing whether they were units he would keep."""
+    classes = [("good", "kept at review"), ("mua", "multi-unit"),
+               (None, "never judged")]
+    pairs = [(A, B, "16 $\\rightarrow$ 17 Sep", COL[B]),
+             (B, C, "17 $\\rightarrow$ 18 Sep", COL[C])]
+    w = 0.38
+    xs = np.arange(len(classes))
+    for k, (a, b, lab, col) in enumerate(pairs):
+        m = pd.read_csv(os.path.join(OUT, "%s__%s_matches.csv" % (a, b)))
+        matched = set(int(u) for u in m.unit_a)
+        V = verdicts(a)
+        vals, ns = [], []
+        for cls, _ in classes:
+            ids = [int(u) for u in W[a]["unit_ids"]
+                   if (V.get(int(u)) == cls if cls else int(u) not in V)]
+            ns.append(len(ids))
+            vals.append(100.0 * sum(1 for u in ids if u in matched) / max(len(ids), 1))
+        bars = ax.bar(xs + (k - 0.5) * w, vals, w, color=col, label=lab,
+                      edgecolor="white", lw=1.2)
+        for r, v, n in zip(bars, vals, ns):
+            ax.text(r.get_x() + r.get_width() / 2, v + 1.5, "%.0f%%\nof %d" % (v, n),
+                    ha="center", fontsize=7.5)
     ax.set_xticks(xs)
-    ax.set_xticklabels([k for k, _ in bars], fontsize=8)
-    ax.set_ylabel("units")
-    ax.set_ylim(0, 470)
-    ax.set_title("F   Two routes, one answer")
-    ax.text(0.5, 0.985,
-            "%d of %d  --  %.1f %%\nand all %d disagreements are between two clusters"
-            "\nthe merge tool had already flagged as sitting\nwithin 60 $\\mu$m of"
-            " each other: an over-split cell,\nnot the wrong neuron"
-            % (agree, n_chain, 100.0 * agree / n_chain, n_chain - agree),
+    ax.set_xticklabels(["%s\n%s" % (c if c else "unjudged", d) for c, d in classes],
+                       fontsize=8)
+    ax.set_ylabel("% that find a partner\nin the next session")
+    ax.set_ylim(0, 108)
+    ax.set_title("F   Who gets matched, by your own label")
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
+    ax.text(0.5, 0.995, "of the %d matched pairs where BOTH sides\nwere judged, the two"
+                        " labels agree on %d\n-- and the matcher is never shown a label"
+            % tuple(agreement_both_judged(W)),
             transform=ax.transAxes, ha="center", va="top", fontsize=8.5, color=INK)
+
+
+def agreement_both_judged(W):
+    m = pd.read_csv(os.path.join(OUT, "%s__%s_matches.csv" % (B, C)))
+    vb, vc = verdicts(B), verdicts(C)
+    both = [(int(u), int(v)) for u, v in zip(m.unit_a, m.unit_b)
+            if int(u) in vb and int(v) in vc]
+    return len(both), sum(1 for u, v in both if vb[u] == vc[v])
 
 
 def main():
@@ -227,7 +276,7 @@ def main():
     panel_c(axes[0, 2], W, ids)
     panel_d(axes[1, 0], W, ids)
     panel_e(axes[1, 1], W)
-    panel_f(axes[1, 2], ch)
+    panel_f(axes[1, 2], W, ch)
 
     fig.suptitle("Can one neuron be followed from one session to the next?   "
                  "16-18 September, Shamir, chronic probe",
