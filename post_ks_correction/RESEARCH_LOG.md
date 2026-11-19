@@ -10439,3 +10439,55 @@ SAME verdict**, and the matcher is never shown a label.
 
 Both figures regenerated: `outputs/confidence_coding_shamir/confidence_figure_shamir.png`
 and `outputs/unit_matching/matching_figure.png`.
+
+### 5bd.74 The depth axis, asked as the OCD question asks it (2026-11-19)
+
+Gil: "what I had told you the region we recording from is related to OCD, what
+responses you would expect? How this can be tested?" The useful first move is not a
+reading list -- it is to notice that **the implant already spans the axis the
+question is about**. One straight shank at ML -2.45 / AP +1.2 puts good units from
+2.76 to 6.42 mm below the brain surface, i.e. dorsal caudate-putamen down to the
+ventral striatum / NAc border. Every OCD account of this circuit is a claim about
+that axis (OFC and ACC project ventromedially, sensorimotor cortex dorsolaterally),
+so "is the confidence signal uniform along the probe?" is answerable today with no
+new recording. The DiI track still has to confirm the ventral end anatomically.
+
+`scripts/confidence_depth_axis.py` joins `depth_mm` onto the per-unit rows the
+confidence check already wrote -- no refitting, so the depth profile and the pooled
+number in the paper figure come from the same fit -- and adds one genuinely new
+population test: dorsal and ventral halves decoded separately for "is this trial an
+error", **subsampled to the same unit count**, because otherwise the comparison is a
+comparison of n. Split at 4.70 mm. `scripts/ocd_axis_figure.py` draws it.
+
+    epoch  target  dorsal             ventral
+    cue    |DV|    18/125 (14.4 %)     7/116 ( 6.0 %)
+    cue    P(corr) 11/125 ( 8.8 %)     5/116 ( 4.3 %)
+    chin   |DV|     9/107 ( 8.4 %)     9/124 ( 7.3 %)
+    chin   P(corr) 10/107 ( 9.3 %)     8/124 ( 6.5 %)
+
+Error decoding, equal unit count, all three sessions:
+
+    cue end      dorsal 0.618 / 0.667 / 0.625   ventral 0.568 / 0.617 / 0.595
+    choice port  dorsal 0.604 / 0.717 / 0.750   ventral 0.692 / 0.625 / 0.727
+
+**What this does and does not license.** At the cue the evidence signal is dorsally
+biased and the bias is consistent across all three sessions (3/3 for the decode,
+14.4 % vs 6.0 % for the single units). At the choice port there is no gradient worth
+the name -- the error read-out is strong at both ends and the rank order flips
+session to session. So the honest statement is: the stimulus/decision signal is
+stronger dorsally, and the post-choice error signal is everywhere. That is one
+animal and three sessions, and the ventral sampling is thinner where it matters
+most (a gap at 4.7-5.1 mm, and the deepest bin is the probe tip).
+
+**The behavioural baseline, which is the other half of the answer.** Post-error
+adjustment is essentially absent: movement time -3.3 / -2.4 / -2.2 %, accuracy
+-0.7 / +5.1 / -0.5 points, time investment -1.3 / +8.2 / -3.3 %. ST cannot show an
+adjustment at all because the protocol fixes it at 0.35 s. A compulsivity model has
+to move one of these numbers, and at present the task gives it almost no room to --
+which is the strongest argument for the protocol changes proposed to Gil in the same
+reply (free sampling time; an explicit re-check/confirm port; longer and costlier
+feedback delays; error-contingent repeats, which the Bpod protocol already carries
+as `ErrorRepeat`, unused here).
+
+`outputs/confidence_depth/{units_with_depth.csv, frac_sig_by_half.csv,
+decode_by_depth.csv, ocd_axis.png}`. Nothing on Z was touched.
