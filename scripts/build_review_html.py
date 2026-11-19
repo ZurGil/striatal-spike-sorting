@@ -364,12 +364,21 @@ function cwToggle(i){
 function cwPoints(cp, xField, yField){
   const pts = [];
   let ownTotal = 0, ownShown = 0, windowsWithData = 0;
+  /* Totals for the other two categories as well, so a region that moves a
+     NEIGHBOUR's events (or unassigned ones) can be scaled from drawn dots to real
+     spikes the same way the unit's own are. n_other pools every co-located unit,
+     so a per-unit figure assumes the 70-point cap subsampled them evenly -- it
+     does, the cap is random over the pooled set -- and is approximate when more
+     than one neighbour sits on the channel. */
+  let otherTotal = 0, otherShown = 0, noiseTotal = 0, noiseShown = 0;
   if(cp && cp.windows){
     cwActiveIdx().forEach(wi => {
       const w = cp.windows[String(wi)];
       if(!w) return;
       windowsWithData++;
       ownTotal += (w.n_own || 0);
+      otherTotal += (w.n_other || 0);
+      noiseTotal += (w.n_noise || 0);
       ['noise','other','own'].forEach(cat => {
         const g = w[cat];
         if(!g || !g[xField] || !g[yField]) return;
@@ -378,6 +387,8 @@ function cwPoints(cp, xField, yField){
                     unit: (cat === 'other' && w.other_unit) ? w.other_unit[i] : null});
         }
         if(cat === 'own') ownShown += g[xField].length;
+        if(cat === 'other') otherShown += g[xField].length;
+        if(cat === 'noise') noiseShown += g[xField].length;
       });
     });
   }else if(cp){
@@ -392,7 +403,9 @@ function cwPoints(cp, xField, yField){
     });
     ownTotal = ownShown;
   }
-  return {pts: pts, ownTotal: ownTotal, ownShown: ownShown, nWindows: windowsWithData};
+  return {pts: pts, ownTotal: ownTotal, ownShown: ownShown, nWindows: windowsWithData,
+          otherTotal: otherTotal, otherShown: otherShown,
+          noiseTotal: noiseTotal, noiseShown: noiseShown};
 }
 
 function pointInPolygon(px, py, poly){
@@ -561,7 +574,7 @@ function renderScatter(container, cp, xField, yField, uid){
   let resetArmed = null;
   resetBtn.addEventListener('click', () => {
     const mine = Object.keys(REASSIGN)
-      .filter(k => String(REASSIGN[k].source_unit) === String(uid));
+      .filter(k => String(recScatter(REASSIGN[k])) === String(uid));
     if(!mine.length){ restoreDots(); return; }
     if(!resetArmed){
       resetBtn.textContent = 'Discard ' + mine.length + ' region(s)?';
@@ -599,8 +612,22 @@ function renderScatter(container, cp, xField, yField, uid){
   markNote.style.cssText = 'font-size:9px;color:var(--text-2);margin-top:3px;';
   container.appendChild(markNote);
 
+  /* A record written before the move/import/unassign rework carries only
+     source_unit + target_unit; one written after carries scatter_unit,
+     source_units[] and a target_unit that may be null. Read both through these. */
+  const recScatter = r => (r.scatter_unit !== undefined && r.scatter_unit !== null)
+                            ? r.scatter_unit : r.source_unit;
+  const recSources = r => (r.source_units && r.source_units.length)
+                            ? r.source_units : [r.source_unit];
+  const recTarget = r => (r.target_unit === undefined ? null : r.target_unit);
+  const ownerKey = p => p.cat === 'own' ? String(uid)
+                      : (p.cat === 'other' ? (p.unit == null ? '?' : String(p.unit)) : '');
+  const srcKeySet = r => recSources(r).map(v => v === null ? '' : String(v));
+  const targetLabel = r => recTarget(r) === null ? 'unassigned' : ('unit ' + recTarget(r));
+  const targetColor = r => recTarget(r) === null ? '#5b6670' : colorForUnit(recTarget(r));
+
   const myKeys = () => Object.keys(REASSIGN)
-    .filter(k => String(REASSIGN[k].source_unit) === String(uid) &&
+    .filter(k => String(recScatter(REASSIGN[k])) === String(uid) &&
                  REASSIGN[k].x_field === xField && REASSIGN[k].y_field === yField);
 
   const restoreDots = () => {
@@ -624,9 +651,11 @@ function renderScatter(container, cp, xField, yField, uid){
     myKeys().forEach(k => {
       const r = REASSIGN[k];
       if(!r.polygon || r.polygon.length < 3) return;
-      const col = colorForUnit(r.target_unit);
+      const col = targetColor(r);
+      const srcs = srcKeySet(r);
       got.pts.forEach(p => {
-        if(p.cat !== 'own') return;
+        /* whatever this region moves, not only this unit's own events */
+        if(srcs.indexOf(ownerKey(p)) < 0) return;
         if(!pointInPolygon(p.x, p.y, r.polygon)) return;
         /* A WHITE RING, not just the target colour. The first version only
            repainted the fill, and the regions Gil draws are by definition inside
@@ -640,11 +669,13 @@ function renderScatter(container, cp, xField, yField, uid){
         p._el.setAttribute('stroke-width', 1.2);
         /* and on top of everything except the lasso */
         svg.insertBefore(p._el, lassoPath);
-        tally[r.target_unit] = (tally[r.target_unit] || 0) + 1;
+        const tk = recTarget(r) === null ? 'unassigned' : String(recTarget(r));
+        tally[tk] = (tally[tk] || 0) + 1;
       });
     });
-    const parts = Object.keys(tally).sort((a, b) => a - b)
-      .map(t => tally[t] + ' dot' + (tally[t] === 1 ? '' : 's') + ' &rarr; unit ' + t);
+    const parts = Object.keys(tally).sort()
+      .map(t => tally[t] + ' dot' + (tally[t] === 1 ? '' : 's') + ' &rarr; ' +
+                (t === 'unassigned' ? 'unassigned' : 'unit ' + t));
     markNote.innerHTML = parts.length
       ? 'marked (white ring): ' + parts.join(' &middot; ')
       : '';
@@ -653,7 +684,8 @@ function renderScatter(container, cp, xField, yField, uid){
   const drawPending = () => {
     pending.innerHTML = '';
     markDots();
-    const mine = Object.keys(REASSIGN).filter(k => String(REASSIGN[k].source_unit) === String(uid));
+    const mine = Object.keys(REASSIGN)
+      .filter(k => String(recScatter(REASSIGN[k])) === String(uid));
     if(!mine.length) return;
     mine.sort().forEach(k => {
       const r = REASSIGN[k];
@@ -661,10 +693,11 @@ function renderScatter(container, cp, xField, yField, uid){
       row.style.cssText = 'display:flex;align-items:center;gap:6px;color:var(--text-3);margin-top:2px;';
       const sw = document.createElement('span');
       sw.style.cssText = 'display:inline-block;width:7px;height:7px;border-radius:50%;' +
-        'border:1px solid #1b1b20;background:' + colorForUnit(r.target_unit) + ';';
+        'border:1px solid #1b1b20;background:' + targetColor(r) + ';';
       row.appendChild(sw);
       const txt = document.createElement('span');
-      txt.innerHTML = '&rarr; unit <b>' + r.target_unit + '</b>: ' + r.n_selected_dots +
+      const from = recSources(r).map(v => v === null ? 'unassigned' : ('unit ' + v)).join(' + ');
+      txt.innerHTML = from + ' &rarr; <b>' + targetLabel(r) + '</b>: ' + r.n_selected_dots +
         ' dots, ~' + r.n_estimated + ' spikes, ' + (r.windows || []).length +
         ' window(s), ' + (r.x_field || '?') + '/' + (r.y_field || '?');
       const del = document.createElement('button');
@@ -704,47 +737,121 @@ function renderScatter(container, cp, xField, yField, uid){
     drawBtn.textContent = 'Select a region';
     if(poly.length < 3){ poly = []; paint(); form.innerHTML = ''; return; }
     const inside = got.pts.filter(p => pointInPolygon(p.x, p.y, poly));
-    const own = inside.filter(p => p.cat === 'own');
-    const others = inside.filter(p => p.cat === 'other');
-    const grey = inside.filter(p => p.cat === 'noise');
-    const est = got.ownShown ? Math.round(got.ownTotal * own.length / got.ownShown) : 0;
     form.innerHTML = '';
-    if(!own.length){
+    if(!inside.length){
       const s = document.createElement('span');
       s.style.cssText = 'margin-left:8px;color:var(--alert);';
-      s.textContent = 'no spikes of unit ' + uid + ' in that region';
+      s.textContent = 'nothing in that region';
       form.appendChild(s);
       return;
     }
-    const s = document.createElement('span');
-    s.style.cssText = 'margin-left:8px;';
-    s.innerHTML = '<b>' + own.length + '</b> dots of unit ' + uid + ' (&asymp;<b>' +
-      est + '</b> of its ' + got.ownTotal + ' spikes in the ticked windows) &rarr; unit ';
+
+    /* Every event in the region, grouped by who owns it now. A group's key is the
+       unit id as a string, or the empty string for unassigned. Moving is allowed
+       out of ANY of these groups and into any unit or back to unassigned, which is
+       what Gil asked for: push unit 100's spikes to 98, pull 98's into 100, or
+       strike events off every unit. */
+    const groups = {};
+    const add = (key, p) => { (groups[key] = groups[key] || []).push(p); };
+    inside.forEach(p => {
+      if(p.cat === 'own') add(String(uid), p);
+      else if(p.cat === 'other') add(p.unit == null ? '?' : String(p.unit), p);
+      else add('', p);
+    });
+    const estFor = (key, n) => {
+      if(key === String(uid)) return got.ownShown ? Math.round(got.ownTotal * n / got.ownShown) : n;
+      if(key === '') return got.noiseShown ? Math.round(got.noiseTotal * n / got.noiseShown) : n;
+      return got.otherShown ? Math.round(got.otherTotal * n / got.otherShown) : n;
+    };
+    const label = key => key === '' ? 'unassigned' : (key === '?' ? 'another unit' : 'unit ' + key);
+
+    const head = document.createElement('div');
+    head.style.cssText = 'margin-top:4px;';
+    head.innerHTML = 'in this region: ' + Object.keys(groups).sort().map(k =>
+      '<b>' + groups[k].length + '</b> ' + label(k) +
+      ' (&asymp;' + estFor(k, groups[k].length) + ' spikes)').join(' &middot; ');
+    form.appendChild(head);
+
+    const pick = document.createElement('div');
+    pick.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px;';
+    const movesLab = document.createElement('span');
+    movesLab.textContent = 'move:';
+    pick.appendChild(movesLab);
+    const boxes = {};
+    Object.keys(groups).sort().forEach(k => {
+      if(k === '?') return;                     /* unlabelled on an old page */
+      const l = document.createElement('label');
+      l.style.cssText = 'display:inline-flex;align-items:center;gap:3px;cursor:pointer;';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = (k === String(uid));         /* this unit's own by default */
+      cb.style.cssText = 'margin:0;';
+      boxes[k] = cb;
+      const sp = document.createElement('span');
+      sp.textContent = label(k) + ' (' + groups[k].length + ')';
+      l.appendChild(cb); l.appendChild(sp);
+      pick.appendChild(l);
+    });
+    const arrow = document.createElement('span');
+    arrow.innerHTML = '&rarr; to unit';
+    pick.appendChild(arrow);
     const box = document.createElement('input');
-    box.type = 'number'; box.min = '0'; box.placeholder = '#';
-    box.style.cssText = 'width:52px;font-size:9px;padding:1px 3px;margin:0 4px;';
+    box.type = 'text';
+    box.placeholder = 'none';
+    box.title = 'a unit number, or leave empty / type "none" to take the events off every unit';
+    box.style.cssText = 'width:58px;font-size:9px;padding:1px 3px;';
+    pick.appendChild(box);
     const ok = document.createElement('button');
     ok.textContent = 'Approve';
     ok.style.cssText = 'font-size:9px;padding:2px 8px;border-radius:5px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer;font-weight:600;';
+    pick.appendChild(ok);
+    form.appendChild(pick);
+
     const note = document.createElement('div');
     note.style.cssText = 'color:var(--text-3);margin-top:3px;';
-    note.innerHTML = 'ignores ' + others.length + ' point(s) of other units and ' +
-      grey.length + ' unassigned &middot; the region is applied to <b>every</b> spike ' +
-      'in the ticked windows when the session is synced, not just to the dots drawn';
+    note.innerHTML = 'empty target = <b>unassigned</b>: the events are struck off every unit ' +
+      '&middot; the region is applied to <b>every</b> spike in the ticked windows when the ' +
+      'session is synced, not just to the dots drawn';
+    form.appendChild(note);
+
     ok.addEventListener('click', () => {
-      const target = parseInt(box.value, 10);
-      if(!(target >= 0)){ box.style.borderColor = 'var(--alert)'; return; }
-      if(String(target) === String(uid)){
-        note.innerHTML = '<span style="color:var(--alert)">that is this unit</span>';
+      const raw = (box.value || '').trim().toLowerCase();
+      let target = null;
+      if(raw !== '' && raw !== 'none' && raw !== 'unassigned'){
+        target = parseInt(raw, 10);
+        if(!(target >= 0)){ box.style.borderColor = 'var(--alert)'; return; }
+      }
+      const srcKeys = Object.keys(boxes).filter(k => boxes[k].checked);
+      if(!srcKeys.length){
+        note.innerHTML = '<span style="color:var(--alert)">tick at least one group to move</span>';
         return;
       }
+      if(target !== null && srcKeys.indexOf(String(target)) >= 0){
+        note.innerHTML = '<span style="color:var(--alert)">unit ' + target +
+                         ' is both a source and the target &mdash; that moves nothing</span>';
+        return;
+      }
+      let nDots = 0, nEst = 0;
+      const breakdown = {};
+      srcKeys.forEach(k => {
+        const n = groups[k].length;
+        nDots += n; nEst += estFor(k, n);
+        breakdown[k === '' ? 'unassigned' : k] = {dots: n, est: estFor(k, n)};
+      });
       const id = uid + '_' + Date.now();
       const rec = {
-        session: SESSION_ID, source_unit: Number(uid), target_unit: target,
-        x_field: xField, y_field: yField, polygon: poly.map(p => [+p[0].toFixed(3), +p[1].toFixed(3)]),
-        windows: cwActiveIdx(), n_selected_dots: own.length, n_estimated: est,
-        n_own_total_in_windows: got.ownTotal, n_other_in_region: others.length,
-        n_unassigned_in_region: grey.length, ts: Date.now(),
+        session: SESSION_ID,
+        scatter_unit: Number(uid),
+        source_units: srcKeys.map(k => k === '' ? null : Number(k)),
+        target_unit: target,                     /* null = unassigned */
+        /* kept so anything written against the first version of this collection
+           still reads: the unit whose panel the region was drawn on */
+        source_unit: Number(uid),
+        x_field: xField, y_field: yField,
+        polygon: poly.map(p => [+p[0].toFixed(3), +p[1].toFixed(3)]),
+        windows: cwActiveIdx(), n_selected_dots: nDots, n_estimated: nEst,
+        breakdown: breakdown,
+        n_own_total_in_windows: got.ownTotal, ts: Date.now(),
       };
       REASSIGN[id] = rec;
       if(db) db.collection('reassignments').doc(id).set(rec).catch(e => console.error(e));

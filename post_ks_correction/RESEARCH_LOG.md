@@ -10647,3 +10647,52 @@ them: "marked (white ring): 68 dots -> unit 98". The ring reads at any density.
 
 Version 5 of `https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw`. The stale
 16:07:40 region is still in the db, left for Gil to confirm before deletion.
+
+### 5bd.78 The region moves events in either direction, or off every unit (2026-11-19)
+
+Gil, having seen the mistaken region light up: "what I really want is the option to
+both, transfer from unit 100 to 98, or also import from different unit/s. Also, it
+will be nice if I could just transfer to unclassified, that is, so no unit will
+have these events."
+
+The old proposal could say one thing only -- THIS unit's events go to THAT unit.
+Generalised to: **every event in the polygon that currently belongs to one of the
+ticked groups becomes the target**, where the target may be a unit or nothing.
+
+    push     sources [100]      target 98      (what it could already do)
+    pull     sources [98]       target 100     (import, new)
+    strike   sources [100]      target null    (unassigned, new)
+    several  sources [98, 101]  target 100     (new)
+
+The form after a lasso now lists what is inside it by current owner -- own,
+each co-located unit by number, unassigned -- with a dot count and a spike
+estimate for each, a checkbox per group (this unit's own ticked by default), and a
+free-text target that takes a unit number, or empty / "none" / "unassigned" to
+strike the events off every unit. The old guard "that is this unit" is gone,
+because importing INTO this unit is now a legitimate move; what is rejected instead
+is a unit that appears as both a source and the target, which moves nothing.
+
+**Estimates for the other groups.** `cwPoints` now also accumulates `n_other` and
+`n_noise` per ticked window, so a neighbour's or an unassigned group's dots can be
+scaled to real spike counts the same way the unit's own always were. `n_other`
+pools every co-located unit, so a per-unit figure assumes the 70-point cap
+subsampled them evenly -- it does, the cap is random over the pooled set -- and it
+is approximate when more than one neighbour sits on the channel. Said in the code.
+
+**Record shape**, with the old one still readable:
+
+    scatter_unit   the unit whose panel it was drawn on (drives which panel shows it)
+    source_units   [100] or [98] or [98, null] -- null means unassigned
+    target_unit    a number, or null for unassigned
+    breakdown      {"100": {dots, est}, "unassigned": {...}}
+    source_unit    kept = scatter_unit so the three records already in the db read
+
+Three accessors (`recScatter`, `recSources`, `recTarget`) normalise both shapes, and
+the highlight, the pending list and Reset all go through them. The white ring now
+marks every event the region moves, not only the unit's own, and is grey when the
+target is "unassigned".
+
+Version 6 of `https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw`. The apply step
+still does not exist -- §5bd.67's open question about windows-choose-the-region
+versus whole-session-apply is unchanged, and it now has three verbs to honour
+instead of one.
