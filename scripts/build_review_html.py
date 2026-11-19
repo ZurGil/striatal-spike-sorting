@@ -471,7 +471,16 @@ function renderScatter(container, cp, xField, yField, uid){
   }
 
   const W = 300, H = 220, padL = 8, padR = 8, padT = 10, padB = 10;
-  const svg = svgEl('svg', {viewBox: '0 0 ' + W + ' ' + H});
+  /* preserveAspectRatio="none" is not cosmetic. The stylesheet forces
+     .panel svg{width:100%;height:220px}, so on a 700 px panel the element is
+     700x220 while the viewBox is 300x220. Under the DEFAULT xMidYMid meet that
+     letterboxes: the drawing is 300 px wide, centred, with ~200 px of dead space
+     each side -- and a hand-drawn region lands nowhere near the cursor. Letting
+     it stretch removes the dead space AND more than doubles the horizontal
+     resolution the polygon is recorded at. Both axes are already scaled
+     independently to the data, so stretching costs nothing. */
+  const svg = svgEl('svg', {viewBox: '0 0 ' + W + ' ' + H,
+                            preserveAspectRatio: 'none'});
   svg.style.cssText = 'display:block;width:100%;touch-action:none;';
   let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
   got.pts.forEach(p => {
@@ -491,8 +500,12 @@ function renderScatter(container, cp, xField, yField, uid){
       if(cat === 'own'){ fill = '#c2453f'; r = 2.2; op = 0.8; }
       else if(cat === 'noise'){ fill = '#9aacbd'; r = 1.6; op = 0.32; }
       else { fill = colorForUnit(p.unit); r = 1.7; op = 0.78; seen[p.unit] = fill; }
-      svg.appendChild(svgEl('circle', {cx: sx(p.x), cy: sy(p.y), r: r, fill: fill,
-                                       opacity: op}));
+      const c = svgEl('circle', {cx: sx(p.x), cy: sy(p.y), r: r, fill: fill,
+                                 opacity: op});
+      /* keep the handle and the original look, so a dot can be recoloured to
+         show where it has been sent and put back again by Reset */
+      p._el = c; p._fill0 = fill; p._r0 = r; p._op0 = op;
+      svg.appendChild(c);
     });
   });
   const lassoPath = svgEl('polyline', {points: '', fill: 'rgba(79,111,217,0.10)',
@@ -530,6 +543,46 @@ function renderScatter(container, cp, xField, yField, uid){
   drawBtn.textContent = 'Select a region';
   drawBtn.style.cssText = 'font-size:9px;padding:2px 8px;border-radius:5px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer;font-weight:600;';
   tools.appendChild(drawBtn);
+
+  /* Reset: put this unit's scatter back to the assignment it was sorted with.
+     The colours and the database have to agree, so it drops this unit's saved
+     regions as well -- otherwise the dots would say "unmarked" while the
+     proposals were still queued for the apply step. One region at a time can
+     still be dropped with its own "remove" button. */
+  const resetBtn = document.createElement('button');
+  resetBtn.textContent = 'Reset';
+  resetBtn.title = 'discard every region marked on this unit and restore the original colours';
+  resetBtn.style.cssText = 'font-size:9px;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text-3);cursor:pointer;margin-left:6px;';
+  /* Two clicks rather than confirm(): a sandboxed iframe may refuse modals, and
+     a refused modal would make Reset look dead. */
+  let resetArmed = null;
+  resetBtn.addEventListener('click', () => {
+    const mine = Object.keys(REASSIGN)
+      .filter(k => String(REASSIGN[k].source_unit) === String(uid));
+    if(!mine.length){ restoreDots(); return; }
+    if(!resetArmed){
+      resetBtn.textContent = 'Discard ' + mine.length + ' region(s)?';
+      resetBtn.style.borderColor = 'var(--alert)';
+      resetBtn.style.color = 'var(--alert)';
+      resetArmed = setTimeout(() => {
+        resetArmed = null; resetBtn.textContent = 'Reset';
+        resetBtn.style.borderColor = 'var(--border)';
+        resetBtn.style.color = 'var(--text-3)';
+      }, 4000);
+      return;
+    }
+    clearTimeout(resetArmed); resetArmed = null;
+    resetBtn.textContent = 'Reset';
+    resetBtn.style.borderColor = 'var(--border)';
+    resetBtn.style.color = 'var(--text-3)';
+    mine.forEach(k => {
+      if(db) db.collection('reassignments').doc(k).delete().catch(e => console.error(e));
+      delete REASSIGN[k];
+    });
+    poly = []; paint(); form.innerHTML = ''; drawPending();
+  });
+  tools.appendChild(resetBtn);
+
   const form = document.createElement('div');
   tools.appendChild(form);
   container.appendChild(tools);
@@ -538,14 +591,57 @@ function renderScatter(container, cp, xField, yField, uid){
   pending.style.cssText = 'margin-top:5px;font-size:9px;';
   container.appendChild(pending);
 
+  /* --- what has been marked, shown on the dots themselves -------------------- */
+  const myKeys = () => Object.keys(REASSIGN)
+    .filter(k => String(REASSIGN[k].source_unit) === String(uid) &&
+                 REASSIGN[k].x_field === xField && REASSIGN[k].y_field === yField);
+
+  const restoreDots = () => {
+    got.pts.forEach(p => {
+      if(!p._el) return;
+      p._el.setAttribute('fill', p._fill0);
+      p._el.setAttribute('r', p._r0);
+      p._el.setAttribute('opacity', p._op0);
+      p._el.removeAttribute('stroke');
+      p._el.removeAttribute('stroke-width');
+    });
+  };
+
+  /* Recolour every own-dot that sits inside a saved region to the colour of the
+     unit it has been sent to, with a dark outline so a recoloured dot is never
+     confused with a neighbour's own dot. Only regions drawn on THESE axes are
+     shown, because a polygon in pc1/ptp means nothing on a different pair. */
+  const markDots = () => {
+    restoreDots();
+    myKeys().forEach(k => {
+      const r = REASSIGN[k];
+      if(!r.polygon || r.polygon.length < 3) return;
+      const col = colorForUnit(r.target_unit);
+      got.pts.forEach(p => {
+        if(p.cat !== 'own') return;
+        if(!pointInPolygon(p.x, p.y, r.polygon)) return;
+        p._el.setAttribute('fill', col);
+        p._el.setAttribute('r', 2.6);
+        p._el.setAttribute('opacity', 1);
+        p._el.setAttribute('stroke', '#1b1b20');
+        p._el.setAttribute('stroke-width', 0.7);
+      });
+    });
+  };
+
   const drawPending = () => {
     pending.innerHTML = '';
+    markDots();
     const mine = Object.keys(REASSIGN).filter(k => String(REASSIGN[k].source_unit) === String(uid));
     if(!mine.length) return;
     mine.sort().forEach(k => {
       const r = REASSIGN[k];
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:6px;color:var(--text-3);margin-top:2px;';
+      const sw = document.createElement('span');
+      sw.style.cssText = 'display:inline-block;width:7px;height:7px;border-radius:50%;' +
+        'border:1px solid #1b1b20;background:' + colorForUnit(r.target_unit) + ';';
+      row.appendChild(sw);
       const txt = document.createElement('span');
       txt.innerHTML = '&rarr; unit <b>' + r.target_unit + '</b>: ' + r.n_selected_dots +
         ' dots, ~' + r.n_estimated + ' spikes, ' + (r.windows || []).length +
@@ -565,10 +661,17 @@ function renderScatter(container, cp, xField, yField, uid){
 
   let drawing = false, poly = [];
   const toData = evt => {
-    const box = svg.getBoundingClientRect();
-    const cx = (evt.clientX - box.left) / box.width * W;
-    const cy = (evt.clientY - box.top) / box.height * H;
-    return [ix(cx), iy(cy)];
+    /* Ask the SVG itself where the cursor is instead of doing the arithmetic.
+       getScreenCTM carries the viewBox mapping, any letterboxing, page zoom,
+       scroll and CSS transforms; the old
+          (clientX - box.left) / box.width * W
+       assumed the drawing filled the element's box exactly, which it did not. */
+    const m = svg.getScreenCTM();
+    if(!m) return [ix(0), iy(0)];
+    const pt = svg.createSVGPoint();
+    pt.x = evt.clientX; pt.y = evt.clientY;
+    const d = pt.matrixTransform(m.inverse());
+    return [ix(d.x), iy(d.y)];
   };
   const paint = () => {
     lassoPath.setAttribute('points',

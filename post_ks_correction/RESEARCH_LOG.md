@@ -10541,3 +10541,66 @@ quoted heredoc flattened every `\n` in the replacement into a real newline and
 broke the file, and one `str.replace` whose search string contained `\n` silently
 matched nothing. Both repaired with the Edit tool. The rule has now cost time
 twice in two days -- anything with a backslash goes through Write/Edit.
+
+### 5bd.76 The lasso was drawing where the cursor was not (2026-11-19)
+
+Gil marked his first hand-drawn regions on 20260925_103539 and reported that "when
+pressing with the cursor, the line doesn't appear exactly where I'm pressing".
+Real, and the cause is one stylesheet line fighting one viewBox.
+
+`.panel svg{width:100%;height:220px;}` applies to the raw-data scatter, whose
+viewBox is `0 0 300 220`. On a panel ~700 px wide the ELEMENT is 700x220 while the
+DRAWING is 300x220, and the default `preserveAspectRatio="xMidYMid meet"`
+letterboxes it: the scatter occupies 300 px in the middle with ~200 px of dead
+space each side. `toData` then did
+
+    cx = (evt.clientX - box.left) / box.width * W
+
+which assumes the drawing fills the element. It does not, so every press was wrong
+by a scale factor of box.width/300 AND by the left letterbox offset -- worst at the
+edges, which is exactly what Gil saw. The vertical axis was right (220 -> 220),
+which is why the error looked horizontal.
+
+Two fixes, both in `build_review_html.py`:
+
+  * `preserveAspectRatio="none"` on the scatter, so the drawing fills the element.
+    No dead space, and the polygon is recorded at more than double the horizontal
+    resolution -- the saved regions were quantised to one screen pixel, ~75 data
+    units in x. Both axes are already scaled independently to the data, so
+    stretching costs nothing.
+  * `toData` now asks the SVG where the cursor is, via
+    `svg.createSVGPoint()` + `getScreenCTM().inverse()`, which carries the viewBox
+    mapping, any letterboxing, page zoom, scroll and CSS transforms. The
+    arithmetic version cannot be made correct in general; this one cannot be wrong.
+
+**Two things he asked for in the same breath, both built.**
+
+*Recolour after marking.* Every dot now keeps a handle and its original fill, and
+after a region is approved its own-dots are repainted in the TARGET unit's colour
+with a dark outline (so a recoloured dot is never mistaken for a neighbour's own
+dot). It redraws when the unit is reopened, so the marks are visible later and not
+just at the moment of drawing, and only for regions drawn on the axes currently
+shown -- a polygon in pc1/ptp means nothing on a different pair. The pending list
+carries a matching colour swatch.
+
+*Reset.* Restores this unit's scatter to the assignment the sorter gave it and
+drops this unit's saved regions, because the colours and the database have to agree
+-- leaving proposals queued under unmarked dots is the failure mode worth avoiding.
+Two clicks rather than `confirm()`, since a sandboxed iframe may refuse modals and
+a refused modal would make the button look dead. Single regions can still be
+dropped one at a time with their own "remove".
+
+Published as Version 4 of `https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw`.
+
+**His two saved regions, read back from the db.** Both are source 100 -> target 98,
+105 seconds apart, and both are still live -- the tool appends, it never replaces,
+so a re-mark does not retire the earlier one:
+
+    16:07:34Z  491 dots, ~1437 of unit 100's 2323 spikes (62 %), 140 other / 107 unassigned
+    16:09:20Z   62 dots, ~181 spikes (7.8 %),                     350 other /  40 unassigned
+
+They sit on OPPOSITE sides of pc1 (the first spans +692..+10477, the second
+-26945..-9541), so they are two different regions and not a redrawn one. Gil said
+he "typed a wrong unit and then remarked it", but both documents carry target 98,
+so the wrong number is not what distinguishes them. Put to him before anything is
+applied; the apply step would otherwise take both.
