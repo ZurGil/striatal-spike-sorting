@@ -10318,21 +10318,30 @@ themselves. That is a feature of the centroid estimate on thin units, not of the
 **The three real matches.** Threshold from each A-session's own control, drift estimated
 from the confident pairs and applied:
 
-    20260916 -> 20260917   472 x 508 units   y +9.7 um   290 matches
-    20260917 -> 20260918   508 x 481 units   y +5.0 um   314 matches
-    20260916 -> 20260918   472 x 481 units   y +7.5 um   270 matches
+    20260916 -> 20260917   472 x 508 units   y -3.6 um   300 matches
+    20260917 -> 20260918   508 x 481 units   y -2.1 um   315 matches
+    20260916 -> 20260918   472 x 481 units   y -3.5 um   276 matches
+
+The first version of those offsets read +9.7, +5.0 and +7.5 um, and they were wrong by
+a bug worth recording. The drift loop re-estimated the offset from the UNSHIFTED
+centroids and then ADDED it to the offset already applied, so three iterations counted
+the same shift three times. The probe's real night-to-night movement is a couple of
+microns, not ten: matched pairs sit on the identity line with a median shift of -0.2 um
+and a 68 % spread of 4.1 um (panel E). The bug barely moved the matching -- 2 um is
+nothing against an 80 um candidate radius -- but it would have been quoted as a drift
+measurement, and it was not one.
 
 **And the check that needs no ground truth** (`scripts/match_chain_check.py`): follow
 16 -> 17 -> 18 and compare against the direct 16 -> 18 match, computed independently.
-The chain survives for 204 units, the direct match also found 174 of those, and the two
-routes name the **same 18 September unit in 154 of 174, 88.5 %**. Every disagreement is
-at least one error somewhere in three matches, so 88.5 % is a floor on agreement and
+The chain survives for 219 units, the direct match also found 191 of those, and the two
+routes name the **same 18 September unit in 177 of 191, 92.7 %**. Every disagreement is
+at least one error somewhere in three matches, so 92.7 % is a floor on agreement and
 cannot be produced by a procedure with a high error rate.
 
-The 20 disagreements all have the same shape. The id gap between what the chain says and
-what the direct match says is 1 for eight of them and at most 8 for all twenty, and
-**19 of 20 are a pair the merge tool itself flagged as within 60 um** -- two of them
-pairs Gil judged `merge`. So the two routes never disagree about where on the probe the
+The 14 disagreements all have the same shape, and **14 of 14 are a pair the merge tool
+itself flagged as within 60 um** -- one of them a pair Gil judged `merge`. The id gap
+between what the chain says and what the direct match says is 1 for seven of them and
+at most 5 for thirteen. So the two routes never disagree about where on the probe the
 cell is; they disagree about which of two adjacent clusters it is, which is the
 over-split problem and not a matching failure. Resolving merge groups before matching
 should absorb most of it, and that is the next step rather than a caveat to live with.
@@ -10344,3 +10353,32 @@ sort of record is Kilosort 4.1.7 and the other two are 4.0.24, which is the unif
 confound already on the books; matching is on raw waveforms so the version does not
 enter the score, but unit yield differs between them. And Popper cannot be matched to
 Shamir at all, so 20261112 sits outside this.
+
+### 5bd.72 Both results as figures, because tables are not how Gil reads (2026-11-18)
+
+"When I told you to run the analysis, I meant show me the figures as well. I always
+appreciate figures more than just numbers in a table." Recorded as a standing preference,
+not a one-off request: a run of an analysis is not reported until there is a figure.
+
+**`scripts/confidence_coding_figure.py` is now parameterised** -- `--dir`, `--sessions`,
+`--name`, `--unit` -- so any run of the check can be drawn without editing the script.
+Two real fixes came out of pointing it at a different set than the one it was written
+for: the session count, trial count and unit count in the title and panel captions are
+now read from the data instead of being the six-session numbers in string literals, and
+**panel D corrects FDR within each session and then pools**, which is what the check
+itself does. Pooling the p-values first and correcting once over the pile had been
+quietly giving 14.3 % where the table said 15.4 %. Panel A now also includes Popper,
+which only ever had to be excluded from the waiting-time panel.
+
+`outputs/confidence_coding_four/confidence_figure_four.png`, four sessions, 2254
+completed trials, 293 good units at the choice port.
+
+**`scripts/match_figure.py`** draws the matcher: the score distributions it has to
+separate with the accepted across-session pairs overlaid, recall and precision against
+threshold from the orphan control, one neuron's mean spike and footprint on all three
+days, every matched pair's depth on 17 September against its depth on 18, and the
+two-route consistency check. `outputs/unit_matching/matching_figure.png`.
+
+Drawing panel E is what caught the drift bug in §5bd.71 -- the panel said the probe had
+not moved while the matcher's own printout claimed +5 um, and only one of them could be
+right. That is the argument for the figure in one line.

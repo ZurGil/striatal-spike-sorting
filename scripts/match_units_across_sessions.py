@@ -338,8 +338,10 @@ def main():
         m = mutual_best(S, thr)
         if not args.apply_drift or not m:
             break
-        dys = [a2[i]["y"] - b1[j]["y"] for i, j, _ in m]
-        dy = dy + float(np.median(dys))
+        # features() compares A against B shifted by dy, so the offset that drives the
+        # residual to zero is median(B.y - A.y) outright -- NOT an increment on the
+        # dy already applied, which would count the same shift once per iteration.
+        dy = float(np.median([b1[j]["y"] - a2[i]["y"] for i, j, _ in m]))
     print("\n%s -> %s : %d x %d units, y-offset %s"
           % (args.a, args.b, len(a2), len(b1),
              ("%+.1f um (applied)" % dy) if args.apply_drift else "not applied"))

@@ -2,6 +2,8 @@
 """The figure for the confidence analysis. Reads what the check already wrote.
 
     python scripts/confidence_coding_figure.py
+    python scripts/confidence_coding_figure.py --dir outputs/confidence_coding_four \
+        --sessions 20260916_110311 20260917_100043 20260918_100248 20261112_082028
 
 Six panels, in the order the argument runs:
 
@@ -38,7 +40,8 @@ from confidence_coding_quick_check import (SESSIONS, NO_ERROR_CATCH, EPOCHS,
                                            bh_fdr, build_trials, epoch_windows)
 
 OUT = os.path.join(ROOT, "outputs", "confidence_coding")
-SHAMIR = [s for s in sorted(SESSIONS) if s not in NO_ERROR_CATCH]
+USE = [s for s in sorted(SESSIONS)]
+SHAMIR = [s for s in USE if s not in NO_ERROR_CATCH]
 
 INK = "#1c1c1c"
 MUTED = "#8a8a8a"
@@ -78,11 +81,13 @@ def binned(x, y, edges):
 
 def behaviour():
     psy, inv = [], []
-    for sid in SHAMIR:
+    for sid in USE:
         t = pd.read_parquet(SESSIONS[sid] + "/trials.parquet")
         c = t[t.ChoiceCorrect.notna() & t.sync_valid & ~t.overlaps_recording_gap].copy()
         c["sid"] = sid
         psy.append(c[["sid", "DV", "ChoiceLeft", "ChoiceCorrect"]])
+        if sid in NO_ERROR_CATCH:       # the error wait there is our delay, not the rat's
+            continue
         c["invest"] = (((c.CatchTrial > 0.5) & (c.ChoiceCorrect > 0.5))
                        | (c.ChoiceCorrect < 0.5))
         k = c[c.invest & c.FeedbackTime.notna()].copy()
@@ -123,7 +128,7 @@ def panel_a(ax, psy):
         ax.plot(c, m, "-", color=MUTED, lw=1.0, alpha=0.75, zorder=2)
     c, m, s, n = binned(psy.DV.values, psy.ChoiceLeft.values, edges)
     ax.errorbar(c, m, yerr=s, fmt="o-", color=INK, lw=2.2, ms=5, zorder=3,
-                capsize=2, label="all 5 sessions")
+                capsize=2, label="all %d sessions" % psy.sid.nunique())
     ax.axhline(0.5, color=MUTED, lw=0.8, ls=":")
     ax.axvline(0.0, color=MUTED, lw=0.8, ls=":")
     ax.set_xlabel("DV   (negative = right is correct,  positive = left)")
@@ -132,6 +137,7 @@ def panel_a(ax, psy):
     ax.set_title("A   The rat is doing the task")
     ax.text(0.02, 0.96, "%d trials, grey = one session"
             % len(psy), transform=ax.transAxes, va="top", fontsize=8, color=MUTED)
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
 
 
 def panel_b(ax, inv):
@@ -149,6 +155,7 @@ def panel_b(ax, inv):
     ax.axhline(0, color=MUTED, lw=0.8, ls=":")
     ax.set_xlabel("evidence strength  |DV|")
     ax.set_ylabel("how long it waits\n(z of log seconds)")
+    ax.margins(y=0.16)
     ax.set_title("B   What the rat itself calls confidence")
     ax.legend(frameon=False, fontsize=8, loc="upper left")
     ax.text(0.98, 0.04, "same evidence, different wait\n$\\Rightarrow$ |DV| alone is not confidence",
@@ -175,8 +182,9 @@ def panel_c(ax, t):
     ax.set_ylabel("firing rate (Hz)\n0-200 ms after cue end")
     ax.set_title("C   One neuron that does it")
     ax.legend(frameon=False, fontsize=8, loc="upper left")
-    ax.set_xlim(-0.02, 1.0)
-    ax.text(0.98, 0.05, "20260917 unit 287\none of the 27 significant units out of 471",
+    ax.set_xlim(-0.08, 1.0)
+    ax.margins(y=0.14)
+    ax.text(0.98, 0.05, "20260917 unit 287\none of the units with a significant slope",
             transform=ax.transAxes, ha="right", va="bottom", fontsize=8, color=MUTED)
 
 
@@ -184,13 +192,19 @@ def panel_d(ax, units):
     eps = ["base", "stim", "cue", "chin"]
     w = 0.38
     xs = np.arange(len(eps))
+    allv = []
     for off, key, col, lab in ((-w / 2, "absDV", C_DV, "evidence strength |DV|"),
                                (w / 2, "conf", C_DVC, "P(correct | DV, choice)")):
         vals = []
         for ep in eps:
-            g = units[units.epoch == ep]
-            sig = bh_fdr(g[key + "_p"].values)
-            vals.append(100.0 * sig.mean())
+            # FDR is corrected WITHIN a session, as the check does it, then the
+            # sessions are pooled -- not one correction over the pile.
+            n_sig = n_tot = 0
+            for sid, g in units[units.epoch == ep].groupby("session"):
+                n_sig += int(bh_fdr(g[key + "_p"].values).sum())
+                n_tot += len(g)
+            vals.append(100.0 * n_sig / max(n_tot, 1))
+        allv += vals
         b = ax.bar(xs + off, vals, w, color=col, label=lab, edgecolor="white", linewidth=1.2)
         for r, v in zip(b, vals):
             ax.text(r.get_x() + r.get_width() / 2, v + 0.12, "%.1f%%" % v,
@@ -198,10 +212,11 @@ def panel_d(ax, units):
     ax.set_xticks(xs)
     ax.set_xticklabels([EPOCH_LABEL[e] for e in eps], fontsize=8)
     ax.set_ylabel("% of units with a\nsignificant slope")
-    ax.set_title("D   Single neurons: a thin harvest")
+    ax.set_title("D   Single neurons that carry it")
     ax.legend(frameon=False, fontsize=8, loc="upper left")
-    ax.set_ylim(0, 9.2)
-    ax.annotate("control: should be ~0", xy=(0, 0.4), xytext=(0.35, 3.2),
+    top = max(allv + [3.0])
+    ax.set_ylim(0, top * 1.45)
+    ax.annotate("control: should be ~0", xy=(0, 0.4), xytext=(0.35, top * 0.45),
                 fontsize=8, color=MUTED,
                 arrowprops=dict(arrowstyle="->", color=MUTED, lw=0.9))
 
@@ -231,7 +246,8 @@ def panel_e(ax, dec):
     ax.set_ylabel("cross-validated $R^2$\nof the population read-out")
     ax.set_title("E   The population: side is huge, confidence is small but real")
     ax.legend(frameon=False, fontsize=8, loc="upper left")
-    ax.text(0.99, 0.99, "bar = median of 6 sessions\ndot = one session",
+    ax.text(0.99, 0.99, "bar = median of %d sessions\ndot = one session"
+            % dec.session.nunique(),
             transform=ax.transAxes, ha="right", va="top", fontsize=7.5, color=MUTED)
 
 
@@ -263,12 +279,26 @@ def panel_f(ax, dec):
 
 
 def main():
+    global OUT, USE, SHAMIR
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dir", default=OUT, help="where the check wrote its CSVs")
+    ap.add_argument("--sessions", nargs="*", default=None)
+    ap.add_argument("--name", default="confidence_figure.png")
+    ap.add_argument("--unit", type=int, default=287)
+    ap.add_argument("--unit_session", default="20260917_100043")
+    args = ap.parse_args()
+    OUT = args.dir if os.path.isabs(args.dir) else os.path.join(ROOT, args.dir)
+    if args.sessions:
+        USE = sorted(args.sessions)
+    SHAMIR = [s for s in USE if s not in NO_ERROR_CATCH]
+
     psy, inv = behaviour()
     units = pd.concat([pd.read_csv(os.path.join(OUT, "%s_units.csv" % s))
-                       for s in sorted(SESSIONS)
+                       for s in USE
                        if os.path.exists(os.path.join(OUT, "%s_units.csv" % s))])
     dec = pd.read_csv(os.path.join(OUT, "decoding.csv"))
-    ex = example_unit()
+    ex = example_unit(sid=args.unit_session, uid=args.unit)
 
     fig, axes = plt.subplots(2, 3, figsize=(15.0, 8.4))
     panel_a(axes[0, 0], psy)
@@ -278,11 +308,14 @@ def main():
     panel_e(axes[1, 1], dec)
     panel_f(axes[1, 2], dec)
 
+    n_tr = int(dec[dec.epoch == "chin"].groupby("session").n_trials.max().sum())
+    n_un = int(units[units.epoch == "chin"].groupby("session").size().sum())
     fig.suptitle("Does the response after the cue carry decision confidence?   "
-                 "6 synced sessions, 2349 completed trials, 750 good units",
+                 "%d synced sessions, %d completed trials, %d good units"
+                 % (dec.session.nunique(), n_tr, n_un),
                  fontsize=12.5, fontweight="bold", y=0.985)
     fig.tight_layout(rect=(0, 0.015, 1, 0.955))
-    p = os.path.join(OUT, "confidence_figure.png")
+    p = os.path.join(OUT, args.name)
     fig.savefig(p, dpi=170)
     print("wrote", p)
 
