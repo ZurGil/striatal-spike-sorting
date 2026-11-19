@@ -59,11 +59,13 @@
   "verdicts": 0
  },
  "20260925_103539": {
-  "_note": "published 2026-11-17 from the backfill, review not started yet. 543 units, all 4147 co-located pairs compared, page 4.74 MiB, 46 files live.",
-  "merge_verdicts": 0,
-  "trial_selections": 0,
+  "_note": "Gil said the verdicts were done on 2026-11-19 and asked for the sync. 371 of 543 units carry a verdict (177 good, 178 mua, 16 noise); the 172 without keep their automatic label. 61 pairs judged: 58 merge, 3 unsure, no separates -- 30 merge groups after transitive closure. 20 stability windows. Also 18 hand-drawn reassignment regions in the reassignments collection, which have NO apply step yet and did not reach synced/. Dumped and synced the same day; T6 flags three unsure pairs that his own accepted merges join transitively.",
+  "merge_verdicts": 61,
+  "reassignments": 18,
+  "review_finished": true,
+  "trial_selections": 20,
   "url": "https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw",
-  "verdicts": 0
+  "verdicts": 371
  },
  "20261112_082028": {
   "merge_verdicts": 31,
@@ -71,7 +73,7 @@
   "url": "https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG",
   "verdicts": 260
  },
- "_checked": "2026-11-18 (20260918_100248 read live today; the others earlier, see each note)",
+ "_checked": "2026-11-19T12:44:24",
  "_collections": [
   "verdicts",
   "merge_verdicts",

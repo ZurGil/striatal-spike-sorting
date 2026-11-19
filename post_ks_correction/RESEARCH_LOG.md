@@ -10718,3 +10718,104 @@ not in that palette at all, so asking for it returned the next free palette slot
 Events moved INTO the unit whose panel you are on now take that unit's red.
 
 Version 7 of `https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw`.
+
+### 5bd.80 20260925_103539 reviewed, synced and responding -- and one check that failed on purpose (2026-11-19)
+
+Gil said the 25 September verdicts were done and asked for the three things: extract,
+sync, show the responses. Read live from `https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw`:
+
+    unit verdicts      371 of 543   177 good, 178 mua, 16 noise
+    merge verdicts      61 pairs    58 merge, 3 unsure, NO separates
+    trial selections    20 units
+    reassignments       18 regions  NOT APPLIED -- see below
+
+This is the first session of the batch with noise verdicts since 20260916 (16 of them,
+units 354-429, a contiguous band), and the first with no `separate` verdict at all.
+Every merge document carries `spike_clusters_sha1 = cefd160e43f70aaf3cad4f08ab959520359223f1`
+and the file on Z hashes to exactly that, so the clustering he judged is the clustering
+that was synced.
+
+Dumped to `outputs/review_verdicts/20260925_103539/` and to the sort's own
+`review/verdicts/` folder on Z, with the raw per-document files and the 18 reassignment
+records alongside them.
+
+#### T6 failed, and the failure is a real statement about his judgements
+
+Eight of nine checks passed. T6 did not:
+
+    T6  FAILED  separates respected   3 pair(s) judged not-a-merge, none merged
+            units 79 and 81 judged unsure but ended up in the same merge [77, 78, 79, 81, 83, 84, 85]
+            units 81 and 84 judged unsure but ended up in the same merge [...]
+            units 81 and 85 judged unsure but ended up in the same merge [...]
+
+Nothing was misapplied. The pipeline wrote exactly the 58 pairs he accepted; the
+verifier is reporting that those 58 force an outcome he marked `unsure` on three others.
+He accepted 77-81 and 81-83, and separately 77-79, 77-84, 77-85 and 83-84. Merging is an
+equivalence relation, so the moment 81 joins 77 it joins everything 77 is in: 79, 84 and
+85 come with it whether or not those pairs were ever judged. The seven units collapse to
+one 1,003,048-spike unit 10003.
+
+`unsure` is not `separate` -- it means he did not decide -- but the verifier treats it as
+not-a-merge, which is the right conservative default and is why this surfaced at all. It
+is a judgement question, not a data question: to keep 81 out, `77_81` and `81_83` have to
+become `separate`, and a re-sync takes four minutes. Left as he decided it, and the stamp
+records `verified=false` so nothing downstream can mistake it for a clean pass.
+
+#### The other eight checks, and the dataset
+
+    T1  fingerprints            manifests and merge verdicts all stamped cefd160e43f7
+    T2  good/mua labels         277 verdicts carried into quality_label
+    T3  noise exclusions        16 noise verdicts, all absent from units and spikes
+    T4  unjudged untouched      169 unjudged units keep their automatic label
+    T5  merges                  30 merge groups applied, parents absent, labels as scored
+    T7  stability windows       20 restricted units match trial by trial
+    T8  every verdict accounted 371/371 reached the dataset
+    T9  spikes reference units  469 distinct unit ids, all present
+
+`synced/` holds 469 units, 1090 trials and 48,494,880 spikes. Bpod
+`Shamir01_Dual2AFC_nat_Sep25_2026_Session1.mat` auto-matched, 18696/18696 events matched,
+leave-one-out worst case 21.4 ms -- the best of the batch. 584 of 1090 trials completed
+(54 %), in line with every other session. Two dropped-packet gaps, the larger 11.56 s at
+t = 7381 s, so 3 trials are flagged `sync_valid=False` and 2 overlap a gap; kept with
+their behaviour intact. 23 clusters excluded as noise (Gil's 16 plus 7 automatic), and
+the stability windows re-keyed from 20 units onto 19 merged ids, excluding 9582
+(unit, trial) pairs.
+
+#### The 18 hand-drawn regions did NOT reach the dataset
+
+This is the thing to keep in view. Gil spent from 16:38 to 18:22 drawing regions on 13
+different scatters -- 18 records, roughly 26,800 estimated spikes proposed to move, in
+all three directions the tool now supports: pulling another unit's events in (98 -> 100),
+pushing his own out (122 -> 126, 340 -> 344), and sweeping up unassigned events (194 dots
+/ 6713 spikes into 100 alone). Nine of the regions name `null` among their sources, which
+is the unassigned pile.
+
+**None of it is applied.** There is still no apply step (§5bd.67), `spike_clusters.npy`
+is untouched, and `synced/` is built from the clustering as Kilosort left it plus merges
+and labels. The records are dumped to Z beside the verdicts so the work is not lost, and
+the design question is now sharper than when it was one verb: the ten 120 s windows are
+16.9 % of a 118-minute recording, so applying a region only inside its windows splits a
+unit in time, while applying it session-wide extrapolates a boundary drawn on a sixth of
+the data. Push, pull and unassign each have to answer it.
+
+#### The responses
+
+`plot_event_responses.py`, 1090 trials, 583 completed, 392 rewarded, 132 good units:
+
+| event | modulated, p<0.05 | strongest |
+| --- | --- | --- |
+| cue start | 110 of 132 | unit 294, 48.5 -> 13.9 Hz |
+| cue end | 100 of 132 | unit 10010, 73.1 -> 11.3 Hz |
+| reward | 89 of 132 | unit 370, 12.4 -> 47.4 Hz, peak +0.23 s |
+
+The reward panel is the alignment evidence again and it is the sharpest of the batch:
+unit 300 6.6 -> 28.0 Hz (p = 1e-136), unit 270 33.8 -> 68.2 Hz peaking at +0.18 s, unit
+370 at +0.23 s, unit 240 7.9 -> 20.6 Hz, and units 289 and 288 as the mirror image
+(12.4 -> 3.3 and 28.2 -> 7.1 Hz). Five of the six peak within 0.3 s of the valve opening;
+a misaligned dataset smears that out. Note that two of the strongest cue responders are
+merged units (10010 = 278 + 293, 10009 = 250 + 252), which is the merges earning their
+keep rather than a worry.
+
+The register was regenerated and republished (Version 12), and
+`outputs/artifact_live_counts.json` carries this session's live counts. 20260925 moves
+from NOT REVIEWED to SAVED, REVIEW CLOSED; eight Shamir sorts now carry his verdicts.

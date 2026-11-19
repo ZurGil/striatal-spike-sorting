@@ -1,0 +1,16 @@
+VERDICT DUMP -- 20260925_103539
+written 2026-11-19T12:40:12 from the review tool's live database
+source  https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       371   {'mua': 178, 'good': 177, 'noise': 16}
+merge verdicts       61   {'merge': 58, 'unsure': 3}
+trial selections     20
+
+read live 2026-11-19; Gil said the verdicts for 25 September are done and asked for the sync. The reassignments collection (18 hand-drawn regions) is dumped alongside in raw/ but is NOT applied -- there is no apply step for it yet.
+
+sha256                                                            file
+3135ef596c2a8e96c98b47c69c074028086e469f60b2cdd9123f973aaaaa1972  verdicts.json  22422 bytes
+cd966c71aee73a1ede5d612719956b478b3532564c5c3b80f9225956f7652d56  merge_verdicts.json  22820 bytes
+bb75c3fc18bcd088211136fbc0dd24d64f74e92626a65953473f29a13ad404cf  trial_selections.json  9757 bytes
+f862cabc46c191e0a68e9fc807348d69bed87ed0628d5f0e9acb7d6e42c6abdc  manual_verdicts.csv  8337 bytes
