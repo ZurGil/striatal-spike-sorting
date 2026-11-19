@@ -10491,3 +10491,53 @@ as `ErrorRepeat`, unused here).
 
 `outputs/confidence_depth/{units_with_depth.csv, frac_sig_by_half.csv,
 decode_by_depth.csv, ocd_axis.png}`. Nothing on Z was touched.
+
+### 5bd.75 Two task changes, and what the current protocol already says about one (2026-11-19)
+
+Gil asked for the post-decision-evidence idea in plain language, and separately
+proposed his own change: let the cue run as long as the rat stays in the centre
+port. Before answering the second one, the protocol was measured rather than
+assumed, and it says something sharp.
+
+**ST is pinned.** On every completed trial of 16, 17 and 18 September the sample
+time is exactly 0.3501 s -- `MinSampleAud = 0.350`, and `stimulus_delivery` (the
+state that follows `stimulus_delivery_min`) has duration 0.000 s on all 605
+occurrences in 20260917. So the free-response scaffold appears to be wired in the
+state machine already and simply terminates at once; that is worth confirming in
+the protocol .m file, because if so Gil's change is a GUI parameter and not a
+rewrite.
+
+**And the rat is already trying to leave.**
+
+    session            starts  completed       early withdrawal   accuracy
+    20260916_110311       953   478 (50 %)       399 (42 %)        0.851
+    20260917_100043      1106   605 (55 %)       457 (41 %)        0.893
+    20260918_100248      1115   593 (53 %)       478 (43 %)        0.885
+
+Four trials in ten are abandoned before the 0.35 s minimum is up, and accuracy at
+0.35 s is already 85-89 %. So freeing the bound, as the task stands, most likely
+produces a floor: he samples the minimum and sampling time carries no variance.
+The change is still the right one -- it is the only way to get a per-trial
+commitment time, a drift-diffusion bound, and a second confidence report -- but it
+needs the minimum dropped BELOW current behaviour (0.05-0.10 s) and the pay-off for
+listening longer raised (weaker evidence per unit time, or accuracy-contingent
+reward), or it measures nothing.
+
+**Post-decision evidence** is the control for the one thing the current design
+cannot rule out: that a cell firing more on easy trials at the choice port is
+echoing the stimulus rather than encoding confidence. A 100-200 ms click burst
+delivered AFTER the choice is committed, on ~30 % of trials, congruent or
+incongruent with the chosen side and physically matched in duration, loudness and
+total click count, changes the belief and nothing else. An echo must be flat across
+the three burst types; a confidence signal must move monotonically and must move
+the waiting time on the same trials. It is the complement of the reward-block
+change (§5bd.74), which separates confidence from expected value: one control for
+each of the two live alternatives.
+
+`scripts/task_variants_figure.py` -> `outputs/task_design/task_variants.png`.
+
+**The heredoc backslash hazard bit again** on this one: a patch applied through a
+quoted heredoc flattened every `\n` in the replacement into a real newline and
+broke the file, and one `str.replace` whose search string contained `\n` silently
+matched nothing. Both repaired with the Edit tool. The rule has now cost time
+twice in two days -- anything with a backslash goes through Write/Edit.
