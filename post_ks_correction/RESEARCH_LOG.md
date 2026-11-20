@@ -11327,3 +11327,60 @@ but the panel is weaker evidence in the three-session figure than in the eight.
 
 Figures: `outputs/confidence_coding_shamir_all/confidence_figure_shamir_all.png`
 and `outputs/confidence_coding_shamir_500/confidence_figure_shamir_500.png`.
+
+### 5bd.91 Is panel E's confidence just side leaking? Hold the choice fixed (2026-11-20)
+
+Gil, on the figure of 5bd.90: *"how can you tell in panel E what code the side
+choice and what code the confidence? how do you measure the coding for
+confidence?"*
+
+The honest answer was that panel E could not tell. Its bars are **separate ridge
+decoders fitted independently on the same population vector**, one per target --
+they do not partition variance, they do not sum to anything, and side being read
+out at R2 = 0.85 does not leave 0.15 for everything else. So a small confidence
+read-out beside an enormous side read-out from the same cells is exactly the shape
+a leak would take, and the panel contained no control against it.
+
+**What the design already gives.** `absDV` and `conf_norm` are unsigned: a left
+choice at DV = +0.8 and a right choice at DV = -0.8 take identical values, so a
+pure side signal has nothing to predict with. Measured rather than asserted, the
+per-session correlation between `ChoiceLeft` and each regressor:
+
+    mean |r| over the 8 sessions:   side vs |DV|  0.045     side vs conf_norm  0.103
+
+|DV| is orthogonal, as the task intends. `conf_norm` is not quite -- side bias makes
+P(correct) slightly side-dependent -- but 0.103 is ~1 % shared variance, so a side
+read-out at 0.85 could manufacture at most ~0.009 of apparent confidence R2 against
+an observed 0.08-0.11. **Leakage could account for about a tenth of it.** An argument,
+and a bound, but still not a measurement.
+
+**The measurement: decode confidence within one choice side at a time.** Inside
+left-choice trials every trial has the same side, so there is no side variance left
+for a side signal to exploit. Added to the check as `conf_norm_left_only` and
+`conf_norm_right_only`, and to panel E as a fourth bar (the per-session mean of the
+two, so a session counts once however its trials split).
+
+    epoch   side     conf_norm   confidence WITHIN side
+    base   -0.021     -0.023      -0.026
+    stim    0.406      0.002       0.018
+    cue     0.827      0.071       0.078
+    chin    0.850      0.085       0.079
+
+**It survives, and it does not shrink.** At cue end 12 of 16 side-specific fits
+clear both nulls and **8 of 8 sessions are significant on at least one side**; at the
+choice port 12 of 16 and 7 of 8, the only failure being 20260915_103710, the 172-trial
+half. Baseline stays at zero.
+
+The result is slightly better than survival: the within-side read-out is **the same
+size or larger** than the pooled one -- 0.078 vs 0.071 at cue end -- and in individual
+sessions much larger (20260916 at the port, 0.223 within left against 0.087 pooled;
+20260917, 0.214 against 0.153). That is the opposite of what a leak predicts. Removing
+side variance removes noise from the confidence decoder rather than removing its
+signal.
+
+**What was always controlled, and what was not.** Panel D's per-unit counts were never
+exposed to this -- every unit is fitted with choice side, movement time and trial index
+in the model, so the reported slope is partial on the confidence term with side already
+regressed out. Panel F is immune by construction: the rat goes left on correct-left and
+error-left alike, so side cannot predict correct-vs-error. It was panel E alone that
+lacked the control, and it has it now.

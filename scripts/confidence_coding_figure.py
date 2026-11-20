@@ -67,6 +67,7 @@ C_ERROR = "#c2502d"        # wrong
 C_SIDE = "#6b6b6b"
 C_DV = "#2f6f9f"
 C_DVC = "#4fa08b"
+C_WITHIN = "#8c6bb1"      # confidence with the choice held fixed
 EPOCH_LABEL = {"base": "baseline\n(before cue)", "stim": "during\ncue",
                "cue": "cue end\n+0-200 ms", "chin": "choice port\n+0-450 ms",
                "wait": "waiting\n+0.5-1.5 s"}
@@ -240,16 +241,31 @@ def panel_d(ax, units):
 
 def panel_e(ax, dec):
     eps = ["base", "stim", "cue", "chin"]
+    # The fourth bar is the control the first three cannot supply: side is read out
+    # at R^2 ~ 0.85 and confidence at ~0.09 from the SAME cells by independently
+    # fitted decoders, so the question is whether the small one is the big one
+    # leaking. Holding the choice fixed settles it -- within left-choice trials
+    # there is no side variance left for a side signal to exploit.
     targets = [("side", C_SIDE, "which side it will choose"),
                ("absDV", C_DV, "evidence strength |DV|"),
-               ("absDV_correct_only", C_DVC, "|DV|, correct trials only")]
+               ("conf_norm", C_DVC, "P(correct | DV, choice)"),
+               ("conf_norm_within_side", C_WITHIN,
+                "the same, within one choice side")]
     xs = np.arange(len(eps))
-    w = 0.26
+    w = 0.21
     for i, (tg, col, lab) in enumerate(targets):
-        off = (i - 1) * w
+        off = (i - 1.5) * w
         med, pts = [], []
         for ep in eps:
-            v = dec[(dec.epoch == ep) & (dec.target == tg)].r2.values
+            if tg == "conf_norm_within_side":
+                # one value per session: the mean of its left-only and right-only
+                # read-outs, so a session counts once however its trials split
+                e = dec[(dec.epoch == ep)
+                        & dec.target.isin(["conf_norm_left_only",
+                                           "conf_norm_right_only"])]
+                v = e.groupby("session").r2.mean().values
+            else:
+                v = dec[(dec.epoch == ep) & (dec.target == tg)].r2.values
             med.append(np.median(v) if len(v) else np.nan)
             pts.append(v)
         ax.bar(xs + off, med, w, color=col, label=lab, edgecolor="white", linewidth=1.2)
@@ -261,7 +277,7 @@ def panel_e(ax, dec):
     ax.set_xticks(xs)
     ax.set_xticklabels([EPOCH_LABEL[e] for e in eps], fontsize=8)
     ax.set_ylabel("cross-validated $R^2$\nof the population read-out")
-    ax.set_title("E   The population: side is huge, confidence is small but real")
+    ax.set_title("E   Side is huge; confidence is small, real, and not side leaking")
     ax.legend(frameon=False, fontsize=8, loc="upper left")
     ax.text(0.99, 0.99, "bar = median of %d sessions\ndot = one session"
             % dec.session.nunique(),

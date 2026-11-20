@@ -26,6 +26,8 @@
             conf_norm R2=-0.011 p=0.337 pshift=0.347
             side R2=-0.022 p=0.525 pshift=0.485
             absDV_correct_only R2=-0.020 p=0.535 pshift=0.703
+            conf_norm_left_only R2=-0.032 p=0.535 pshift=0.505
+            conf_norm_right_only R2=-0.056 p=0.970 pshift=0.822
             log_wait R2=0.068 p=0.010 pshift=0.020
             correct_vs_error R2=0.555 p=0.109 pshift=nan
       stim   48 units  318 trials
@@ -33,6 +35,8 @@
             conf_norm R2=0.043 p=0.010 pshift=0.010
             side R2=0.361 p=0.010 pshift=0.010
             absDV_correct_only R2=0.022 p=0.030 pshift=0.040
+            conf_norm_left_only R2=-0.028 p=0.386 pshift=0.564
+            conf_norm_right_only R2=0.089 p=0.010 pshift=0.010
             log_wait R2=-0.055 p=0.683 pshift=0.505
             correct_vs_error R2=0.601 p=0.020 pshift=nan
       cue    57 units  318 trials
@@ -40,6 +44,8 @@
             conf_norm R2=0.071 p=0.010 pshift=0.010
             side R2=0.761 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.028 p=0.703 pshift=0.842
+            conf_norm_left_only R2=0.026 p=0.010 pshift=0.040
+            conf_norm_right_only R2=0.124 p=0.010 pshift=0.010
             log_wait R2=-0.036 p=0.366 pshift=0.313
             correct_vs_error R2=0.577 p=0.030 pshift=nan
             absDV_minus_base R2=0.015 p=0.030 pshift=0.040
@@ -50,6 +56,8 @@
             conf_norm R2=-0.010 p=0.327 pshift=0.396
             side R2=0.845 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.049 p=0.950 pshift=0.950
+            conf_norm_left_only R2=-0.010 p=0.158 pshift=0.465
+            conf_norm_right_only R2=0.069 p=0.010 pshift=0.010
             log_wait R2=-0.029 p=0.248 pshift=0.265
             correct_vs_error R2=0.622 p=0.050 pshift=nan
             absDV_minus_base R2=-0.010 p=0.366 pshift=0.436
@@ -59,6 +67,7 @@
             absDV R2=-0.016 p=0.208 pshift=0.091
             conf_norm R2=0.092 p=0.010 pshift=0.030
             side R2=0.052 p=0.020 pshift=0.010
+            conf_norm_right_only R2=0.032 p=0.020 pshift=0.122
             log_wait R2=-0.553 p=1.000 pshift=1.000
             correct_vs_error R2=0.587 p=0.079 pshift=nan
 
@@ -88,18 +97,24 @@
             conf_norm R2=-0.011 p=0.257 pshift=0.307
             side R2=-0.009 p=0.198 pshift=0.149
             absDV_correct_only R2=-0.001 p=0.089 pshift=0.139
+            conf_norm_left_only R2=-0.035 p=0.248 pshift=0.414
+            conf_norm_right_only R2=-0.013 p=0.168 pshift=0.168
             correct_vs_error R2=0.611 p=0.030 pshift=nan
       stim   76 units  198 trials
             absDV R2=-0.013 p=0.238 pshift=0.436
             conf_norm R2=-0.031 p=0.594 pshift=0.624
             side R2=0.421 p=0.010 pshift=0.010
             absDV_correct_only R2=0.047 p=0.010 pshift=0.010
+            conf_norm_left_only R2=-0.087 p=0.673 pshift=0.690
+            conf_norm_right_only R2=0.049 p=0.030 pshift=0.010
             correct_vs_error R2=0.446 p=0.634 pshift=nan
       cue    81 units  198 trials
             absDV R2=0.073 p=0.010 pshift=0.010
             conf_norm R2=-0.061 p=0.941 pshift=0.911
             side R2=0.813 p=0.010 pshift=0.010
             absDV_correct_only R2=0.044 p=0.020 pshift=0.010
+            conf_norm_left_only R2=-0.020 p=0.158 pshift=0.230
+            conf_norm_right_only R2=0.060 p=0.020 pshift=0.020
             correct_vs_error R2=0.549 p=0.267 pshift=nan
             absDV_minus_base R2=0.049 p=0.010 pshift=0.010
             conf_norm_minus_base R2=0.022 p=0.010 pshift=0.010
@@ -109,6 +124,8 @@
             conf_norm R2=0.053 p=0.010 pshift=0.010
             side R2=0.852 p=0.010 pshift=0.010
             absDV_correct_only R2=0.039 p=0.010 pshift=0.010
+            conf_norm_left_only R2=0.048 p=0.020 pshift=0.011
+            conf_norm_right_only R2=0.069 p=0.020 pshift=0.010
             correct_vs_error R2=0.699 p=0.020 pshift=nan
             absDV_minus_base R2=0.058 p=0.010 pshift=0.010
             conf_norm_minus_base R2=0.047 p=0.010 pshift=0.010
@@ -140,18 +157,24 @@
             conf_norm R2=-0.058 p=0.881 pshift=0.861
             side R2=-0.049 p=0.812 pshift=0.812
             absDV_correct_only R2=-0.027 p=0.455 pshift=0.604
+            conf_norm_left_only R2=-0.037 p=0.317 pshift=0.364
+            conf_norm_right_only R2=-0.020 p=0.178 pshift=0.126
             correct_vs_error R2=0.420 p=0.733 pshift=nan
       stim   81 units  172 trials
             absDV R2=-0.025 p=0.485 pshift=0.624
             conf_norm R2=-0.046 p=0.762 pshift=0.644
             side R2=0.417 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.068 p=0.861 pshift=0.851
+            conf_norm_left_only R2=-0.263 p=0.941 pshift=0.935
+            conf_norm_right_only R2=-0.040 p=0.446 pshift=0.379
             correct_vs_error R2=0.457 p=0.535 pshift=nan
       cue    87 units  172 trials
             absDV R2=-0.085 p=0.980 pshift=0.960
             conf_norm R2=-0.076 p=0.941 pshift=0.950
             side R2=0.887 p=0.010 pshift=0.010
             absDV_correct_only R2=0.013 p=0.040 pshift=0.188
+            conf_norm_left_only R2=0.138 p=0.020 pshift=0.013
+            conf_norm_right_only R2=-0.076 p=0.703 pshift=0.737
             correct_vs_error R2=0.767 p=0.010 pshift=nan
             absDV_minus_base R2=-0.013 p=0.228 pshift=0.287
             conf_norm_minus_base R2=-0.017 p=0.327 pshift=0.307
@@ -161,6 +184,8 @@
             conf_norm R2=-0.097 p=0.960 pshift=0.960
             side R2=0.855 p=0.010 pshift=0.010
             absDV_correct_only R2=0.015 p=0.059 pshift=0.099
+            conf_norm_left_only R2=-0.498 p=0.990 pshift=1.000
+            conf_norm_right_only R2=-0.160 p=0.861 pshift=0.979
             correct_vs_error R2=0.748 p=0.010 pshift=nan
             absDV_minus_base R2=-0.041 p=0.683 pshift=0.762
             conf_norm_minus_base R2=-0.104 p=0.990 pshift=0.980
@@ -193,6 +218,8 @@
             conf_norm R2=-0.041 p=0.960 pshift=0.911
             side R2=-0.011 p=0.307 pshift=0.218
             absDV_correct_only R2=-0.031 p=0.911 pshift=0.842
+            conf_norm_left_only R2=-0.025 p=0.525 pshift=0.436
+            conf_norm_right_only R2=-0.032 p=0.743 pshift=0.782
             log_wait R2=0.070 p=0.010 pshift=0.010
             correct_vs_error R2=0.380 p=0.980 pshift=nan
       stim   55 units  478 trials
@@ -200,6 +227,8 @@
             conf_norm R2=-0.007 p=0.277 pshift=0.168
             side R2=0.308 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.032 p=0.891 pshift=0.931
+            conf_norm_left_only R2=-0.020 p=0.406 pshift=0.366
+            conf_norm_right_only R2=0.049 p=0.010 pshift=0.010
             log_wait R2=0.007 p=0.040 pshift=0.010
             correct_vs_error R2=0.538 p=0.257 pshift=nan
       cue    62 units  478 trials
@@ -207,6 +236,8 @@
             conf_norm R2=0.068 p=0.010 pshift=0.010
             side R2=0.724 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.014 p=0.416 pshift=0.446
+            conf_norm_left_only R2=-0.052 p=0.871 pshift=0.931
+            conf_norm_right_only R2=0.129 p=0.010 pshift=0.010
             log_wait R2=-0.019 p=0.277 pshift=0.297
             correct_vs_error R2=0.623 p=0.010 pshift=nan
             absDV_minus_base R2=0.025 p=0.010 pshift=0.010
@@ -217,6 +248,8 @@
             conf_norm R2=0.087 p=0.010 pshift=0.010
             side R2=0.847 p=0.010 pshift=0.010
             absDV_correct_only R2=0.054 p=0.010 pshift=0.010
+            conf_norm_left_only R2=0.223 p=0.010 pshift=0.010
+            conf_norm_right_only R2=0.013 p=0.030 pshift=0.020
             log_wait R2=-0.083 p=0.881 pshift=0.970
             correct_vs_error R2=0.695 p=0.010 pshift=nan
             absDV_minus_base R2=0.046 p=0.010 pshift=0.010
@@ -227,6 +260,7 @@
             conf_norm R2=-0.013 p=0.178 pshift=0.089
             side R2=0.597 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.085 p=0.683 pshift=0.582
+            conf_norm_right_only R2=-0.036 p=0.386 pshift=0.550
             log_wait R2=0.070 p=0.020 pshift=0.030
             correct_vs_error R2=0.512 p=0.396 pshift=nan
 
@@ -257,6 +291,8 @@
             conf_norm R2=0.012 p=0.020 pshift=0.010
             side R2=-0.020 p=0.505 pshift=0.396
             absDV_correct_only R2=-0.014 p=0.366 pshift=0.733
+            conf_norm_left_only R2=-0.027 p=0.673 pshift=0.356
+            conf_norm_right_only R2=0.016 p=0.030 pshift=0.010
             log_wait R2=-0.036 p=0.554 pshift=0.693
             correct_vs_error R2=0.655 p=0.010 pshift=nan
       stim   68 units  605 trials
@@ -264,6 +300,8 @@
             conf_norm R2=0.021 p=0.010 pshift=0.010
             side R2=0.378 p=0.010 pshift=0.010
             absDV_correct_only R2=0.008 p=0.069 pshift=0.218
+            conf_norm_left_only R2=-0.010 p=0.356 pshift=0.208
+            conf_norm_right_only R2=0.056 p=0.010 pshift=0.010
             log_wait R2=-0.036 p=0.545 pshift=0.624
             correct_vs_error R2=0.559 p=0.089 pshift=nan
       cue    76 units  605 trials
@@ -271,6 +309,8 @@
             conf_norm R2=0.105 p=0.010 pshift=0.010
             side R2=0.824 p=0.010 pshift=0.010
             absDV_correct_only R2=0.028 p=0.010 pshift=0.010
+            conf_norm_left_only R2=0.082 p=0.010 pshift=0.010
+            conf_norm_right_only R2=0.184 p=0.010 pshift=0.010
             log_wait R2=-0.047 p=0.673 pshift=0.743
             correct_vs_error R2=0.727 p=0.010 pshift=nan
             absDV_minus_base R2=0.027 p=0.010 pshift=0.010
@@ -281,6 +321,8 @@
             conf_norm R2=0.153 p=0.010 pshift=0.010
             side R2=0.899 p=0.010 pshift=0.010
             absDV_correct_only R2=0.134 p=0.010 pshift=0.010
+            conf_norm_left_only R2=0.214 p=0.010 pshift=0.010
+            conf_norm_right_only R2=0.115 p=0.010 pshift=0.010
             log_wait R2=-0.051 p=0.743 pshift=0.673
             correct_vs_error R2=0.748 p=0.010 pshift=nan
             absDV_minus_base R2=0.083 p=0.010 pshift=0.010
@@ -291,6 +333,7 @@
             conf_norm R2=0.011 p=0.030 pshift=0.010
             side R2=0.530 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.028 p=0.228 pshift=0.222
+            conf_norm_right_only R2=-0.946 p=0.960 pshift=0.954
             log_wait R2=0.222 p=0.010 pshift=0.010
             correct_vs_error R2=0.613 p=0.030 pshift=nan
 
@@ -321,6 +364,8 @@
             conf_norm R2=-0.013 p=0.307 pshift=0.347
             side R2=-0.015 p=0.446 pshift=0.337
             absDV_correct_only R2=-0.006 p=0.168 pshift=0.287
+            conf_norm_left_only R2=-0.028 p=0.634 pshift=0.723
+            conf_norm_right_only R2=0.025 p=0.010 pshift=0.010
             log_wait R2=-0.076 p=0.772 pshift=0.812
             correct_vs_error R2=0.561 p=0.089 pshift=nan
       stim   56 units  593 trials
@@ -328,6 +373,8 @@
             conf_norm R2=0.044 p=0.010 pshift=0.010
             side R2=0.448 p=0.010 pshift=0.010
             absDV_correct_only R2=0.028 p=0.010 pshift=0.010
+            conf_norm_left_only R2=0.003 p=0.069 pshift=0.109
+            conf_norm_right_only R2=0.187 p=0.010 pshift=0.010
             log_wait R2=-0.031 p=0.406 pshift=0.327
             correct_vs_error R2=0.590 p=0.020 pshift=nan
       cue    65 units  593 trials
@@ -335,6 +382,8 @@
             conf_norm R2=0.070 p=0.010 pshift=0.010
             side R2=0.843 p=0.010 pshift=0.010
             absDV_correct_only R2=0.041 p=0.010 pshift=0.010
+            conf_norm_left_only R2=0.039 p=0.010 pshift=0.010
+            conf_norm_right_only R2=0.193 p=0.010 pshift=0.010
             log_wait R2=0.090 p=0.010 pshift=0.010
             correct_vs_error R2=0.636 p=0.010 pshift=nan
             absDV_minus_base R2=0.058 p=0.010 pshift=0.010
@@ -345,6 +394,8 @@
             conf_norm R2=0.146 p=0.010 pshift=0.010
             side R2=0.840 p=0.010 pshift=0.010
             absDV_correct_only R2=0.026 p=0.010 pshift=0.010
+            conf_norm_left_only R2=0.193 p=0.010 pshift=0.010
+            conf_norm_right_only R2=0.163 p=0.010 pshift=0.010
             log_wait R2=0.014 p=0.040 pshift=0.020
             correct_vs_error R2=0.778 p=0.010 pshift=nan
             absDV_minus_base R2=0.011 p=0.040 pshift=0.010
@@ -355,6 +406,7 @@
             conf_norm R2=0.343 p=0.010 pshift=0.010
             side R2=0.582 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.054 p=0.386 pshift=0.387
+            conf_norm_right_only R2=-0.268 p=0.990 pshift=1.000
             log_wait R2=0.148 p=0.010 pshift=0.010
             correct_vs_error R2=0.838 p=0.010 pshift=nan
 
@@ -385,6 +437,8 @@
             conf_norm R2=-0.032 p=0.713 pshift=0.723
             side R2=-0.034 p=0.822 pshift=0.832
             absDV_correct_only R2=0.009 p=0.059 pshift=0.059
+            conf_norm_left_only R2=-0.053 p=0.614 pshift=0.802
+            conf_norm_right_only R2=-0.013 p=0.238 pshift=0.238
             log_wait R2=-0.107 p=0.713 pshift=0.795
             correct_vs_error R2=0.571 p=0.139 pshift=nan
       stim   60 units  291 trials
@@ -392,6 +446,8 @@
             conf_norm R2=-0.041 p=0.941 pshift=0.792
             side R2=0.395 p=0.010 pshift=0.010
             absDV_correct_only R2=0.018 p=0.010 pshift=0.030
+            conf_norm_left_only R2=-0.029 p=0.465 pshift=0.238
+            conf_norm_right_only R2=0.003 p=0.099 pshift=0.040
             log_wait R2=-0.043 p=0.208 pshift=0.342
             correct_vs_error R2=0.468 p=0.634 pshift=nan
       cue    65 units  291 trials
@@ -399,6 +455,8 @@
             conf_norm R2=0.083 p=0.010 pshift=0.010
             side R2=0.830 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.014 p=0.356 pshift=0.376
+            conf_norm_left_only R2=-0.027 p=0.327 pshift=0.525
+            conf_norm_right_only R2=0.190 p=0.010 pshift=0.010
             log_wait R2=0.054 p=0.010 pshift=0.014
             correct_vs_error R2=0.608 p=0.069 pshift=nan
             absDV_minus_base R2=0.017 p=0.050 pshift=0.010
@@ -409,6 +467,8 @@
             conf_norm R2=0.083 p=0.010 pshift=0.010
             side R2=0.791 p=0.010 pshift=0.010
             absDV_correct_only R2=0.027 p=0.020 pshift=0.010
+            conf_norm_left_only R2=-0.023 p=0.198 pshift=0.337
+            conf_norm_right_only R2=0.042 p=0.010 pshift=0.010
             log_wait R2=-0.164 p=0.802 pshift=0.833
             correct_vs_error R2=0.686 p=0.010 pshift=nan
             absDV_minus_base R2=0.026 p=0.010 pshift=0.010
@@ -448,6 +508,8 @@
             conf_norm R2=-0.051 p=1.000 pshift=0.980
             side R2=-0.029 p=0.802 pshift=0.653
             absDV_correct_only R2=-0.010 p=0.287 pshift=0.287
+            conf_norm_left_only R2=-0.034 p=0.733 pshift=0.644
+            conf_norm_right_only R2=0.003 p=0.079 pshift=0.109
             log_wait R2=-0.012 p=0.109 pshift=0.079
             correct_vs_error R2=0.412 p=0.941 pshift=nan
       stim   68 units  583 trials
@@ -455,6 +517,8 @@
             conf_norm R2=0.010 p=0.030 pshift=0.010
             side R2=0.507 p=0.010 pshift=0.010
             absDV_correct_only R2=0.003 p=0.010 pshift=0.089
+            conf_norm_left_only R2=0.001 p=0.109 pshift=0.119
+            conf_norm_right_only R2=0.043 p=0.010 pshift=0.010
             log_wait R2=-0.057 p=0.733 pshift=0.723
             correct_vs_error R2=0.549 p=0.178 pshift=nan
       cue    78 units  583 trials
@@ -462,6 +526,8 @@
             conf_norm R2=0.089 p=0.010 pshift=0.010
             side R2=0.876 p=0.010 pshift=0.010
             absDV_correct_only R2=0.026 p=0.020 pshift=0.010
+            conf_norm_left_only R2=0.117 p=0.010 pshift=0.010
+            conf_norm_right_only R2=0.116 p=0.010 pshift=0.010
             log_wait R2=-0.054 p=0.683 pshift=0.713
             correct_vs_error R2=0.632 p=0.010 pshift=nan
             absDV_minus_base R2=0.045 p=0.010 pshift=0.010
@@ -472,6 +538,8 @@
             conf_norm R2=0.107 p=0.010 pshift=0.010
             side R2=0.899 p=0.010 pshift=0.010
             absDV_correct_only R2=0.013 p=0.020 pshift=0.040
+            conf_norm_left_only R2=0.115 p=0.010 pshift=0.010
+            conf_norm_right_only R2=0.083 p=0.010 pshift=0.010
             log_wait R2=0.063 p=0.010 pshift=0.010
             correct_vs_error R2=0.705 p=0.010 pshift=nan
             absDV_minus_base R2=0.019 p=0.010 pshift=0.020
@@ -482,6 +550,8 @@
             conf_norm R2=0.168 p=0.010 pshift=0.010
             side R2=0.503 p=0.010 pshift=0.010
             absDV_correct_only R2=-0.086 p=0.792 pshift=0.651
+            conf_norm_left_only R2=0.110 p=0.010 pshift=0.016
+            conf_norm_right_only R2=0.127 p=0.010 pshift=0.011
             log_wait R2=0.072 p=0.010 pshift=0.040
             correct_vs_error R2=0.698 p=0.010 pshift=nan
 

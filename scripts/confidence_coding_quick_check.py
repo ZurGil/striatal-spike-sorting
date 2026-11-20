@@ -497,6 +497,19 @@ def analyse_session(sid, S, verbose=True):
         if corr.sum() >= MIN_TRIALS:
             dc = decode_epoch(R[corr], {"absDV_correct_only": t.absDV.values[vt][corr]})
             d.update(dc)
+        # Confidence read out WITHIN one choice side at a time. The side read-out in
+        # panel E is enormous (R^2 ~ 0.85) and the confidence one is small, and the
+        # two decoders are fitted independently on the same cells -- so the obvious
+        # worry is that the small one is the big one leaking. |DV| and conf_norm are
+        # unsigned and so side-independent by construction, but that is an argument,
+        # not a measurement. Holding the choice fixed is the measurement: within
+        # left-choice trials every trial has the same side, so nothing a side signal
+        # does can produce a confidence read-out here.
+        for lab, sel in (("left", t.ChoiceLeft.values[vt] > 0.5),
+                         ("right", t.ChoiceLeft.values[vt] < 0.5)):
+            if sel.sum() >= MIN_TRIALS:
+                d.update(decode_epoch(R[sel], {
+                    "conf_norm_%s_only" % lab: t.conf_norm.values[vt][sel]}))
         # The animal's own confidence report. Guarded: a window that runs past the
         # moment the rat gave up and left the port would be reading the withdrawal,
         # not the confidence that set it, and short waits are exactly the
