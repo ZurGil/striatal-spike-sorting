@@ -11175,3 +11175,69 @@ The serial is awkward regardless: `controllerSerial="65535 65535"` in every reco
 header is the unset sentinel, there is no sticker on the case, and `get_mcu_version.exe`
 needs Trodes closed -- which it must be for a local Kilosort run anyway, so the two
 wants do not conflict.
+
+### 5bd.88 The plug does not seat without its shroud, and the meter said so (2026-11-20)
+
+Four rounds of confusion on the MDP-007, all of it mine, and the useful residue is
+small but worth keeping.
+
+Gil was right twice and I was wrong twice. First: there is no need to meter the
+front pin against the rear cup to learn which is which, because each contact is one
+metal post straight through the insulator -- the cup behind a pin *is* that pin. The
+real hazard was never the mapping, it was that the pin field is left-right symmetric,
+so a mirrored solder looks correct. Second, and better: there is no need to work out
+the numbering at all. Plug the **bare carrier with no shroud** into Aux2 and meter the
+rear pins live -- whichever rear pin reads 3.3 V *is* the input, same post, and the
+datasheet, Daria's numbering and the mirror all become irrelevant. That is the method
+we will use.
+
+It did not work yet, and the reason is now known. The first sweep returned "20+" on
+every pin and 10 and 1.6 on two of them. Those were not volts -- the meter (Mastech
+MS8217) was on **Ω**, autoranging in **MΩ**, with the MCU unplugged, and the display
+Gil read as `0.L` is **OL, over limit, open circuit**. So the readings were 20+ MΩ,
+10 MΩ, 1.6 MΩ: all open. The tell was what was *missing*. One of those seven pins is
+ground, ground is plain copper to the same ground as the Bpod header pin, and it must
+read **~0 Ω whether or not anything is powered**. Nothing read near zero, so the
+circuit was not completing.
+
+Two candidates: the probe was not touching metal inside the cups, or the plug was not
+touching the socket. One measurement separates them -- front pin to the back of the
+same pin, carrier loose in the hand, must read ~0 Ω. It read **1.3 Ω**, so the probing
+is sound and the fault is at the socket. **The bare carrier does not seat deep enough
+without the metal shroud**; the shroud is what sets insertion depth. That also settles
+the final assembly question: the shroud is not optional dress, it is required for
+contact.
+
+Which puts the cups back out of reach, so the plan is a fan of stiff wires friction-fit
+into all seven cups, splayed apart, shroud on, then meter the protruding ends -- ohms
+to ground first with the power off, then volts with it on. Nothing soldered until the
+3.3 V pin is identified by measurement.
+
+Also recorded for later: the chassis is **not** ground on this MCU. Gil has tried;
+the case is painted or anodized. The only ground reference is the Bpod header ground
+pin.
+
+### 5bd.89 Today's Popper session archived, and one that never was (2026-11-20)
+
+`20261120_090017` recorded this morning on Popper -- a 292 GB `.rec`, with the Trodes
+export still running at 13:45 (`probe1.dat` growing ~2 GB/min, headed for ~281 GB by
+the ratio against yesterday's 20261119, whose 388 GB `.rec` gave a 348 GB `.dat`).
+Archived to `Z:\Gil\Popper\` by a watcher that waits for `trodesexport` to exit, then
+requires `probe1.dat` to hold the same size for two consecutive minutes before copying
+-- an exporter that died mid-write would otherwise be archived looking complete.
+Nothing is deleted from F.
+
+Checking the Popper tree for this turned up **`20261109_092303.rec`, 223 GB, on F and
+on Z nowhere**, under any rat. Raw `.rec`, never extracted, 9 November. Every Popper
+recording from 10 November onward is archived; that one was missed and had been
+single-copy for eleven days. Copying it too, on Gil's say-so.
+
+**A verification trap worth remembering.** Both copy scripts originally "verified" by
+comparing file sizes on each side. That is worthless with `robocopy /Z`: restartable
+mode **preallocates the destination to the full length the instant it starts**. One
+second into the 9 November copy, Z already reported 238,718,189,262 bytes -- exactly
+F's number -- with a current LastWriteTime. A copy that died at 2% would have passed.
+Replaced with `scratchpad/verify_copy.ps1`, which hashes 16 MB blocks at 0, 10, 25, 50,
+75, 90% **and the final block** of every file. The tail block is the one that matters:
+a truncated or aborted copy leaves zeros there. Small files get a full hash instead.
+Throughput measured at 49 MB/s, so roughly five hours for the ~800 GB of both sessions.
