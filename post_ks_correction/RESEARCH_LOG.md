@@ -11127,3 +11127,51 @@ the dataset was already correct, it was the check that was over-strict.
 four other sessions carrying unsure verdicts (20260917 one, 20260918 two, 20260925
 three, 20261112 one) were all `verified: true` already, so none of them had a
 transitively reunited unsure pair to begin with.
+
+### 5bd.87 The round socket is a 7-pin mini-DIN, and Daria has its board (2026-11-20)
+
+The ten-day blocker of 5bd.6x is closed. Gil told SpikeGadgets our MCU is an older
+revision with no RJ45, described the front panel -- **two 7-pin mini-DIN sockets, 3
+contacts on top, 2 either side of the key, 2 along the bottom, both identical, the
+RIGHT-HAND one engraved 2** -- and Daria found the board for that connector:
+
+| mini-DIN pin | function |
+|---|---|
+| **1** | the input pulse -- camera WHITE (Line1) |
+| **3** | GND -- camera BLUE (opto GND) |
+| **4** | +5 V, unused |
+
+> "the 200ohm and 10k ohm resistors are placed the same"
+
+So the internal 200 ohm + 10 k pull-up to 3.3 V is unchanged and the two-wires-no-
+components wiring of 5bd.6x stands exactly as designed. The numbering is **not** the
+RJ45 one carried over: input and 5 V keep 1 and 4, but ground moves from contact 5 to
+**pin 3**. Anyone reusing the old note would have put the camera's return on the wrong
+contact.
+
+Gil's mating plug arrived the same day -- a 7-pin mini-DIN solder kit, shell plus a
+removable carrier whose pins are exposed on both faces. That is what makes the
+verification safe: the socket's contacts are recessed and closely spaced and must never
+be probed, but the plug's **solder tails** can be. Plug the bare assembled plug in,
+meter the seven tails against chassis ground, and expect one at ~5 V (pin 4), one at 0 V
+(pin 3) and one at **~3.3 V** (pin 1, held up by the internal 10 k). Daria's numbering
+and the measured voltages are two independent determinations and have to agree.
+**The PCB layout image is not a wiring diagram** -- mini-DIN footprints mirror between
+the layout view and the front-panel view, so hole positions must come from the meter,
+not from the picture. This is the third time pin numbers have been the trap in this
+job; the first two were my own unsourced recall and both were wrong.
+
+**One question is now the only thing between us and video: where does an Aux2 pulse
+land in the `.rec`?** The manual calls Aux2 a frame-sync input for an Allied Vision GigE
+camera but never says which column it writes. If it maps to Din7 or Din8, those are OFF
+for digital event logging by default (measured: Din7 constant 0, Din8 constant 1, zero
+transitions over 300 s and 99 s), and the pulse would simply not be recorded -- in which
+case the firmware-enable request, and with it the MCU serial number, is still needed
+after all. If Aux2 is logged by its own path, the firmware request can be dropped
+entirely. It is one message in a thread that is already live, and the 60 s test
+recording settles it either way.
+
+The serial is awkward regardless: `controllerSerial="65535 65535"` in every recording
+header is the unset sentinel, there is no sticker on the case, and `get_mcu_version.exe`
+needs Trodes closed -- which it must be for a local Kilosort run anyway, so the two
+wants do not conflict.
