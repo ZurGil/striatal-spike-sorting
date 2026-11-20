@@ -1,6 +1,6 @@
 {
   "session_id": "20260922_144404",
-  "synced_at": "2026-11-20T09:31:44",
+  "synced_at": "2026-11-20T09:52:22",
   "kilosort_dir": "Z:/Gil/Shamir_1/20260922_144404.rec\\20260922_144404.kilosort\\kilosort4",
   "applied": {
     "verdicts": {
@@ -28,6 +28,6 @@
     "--rat_root",
     "Z:/Gil/Shamir_1"
   ],
-  "verified": false,
-  "verify_exit_code": 1
+  "verified": true,
+  "verify_exit_code": 0
 }

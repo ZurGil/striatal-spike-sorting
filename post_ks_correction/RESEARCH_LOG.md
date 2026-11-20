@@ -11096,3 +11096,34 @@ units: **79 of 104** modulated at p<0.05 around cue onset (strongest +32.9 Hz, u
 (strongest +57.9 Hz, unit 10000 -- a merged unit). 291 of 484 trials completed, 192
 rewarded. A sharp peak at t = 0 is the alignment evidence no QC number can give, and
 it is present.
+
+### 5bd.86 Separate vetoes, unsure abstains (2026-11-20)
+
+Gil's ruling on the T6 failure of 5bd.85: *"Ignore the unsure verdict."* So the two
+labels are not the same thing and `verify_verdicts_in_dataset.py` no longer treats
+them as one:
+
+- **SEPARATE is a veto.** A pair Gil explicitly called not-the-same-unit must never
+  end up in one merge group. If it does, something is wrong with the closure and the
+  run fails. Unchanged.
+- **UNSURE is an abstention.** It says he did not decide, not that he decided no. If
+  two merges he *was* sure of put the pair together anyway, that is the closure doing
+  its job on the evidence he gave it.
+
+The reunion is still printed -- a merge group assembled partly out of pairs nobody
+vouched for is worth seeing -- it just no longer fails the run, and the detail line
+now counts separates and abstentions separately:
+
+    T6  PASS  separates respected   2 pair(s) judged separate, none merged
+                                    (1 unsure pair(s) reunited transitively, allowed)
+         units 260 and 261 judged unsure but ended up in the same merge
+         [256, 260, 261, 262, 265] -- abstention, not a veto; allowed
+
+`20260922_144404` re-ran through `sync_session.py` end to end and now reports
+**all 9 checks passed**; the stamp records `verified: true`. Nothing else moved --
+the dataset was already correct, it was the check that was over-strict.
+
+**No earlier session changes.** The rule only ever relaxes, never tightens, and the
+four other sessions carrying unsure verdicts (20260917 one, 20260918 two, 20260925
+three, 20261112 one) were all `verified: true` already, so none of them had a
+transitively reunited unsure pair to begin with.

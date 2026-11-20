@@ -354,16 +354,33 @@ def main():
           "%d merge group(s) applied, parents absent, labels as scored" % len(groups), bad)
 
     # --- T6 separate verdicts ------------------------------------------------------
-    bad = []
+    #
+    # SEPARATE is a veto; UNSURE is an abstention. Gil settled this on 2026-11-20,
+    # on 20260922_144404, where he judged 260_261 unsure while judging 260_262 and
+    # 261_262 merge: the closure puts 260 and 261 together whatever the direct pair
+    # says, and his answer was "ignore the unsure verdict". So a pair he explicitly
+    # called SEPARATE must never end up merged -- that is a real contradiction and
+    # fails -- while a pair he was UNSURE about, reunited by two merges he WAS sure
+    # of, is the transitive closure doing its job. Those are still printed, because
+    # a merge group assembled partly out of pairs nobody vouched for is worth seeing;
+    # they just do not fail the run.
+    bad, abstained = [], []
     seps = [d for d in mverdicts.values() if str(d.get("verdict", "")).lower() != "merge"]
     for d in seps:
         a, b = int(d["unit_a"]), int(d["unit_b"])
         ga, gb = parents_of.get(a), parents_of.get(b)
         if ga is not None and gb is not None and ga == gb:
-            bad.append("units %d and %d judged %s but ended up in the same merge %s"
-                       % (a, b, d.get("verdict"), ga))
-    R.add("T6", "separates respected", not bad,
-          "%d pair(s) judged not-a-merge, none merged" % len(seps), bad)
+            line = ("units %d and %d judged %s but ended up in the same merge %s"
+                    % (a, b, d.get("verdict"), ga))
+            if str(d.get("verdict", "")).lower() == "unsure":
+                abstained.append(line + " -- abstention, not a veto; allowed")
+            else:
+                bad.append(line)
+    n_sep = sum(1 for d in seps if str(d.get("verdict", "")).lower() == "separate")
+    detail = "%d pair(s) judged separate, none merged" % n_sep
+    if abstained:
+        detail += " (%d unsure pair(s) reunited transitively, allowed)" % len(abstained)
+    R.add("T6", "separates respected", not bad, detail, bad + abstained)
 
     # --- T7 stability windows ------------------------------------------------------
     bad = []
