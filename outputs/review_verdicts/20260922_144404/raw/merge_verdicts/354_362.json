@@ -1,0 +1,14 @@
+{
+  "decided_at": 1795119739115,
+  "dip_poisson_p": 0.0001692282935732581,
+  "dip_ratio": 0.5294117647058824,
+  "dip_ratio_far_flank": 0.8933,
+  "note": "",
+  "pair_id": "354_362",
+  "quality_label": "good",
+  "spike_clusters_sha1": "660016c5eddbce796e867e2a285041f1ea527ccc",
+  "unit_a": 354,
+  "unit_b": 362,
+  "verdict": "merge",
+  "waveform_corr": 0.8623
+}

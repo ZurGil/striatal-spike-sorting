@@ -1,0 +1,19 @@
+{
+  "clock": "trodes_absolute_seconds",
+  "ephys_t0_s": 26.352,
+  "ephys_t1_s": 7111.282366666666,
+  "inclusion_rule": "trial_start_marker_inside_range",
+  "n_markers_inside": 57,
+  "n_markers_total": 485,
+  "ranges": [
+    {
+      "t0": 6070.601,
+      "t1": 7111.282
+    }
+  ],
+  "session_id": "20260922_144404",
+  "tool_version": "timeline-v1",
+  "trial_marker_source": "dio_ttl_code_1",
+  "unit_id": 326,
+  "updated_ms": 1795119379545
+}

@@ -1,0 +1,16 @@
+VERDICT DUMP -- 20260922_144404
+written 2026-11-20T09:31:00 from the review tool's live database
+source  https://claude.ai/artifact/CHDv3SjMPCoezGbu2Q7nzW
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       266   {'mua': 126, 'good': 140}
+merge verdicts       64   {'merge': 61, 'separate': 2, 'unsure': 1}
+trial selections     16
+
+read live 2026-11-20; Gil said the review is finished and asked for the sync. 5 reassignment documents also present in raw/ -- no loader applies them yet.
+
+sha256                                                            file
+f68b8ff763f04f8e04a7724e7b64954c11a2dec16359aef84bc61ab50e51118c  verdicts.json  16044 bytes
+ea21f31597d7505151e07ff5fad4044d9684612dd3df0b2708582af808a23b27  merge_verdicts.json  24207 bytes
+9e7ea99fb58cafefc5b8e88c2ff77a62e9b8b842fb6e1d0a8df2fbe1f36d7307  trial_selections.json  7830 bytes
+2f1ed466e0f656e8f88f1ebaeaf86c40e04abb51b7a178dd3124251068811634  manual_verdicts.csv  5949 bytes

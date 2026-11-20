@@ -38,11 +38,12 @@
   "verdicts": 341
  },
  "20260922_144404": {
-  "_note": "published 2026-11-17 from the backfill, review not started yet. 478 units, all 3430 co-located pairs compared, page 3.89 MiB, 42 files live.",
-  "merge_verdicts": 0,
-  "trial_selections": 0,
+  "_note": "Gil reported this review finished on 2026-11-20. 266 of 478 units carry a verdict (140 good, 126 mua, no noise); the 212 without keep their automatic label. Dumped, synced and verified the same day -- 8 of 9 checks pass, T6 flags one unsure pair (260/261) reunited transitively via 260-262 and 261-262. 5 reassignment documents also present, no loader applies them yet.",
+  "merge_verdicts": 64,
+  "review_finished": true,
+  "trial_selections": 16,
   "url": "https://claude.ai/artifact/CHDv3SjMPCoezGbu2Q7nzW",
-  "verdicts": 0
+  "verdicts": 266
  },
  "20260923_105129": {
   "_note": "published 2026-11-17 from the backfill, review not started yet. 503 units, all 3663 co-located pairs compared, page 4.18 MiB, 44 files live.",

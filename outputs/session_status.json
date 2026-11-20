@@ -31,7 +31,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 13,
+      "bpod_files": 16,
       "z_verdicts": 260,
       "z_tally": {
         "mua": 120,
@@ -115,7 +115,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -189,7 +189,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -271,7 +271,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 264,
       "z_tally": {
         "mua": 127,
@@ -351,7 +351,7 @@
       "bpod_synced": [
         "synced_from_concat"
       ],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 322,
       "z_tally": {
         "good": 161,
@@ -463,7 +463,7 @@
         "SUPERSEDES: The standalone sort of 20260915_103710 (LSF 741761, 447 units, review tool https://claude.ai/artifact/QreYaMjGtujiE17m2k9zXf) covers only part 2 and has no verdicts in it, so nothing hand-made is lost by replacing it. It stays on Z as a second opinion; the joint sort's unit ids do not correspond to its."
       ],
       "bpod_synced": [],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 322,
       "z_tally": {
         "good": 161,
@@ -604,7 +604,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -679,7 +679,7 @@
       "bpod_synced": [
         "synced_from_concat"
       ],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 322,
       "z_tally": {
         "good": 161,
@@ -797,7 +797,7 @@
         "synced_20261021_superseded_20261116",
         "synced_NEWFIX"
       ],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 240,
       "z_tally": {
         "good": 114,
@@ -954,7 +954,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 363,
       "z_tally": {
         "mua": 208,
@@ -1043,7 +1043,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 341,
       "z_tally": {
         "mua": 193,
@@ -1115,12 +1115,12 @@
       "thresholds": "9.0 / 8.0",
       "artifact": "https://claude.ai/artifact/CHDv3SjMPCoezGbu2Q7nzW",
       "tools": [],
-      "verdicts_dir": null,
+      "verdicts_dir": "Z:\\Gil\\Shamir_1\\20260922_144404.rec\\20260922_144404.kilosort\\review\\verdicts",
       "review_tool": {
-        "build": "20261118_1309",
+        "build": "20261119_1328",
         "layout": "build",
-        "path": "Z:\\Gil\\Shamir_1\\20260922_144404.rec\\20260922_144404.kilosort\\review\\tool\\build_20261118_1309",
-        "n_builds": 2,
+        "path": "Z:\\Gil\\Shamir_1\\20260922_144404.rec\\20260922_144404.kilosort\\review\\tool\\build_20261119_1328",
+        "n_builds": 3,
         "page": true,
         "merge_candidates": true,
         "raw_shards": 20
@@ -1129,16 +1129,43 @@
       "superseded_by": null,
       "joins": null,
       "provenance": [],
-      "bpod_synced": [],
-      "bpod_files": 46,
-      "z_verdicts": 0,
-      "z_tally": {},
-      "z_merges": 0,
-      "z_merge_tally": {},
-      "z_trials": 0,
-      "synced": false,
+      "bpod_synced": [
+        "synced"
+      ],
+      "bpod_files": 47,
+      "z_verdicts": 266,
+      "z_tally": {
+        "mua": 126,
+        "good": 140
+      },
+      "z_merges": 64,
+      "z_merge_tally": {
+        "merge": 61,
+        "separate": 2,
+        "unsure": 1
+      },
+      "z_trials": 16,
+      "synced": true,
       "ks_folder": "kilosort4",
-      "sync_check": [],
+      "sync_check": [
+        {
+          "dir": "synced",
+          "status": "needs_review",
+          "matched": 1.0,
+          "n_matched": 9136,
+          "n_bpod_events": 9136,
+          "holdout_median_ms": 1.3278622645884752e-07,
+          "holdout_max_ms": 21.459639611833836,
+          "linear_median_resid_ms": 93.02966290488257,
+          "linear_max_resid_ms": 545.4428217726672,
+          "method": "local_interpolation",
+          "n_trials": 484,
+          "n_trials_valid": 484,
+          "gaps": 0,
+          "trials_over_gap": 0,
+          "verdict": "pass"
+        }
+      ],
       "catch": [
         {
           "rat": "Shamir",
@@ -1161,12 +1188,12 @@
         }
       ],
       "snapshots": [],
-      "live_verdicts": 0,
-      "live_merges": 0,
-      "live_trials": 0,
-      "review_finished": false,
-      "state": "NOT REVIEWED",
-      "state_why": "the page is open and empty"
+      "live_verdicts": 266,
+      "live_merges": 64,
+      "live_trials": 16,
+      "review_finished": true,
+      "state": "SAVED, REVIEW CLOSED",
+      "state_why": "Gil called this review finished: 266 of 478 units carry a verdict, all of them on Z; the other 212 were left on their automatic label"
     },
     {
       "rat": "Shamir",
@@ -1179,10 +1206,10 @@
       "tools": [],
       "verdicts_dir": null,
       "review_tool": {
-        "build": "20261118_1309",
+        "build": "20261119_1328",
         "layout": "build",
-        "path": "Z:\\Gil\\Shamir_1\\20260923_105129.rec\\20260923_105129.kilosort\\review\\tool\\build_20261118_1309",
-        "n_builds": 2,
+        "path": "Z:\\Gil\\Shamir_1\\20260923_105129.rec\\20260923_105129.kilosort\\review\\tool\\build_20261119_1328",
+        "n_builds": 3,
         "page": true,
         "merge_candidates": true,
         "raw_shards": 21
@@ -1192,7 +1219,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -1241,10 +1268,10 @@
       "tools": [],
       "verdicts_dir": null,
       "review_tool": {
-        "build": "20261118_1310",
+        "build": "20261119_1327",
         "layout": "build",
-        "path": "Z:\\Gil\\Shamir_1\\20260924_121751.rec\\20260924_121751.kilosort\\review\\tool\\build_20261118_1310",
-        "n_builds": 2,
+        "path": "Z:\\Gil\\Shamir_1\\20260924_121751.rec\\20260924_121751.kilosort\\review\\tool\\build_20261119_1327",
+        "n_builds": 3,
         "page": true,
         "merge_candidates": true,
         "raw_shards": 22
@@ -1254,7 +1281,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -1318,7 +1345,7 @@
       "bpod_synced": [
         "synced"
       ],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 371,
       "z_tally": {
         "mua": 178,
@@ -1327,8 +1354,7 @@
       },
       "z_merges": 61,
       "z_merge_tally": {
-        "merge": 58,
-        "unsure": 3
+        "merge": 61
       },
       "z_trials": 20,
       "synced": true,
@@ -1397,7 +1423,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -1451,7 +1477,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -1505,7 +1531,7 @@
       "joins": null,
       "provenance": [],
       "bpod_synced": [],
-      "bpod_files": 46,
+      "bpod_files": 47,
       "z_verdicts": 0,
       "z_tally": {},
       "z_merges": 0,
@@ -1779,5 +1805,5 @@
       "state_why": "no verdicts anywhere"
     }
   ],
-  "live_source": "D:\\Gil\\spike_sorting_agent\\outputs\\artifact_live_counts.json"
+  "live_source": "outputs/artifact_live_counts.json"
 }

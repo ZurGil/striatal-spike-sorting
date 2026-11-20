@@ -11047,3 +11047,52 @@ All three are now written into `docs/bpod_new_task_agent_prompt.md` §9 as verif
 answers, with the two remaining questions (the per-trial look-ahead buffer in
 `updateCustomDataFields.m`, and whether the block path works end to end) left for the
 writer.
+
+### 5bd.85 20260922_144404 synced, and the one check that failed (2026-11-20)
+
+Gil closed the review on `20260922_144404` and asked for the sync. The three
+collections were read live out of the review page's database
+(`https://claude.ai/artifact/CHDv3SjMPCoezGbu2Q7nzW`), written to
+`outputs/review_verdicts/20260922_144404/` and copied to
+`...20260922_144404.kilosort\review\verdicts\` on Z, with the per-document `raw/`
+dump kept beside them:
+
+| collection | count |
+|---|---|
+| unit verdicts | **266** of 478 -- good 140, mua 126, no noise |
+| merge verdicts | **64** -- merge 61, separate 2, unsure 1 |
+| trial selections | **16** |
+| reassignments | **5** -- dumped into `raw/` only, nothing applies them yet |
+
+`scripts/sync_session.py` then applied them and ran the pipeline. The dataset is
+`...20260922_144404.kilosort\synced\`: **419 units** (478 less the 59 absorbed into
+28 merge groups), **484 trials**, 26,317,362 spikes, every parquet written by the
+`phy2_ky` env.
+
+**The sync itself is the cleanest of the Shamir batch so far.** 9136 of 9136 Bpod
+events matched their Trodes TTL, interval-difference correlation 0.999998, and the
+leave-one-out error of the local-interpolation conversion is **median 0.000 ms,
+worst case 21.5 ms** -- the same figure as 20260925 and better than the 33-45 ms of
+the September sessions. `sync_status` reads `needs_review` as it does on every
+session ever synced here, and for the same reason: that field reports the residual
+of one straight line fitted across the whole session (93.0 ms here, the smallest of
+the four measured), which is a statement about clock drift and not about the
+conversion actually used.
+
+**Eight of the nine verdict checks pass. T6 does not, and it is right to complain.**
+Gil judged `260_261` **unsure** while judging `260_262` and `261_262` **merge**, so
+the transitive closure puts 260 and 261 in the same group anyway --
+`[256, 260, 261, 262, 265]`. Nothing went wrong mechanically; the three verdicts
+cannot all be honoured at once. `verify_verdicts_in_dataset.py` T6 treats anything
+that is not `merge` as a veto, so `unsure` and `separate` fail identically there,
+and whether abstention should veto is Gil's to settle, not ours -- the stamp at
+`outputs/verdict_sync_20260922_144404.json` records `verified: false` until he does.
+The two genuine `separate` pairs (`140_141` at waveform correlation -0.668,
+`249_250` at -0.122) were respected. Everything outside that one group is unaffected.
+
+**The responses are there.** `scripts/plot_event_responses.py` screened all 104 good
+units: **79 of 104** modulated at p<0.05 around cue onset (strongest +32.9 Hz, unit
+231), 64 of 104 at cue end (strongest -61.0 Hz, unit 238), 50 of 104 at the valve
+(strongest +57.9 Hz, unit 10000 -- a merged unit). 291 of 484 trials completed, 192
+rewarded. A sharp peak at t = 0 is the alignment evidence no QC number can give, and
+it is present.
