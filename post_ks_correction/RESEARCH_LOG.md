@@ -11384,3 +11384,18 @@ in the model, so the reported slope is partial on the confidence term with side 
 regressed out. Panel F is immune by construction: the rat goes left on correct-left and
 error-left alike, so side cannot predict correct-vs-error. It was panel E alone that
 lacked the control, and it has it now.
+
+### 5bd.92 Both Popper archives landed and verified (2026-11-20)
+
+`20261109_092303` copied in 121.9 min, `20261120_090017` in 156.6 min, both
+robocopy exit 1 (files copied). `scripts/verify_copy.ps1` then hashed 16 MB blocks
+at 0/10/25/50/75/90 % **and the tail** of every large file, full hashes on the small
+ones: **12 files, every sampled block identical.** The size check both scripts
+originally carried would have passed on a truncated copy, so this is the first
+statement about these two that means anything. Nothing deleted from F.
+
+One free observation from the manifest. Today's recording has **Din1 through Din6 all
+carrying transitions** -- 50,152 / 38,092 / 21,032 / 22,742 / 9,732 / 14,152 bytes --
+so the Bpod sync word was wired and logged throughout. The standing worry that Din6
+was still disconnected does not apply to 20261120; it is the camera work that will
+need the wire checked again, since that is what disturbs it.
