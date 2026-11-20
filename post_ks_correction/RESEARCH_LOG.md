@@ -11241,3 +11241,89 @@ Replaced with `scratchpad/verify_copy.ps1`, which hashes 16 MB blocks at 0, 10, 
 75, 90% **and the final block** of every file. The tail block is the one that matters:
 a truncated or aborted copy leaves zeros there. Small files get a full hash instead.
 Throughput measured at 49 MB/s, so roughly five hours for the ~800 GB of both sessions.
+
+### 5bd.90 The confidence question on every synced Shamir session (2026-11-20)
+
+Gil asked for the confidence analysis re-run across all of Shamir that is synced.
+That is now **eight sessions** -- the six of 5bd.68 plus **20260922_144404**, synced
+this morning, and **20260925_103539**. All eight carry his verdicts, so the unit
+population is hand-curated throughout.
+
+    session            completed   good units
+    20260915_103710        172        138
+    20260915_084812        198        138
+    20260922_144404        291        104
+    20260914_122553        318        114
+    20260916_110311        478        111
+    20260925_103539        583        132
+    20260918_100248        593        113
+    20260917_100043        605        129
+                          -----
+                           3238        636 (pooled, panel header)
+
+**Two defaults fixed rather than two invocations.** `DEFAULT_SESSIONS` in
+`confidence_coding_quick_check.py` still contained the Popper session, so the
+script's own default did exactly the thing Gil corrected in 5bd.73. There is now a
+`RAT` map, the default is Shamir only, and a run spanning two animals **exits**
+unless given `--allow_mixed_rats`. Separately `confidence_coding_figure.py` set
+`USE` to every key in `SESSIONS` -- including the never-reviewed 20260911 and the
+other rat -- so the figure described a different population from the numbers printed
+beside it. It now shares `DEFAULT_SESSIONS` with the check. That second bug surfaced
+as a crash: 20260911 was synced before `overlaps_recording_gap` existed, and the
+figure referenced the column unconditionally. The shared `completed()` helper now
+applies the filter when the column is there and **says so in the log when it is not**,
+rather than quietly counting trials the check itself would drop.
+
+**Pooled over all eight, FDR q = 0.05:**
+
+    epoch   units   |DV| sig      P(correct|DV,choice)   own waiting time
+    base      634   3  (0.5 %)    4  (0.6 %)             16 of 535 (3.0 %)
+    stim      593   12 (2.0 %)    9  (1.5 %)             13 of 500 (2.6 %)
+    cue       657   35 (5.3 %)    25 (3.8 %)             9 of 556  (1.6 %)
+    chin      636   31 (4.9 %)    35 (5.5 %)             6 of 535  (1.1 %)
+    wait      429   0             14 (3.3 %)             37 of 429 (8.6 %)
+
+The pre-stimulus baseline sits at 0.5 % and 0.6 %, which is the control that makes
+the rest readable, and the shuffle null expects 0.1 units per session per epoch.
+
+**The dilution is real and worth stating plainly.** Against the three-session
+20260916/17/18 pool of 5bd.73, cue-end |DV| falls from 10.4 % to 5.3 %. Nothing
+changed about the effect; five of the eight sessions are short. Restricted to the
+three Shamir sessions with >= 500 completed trials -- **20260917, 20260918 and now
+20260925** -- the shares come back:
+
+    epoch   units   |DV| sig      P(correct)     own waiting time
+    base      253   0  (0.0 %)    4  (1.6 %)     11 of 250 (4.4 %)
+    stim      233   6  (2.6 %)    9  (3.9 %)     3  of 230 (1.3 %)
+    cue       263   26 (9.9 %)    21 (8.0 %)     5  of 260 (1.9 %)
+    chin      253   19 (7.5 %)    24 (9.5 %)     6  of 250 (2.4 %)
+    wait      240   0             13 (5.4 %)     32 of 240 (13.3 %)
+
+and the baseline |DV| control is exactly 0.0 %. **32 of 240 units track the animal's
+own time investment** at the wait epoch, the largest share yet.
+
+**The result that matters replicates in every session that has the trials.** Decoding
+correct-from-error at the choice port, before any feedback:
+
+    AUC at chin   0914 .622*  0915a .699*  0915b .748*  0916 .695*
+                  0917 .748*  0918  .778*  0922  .686*  0925 .705*   -- 8 of 8
+
+at cue end 7 of 8 (only 20260922 misses, p = 0.069), and the normative confidence
+regressor `conf_norm` decodes at cue end in 6 of 8 and at the port in 5 of 8, the
+failures being the two 15 September halves at 172 and 198 trials. **Every session
+with more than ~250 completed trials shows it; the ones that fail are the ones with
+no trials to spend.**
+
+**20260925 is the strongest single session on the wait epoch** seen so far:
+conf_norm R2 = 0.168 at the wait, 0.107 at the port, log_wait R2 = 0.072, all at
+p = 0.010 against both nulls, with baseline flat.
+
+One honest caveat on the figure. Panel B -- the rat waiting longer on strong evidence
+when it was right than when it was wrong, which is what makes |DV| and confidence
+separable -- is clean across all eight sessions but **not in the >= 500 subset, where
+both curves rise together**. That subset simply has fewer unrewarded error trials at
+high |DV| to form the comparison. The per-unit statistics do not depend on panel B,
+but the panel is weaker evidence in the three-session figure than in the eight.
+
+Figures: `outputs/confidence_coding_shamir_all/confidence_figure_shamir_all.png`
+and `outputs/confidence_coding_shamir_500/confidence_figure_shamir_500.png`.

@@ -65,6 +65,8 @@ SESSIONS = {
     "20260916_110311": r"Z:/Gil/Shamir_1/20260916_110311.rec/20260916_110311.kilosort/synced",
     "20260917_100043": r"Z:/Gil/Shamir_1/20260917_100043.rec/20260917_100043.kilosort/synced",
     "20260918_100248": r"Z:/Gil/Shamir_1/20260918_100248.rec/20260918_100248.kilosort/synced",
+    "20260922_144404": r"Z:/Gil/Shamir_1/20260922_144404.rec/20260922_144404.kilosort/synced",
+    "20260925_103539": r"Z:/Gil/Shamir_1/20260925_103539.rec/20260925_103539.kilosort/synced",
     "20261112_082028": r"Z:/Gil/Popper/20261112_082028.rec/20261112_082028.kilosort/synced",
     # Synced long ago but never reviewed: its "good" labels are Kilosort's, not Gil's.
     # Kept out of the default set and run only when asked, because pooling a
@@ -72,7 +74,26 @@ SESSIONS = {
     "20260911_100049": r"Z:/Gil/Shamir_1/20260911_100049.rec/20260911_100049.kilosort/synced",
 }
 UNREVIEWED = {"20260911_100049"}
-DEFAULT_SESSIONS = [s for s in sorted(SESSIONS) if s not in UNREVIEWED]
+
+# Which animal each session belongs to. Pooling per-unit counts across rats answers
+# no question -- Gil, 2026-11-18, after one Popper session with 27 of 62 units
+# significant for P(correct) at the port carried the pooled headline and halved it
+# when removed (5bd.73). So the default is one rat, and mixing takes --allow_mixed_rats.
+RAT = {
+    "20260914_122553": "Shamir_1",
+    "20260915_084812": "Shamir_1",
+    "20260915_103710": "Shamir_1",
+    "20260916_110311": "Shamir_1",
+    "20260917_100043": "Shamir_1",
+    "20260918_100248": "Shamir_1",
+    "20260922_144404": "Shamir_1",
+    "20260925_103539": "Shamir_1",
+    "20260911_100049": "Shamir_1",
+    "20261112_082028": "Popper",
+}
+DEFAULT_RAT = "Shamir_1"
+DEFAULT_SESSIONS = [s for s in sorted(SESSIONS)
+                    if s not in UNREVIEWED and RAT.get(s) == DEFAULT_RAT]
 # CatchError = 0 here, so the error "wait" is our feedback delay and means nothing.
 NO_ERROR_CATCH = {"20261112_082028"}
 
@@ -663,8 +684,20 @@ def main():
                          "it. Counted after the sync_valid and recording-gap filters, "
                          "which is the number the analysis actually spends.")
     ap.add_argument("--out", default=OUT)
+    ap.add_argument("--allow_mixed_rats", action="store_true",
+                    help="permit sessions from more than one animal in one pooled "
+                         "run. Off by default: the per-unit counts are sums over "
+                         "units, so one animal with an unusual session moves the "
+                         "headline for all of them.")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
+
+    rats = sorted({RAT.get(s, "?") for s in args.sessions})
+    if len(rats) > 1 and not args.allow_mixed_rats:
+        sys.exit("refusing to pool %s in one run -- per-unit counts are summed over "
+                 "units, so one animal can carry the headline (5bd.73). Run each rat "
+                 "separately, or pass --allow_mixed_rats if you really mean it."
+                 % " and ".join(rats))
 
     summaries, behav, decrows = [], [], []
     for sid in args.sessions:

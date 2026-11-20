@@ -37,11 +37,28 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from confidence_coding_quick_check import (SESSIONS, NO_ERROR_CATCH, EPOCHS,
+                                           DEFAULT_SESSIONS,
                                            bh_fdr, build_trials, epoch_windows)
 
 OUT = os.path.join(ROOT, "outputs", "confidence_coding")
-USE = [s for s in sorted(SESSIONS)]
+# Match the check's default exactly. This used to be every key in SESSIONS, which
+# silently pulled in the never-reviewed 20260911 and the other rat, so the figure
+# described a different population from the numbers it was drawn beside.
+USE = list(DEFAULT_SESSIONS)
 SHAMIR = [s for s in USE if s not in NO_ERROR_CATCH]
+
+
+def completed(t, sid):
+    """The trials an analysis may spend, filtered the way the check filters them."""
+    ok = t.ChoiceCorrect.notna() & t.sync_valid
+    if "overlaps_recording_gap" in t.columns:
+        ok &= ~t.overlaps_recording_gap
+    else:
+        # Syncs written before the gap column existed. Say so rather than quietly
+        # counting trials the check itself would have dropped.
+        print("warning: %s has no overlaps_recording_gap column; "
+              "gap filter not applied" % sid)
+    return t[ok].copy()
 
 INK = "#1c1c1c"
 MUTED = "#8a8a8a"
@@ -83,7 +100,7 @@ def behaviour():
     psy, inv = [], []
     for sid in USE:
         t = pd.read_parquet(SESSIONS[sid] + "/trials.parquet")
-        c = t[t.ChoiceCorrect.notna() & t.sync_valid & ~t.overlaps_recording_gap].copy()
+        c = completed(t, sid)
         c["sid"] = sid
         psy.append(c[["sid", "DV", "ChoiceLeft", "ChoiceCorrect"]])
         if sid in NO_ERROR_CATCH:       # the error wait there is our delay, not the rat's

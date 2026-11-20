@@ -1,0 +1,199 @@
+skip 20260914_122553: 318 completed trials, under the 500 asked for
+skip 20260915_084812: 198 completed trials, under the 500 asked for
+skip 20260915_103710: 172 completed trials, under the 500 asked for
+skip 20260916_110311: 478 completed trials, under the 500 asked for
+
+=== 20260917_100043   605 completed trials, 129 good units
+    psychometric: {'bias': 0.039, 'slope': 7.5, 'lapse': 0.009}
+    waiting time (s) on unrewarded trials, by |DV| and outcome:
+                          median  size
+      absDV      correct              
+      [0.0, 0.2) 0.0        6.29    48
+                 1.0        7.11    12
+      [0.2, 0.4) 0.0        6.43    11
+                 1.0        6.93    15
+      [0.4, 0.6) 0.0        6.41     3
+                 1.0        7.47    21
+      [0.6, 0.8) 0.0        6.83     2
+                 1.0        7.05    13
+      [0.8, 1.0) 0.0        8.76     1
+                 1.0        8.72    20
+    epoch n     |DV| (Gil's assumption)      P(correct|DV,choice)         shuffle null
+    base  84    0 sig (0 up)                 3 sig (2 up)                 0.1 exp, p95 1
+    stim  80    2 sig (2 up)                 1 sig (1 up)                 0.1 exp, p95 1
+    cue   88    13 sig (11 up)               7 sig (5 up)                 0.0 exp, p95 0
+    chin  86    11 sig (5 up)                8 sig (5 up)                 0.1 exp, p95 0
+    wait  86    0 sig (0 up)                 2 sig (1 up)                 0.1 exp, p95 1
+    population read-out (5-fold CV R^2, permutation p):
+      base   72 units  605 trials
+            absDV R2=-0.009 p=0.198 pshift=0.535
+            conf_norm R2=0.012 p=0.020 pshift=0.010
+            side R2=-0.020 p=0.505 pshift=0.396
+            absDV_correct_only R2=-0.014 p=0.366 pshift=0.733
+            log_wait R2=-0.036 p=0.554 pshift=0.693
+            correct_vs_error R2=0.655 p=0.010 pshift=nan
+      stim   68 units  605 trials
+            absDV R2=0.032 p=0.010 pshift=0.010
+            conf_norm R2=0.021 p=0.010 pshift=0.010
+            side R2=0.378 p=0.010 pshift=0.010
+            absDV_correct_only R2=0.008 p=0.069 pshift=0.218
+            log_wait R2=-0.036 p=0.545 pshift=0.624
+            correct_vs_error R2=0.559 p=0.089 pshift=nan
+      cue    76 units  605 trials
+            absDV R2=0.098 p=0.010 pshift=0.010
+            conf_norm R2=0.105 p=0.010 pshift=0.010
+            side R2=0.824 p=0.010 pshift=0.010
+            absDV_correct_only R2=0.028 p=0.010 pshift=0.010
+            log_wait R2=-0.047 p=0.673 pshift=0.743
+            correct_vs_error R2=0.727 p=0.010 pshift=nan
+            absDV_minus_base R2=0.027 p=0.010 pshift=0.010
+            conf_norm_minus_base R2=0.091 p=0.010 pshift=0.010
+            correct_vs_error_minus_base R2=0.779 p=0.010 pshift=nan
+      chin   74 units  605 trials
+            absDV R2=0.189 p=0.010 pshift=0.010
+            conf_norm R2=0.153 p=0.010 pshift=0.010
+            side R2=0.899 p=0.010 pshift=0.010
+            absDV_correct_only R2=0.134 p=0.010 pshift=0.010
+            log_wait R2=-0.051 p=0.743 pshift=0.673
+            correct_vs_error R2=0.748 p=0.010 pshift=nan
+            absDV_minus_base R2=0.083 p=0.010 pshift=0.010
+            conf_norm_minus_base R2=0.128 p=0.010 pshift=0.010
+            correct_vs_error_minus_base R2=0.773 p=0.010 pshift=nan
+      wait   76 units  146 trials
+            absDV R2=-0.019 p=0.307 pshift=0.228
+            conf_norm R2=0.011 p=0.030 pshift=0.010
+            side R2=0.530 p=0.010 pshift=0.010
+            absDV_correct_only R2=-0.028 p=0.228 pshift=0.222
+            log_wait R2=0.222 p=0.010 pshift=0.010
+            correct_vs_error R2=0.613 p=0.030 pshift=nan
+
+=== 20260918_100248   593 completed trials, 113 good units
+    psychometric: {'bias': 0.062, 'slope': 5.76, 'lapse': 0.0}
+    waiting time (s) on unrewarded trials, by |DV| and outcome:
+                          median  size
+      absDV      correct              
+      [0.0, 0.2) 0.0        6.59    39
+                 1.0        6.23     9
+      [0.2, 0.4) 0.0        5.84    17
+                 1.0        6.70    19
+      [0.4, 0.6) 0.0        6.16     9
+                 1.0        7.23    12
+      [0.6, 0.8) 0.0        7.47     2
+                 1.0        6.78    13
+      [0.8, 1.0) 0.0        9.94     1
+                 1.0        6.79     9
+    epoch n     |DV| (Gil's assumption)      P(correct|DV,choice)         shuffle null
+    base  76    0 sig (0 up)                 1 sig (1 up)                 0.1 exp, p95 0
+    stim  70    3 sig (2 up)                 8 sig (4 up)                 0.1 exp, p95 1
+    cue   80    6 sig (5 up)                 6 sig (3 up)                 0.1 exp, p95 1
+    chin  76    3 sig (3 up)                 7 sig (3 up)                 0.1 exp, p95 0
+    wait  71    0 sig (0 up)                 8 sig (3 up)                 0.0 exp, p95 0
+    population read-out (5-fold CV R^2, permutation p):
+      base   62 units  593 trials
+            absDV R2=-0.026 p=0.762 pshift=0.802
+            conf_norm R2=-0.013 p=0.307 pshift=0.347
+            side R2=-0.015 p=0.446 pshift=0.337
+            absDV_correct_only R2=-0.006 p=0.168 pshift=0.287
+            log_wait R2=-0.076 p=0.772 pshift=0.812
+            correct_vs_error R2=0.561 p=0.089 pshift=nan
+      stim   56 units  593 trials
+            absDV R2=0.028 p=0.010 pshift=0.010
+            conf_norm R2=0.044 p=0.010 pshift=0.010
+            side R2=0.448 p=0.010 pshift=0.010
+            absDV_correct_only R2=0.028 p=0.010 pshift=0.010
+            log_wait R2=-0.031 p=0.406 pshift=0.327
+            correct_vs_error R2=0.590 p=0.020 pshift=nan
+      cue    65 units  593 trials
+            absDV R2=0.049 p=0.010 pshift=0.010
+            conf_norm R2=0.070 p=0.010 pshift=0.010
+            side R2=0.843 p=0.010 pshift=0.010
+            absDV_correct_only R2=0.041 p=0.010 pshift=0.010
+            log_wait R2=0.090 p=0.010 pshift=0.010
+            correct_vs_error R2=0.636 p=0.010 pshift=nan
+            absDV_minus_base R2=0.058 p=0.010 pshift=0.010
+            conf_norm_minus_base R2=0.058 p=0.010 pshift=0.010
+            correct_vs_error_minus_base R2=0.556 p=0.109 pshift=nan
+      chin   60 units  593 trials
+            absDV R2=0.019 p=0.020 pshift=0.010
+            conf_norm R2=0.146 p=0.010 pshift=0.010
+            side R2=0.840 p=0.010 pshift=0.010
+            absDV_correct_only R2=0.026 p=0.010 pshift=0.010
+            log_wait R2=0.014 p=0.040 pshift=0.020
+            correct_vs_error R2=0.778 p=0.010 pshift=nan
+            absDV_minus_base R2=0.011 p=0.040 pshift=0.010
+            conf_norm_minus_base R2=0.140 p=0.010 pshift=0.010
+            correct_vs_error_minus_base R2=0.787 p=0.010 pshift=nan
+      wait   60 units  130 trials
+            absDV R2=-0.114 p=0.980 pshift=0.970
+            conf_norm R2=0.343 p=0.010 pshift=0.010
+            side R2=0.582 p=0.010 pshift=0.010
+            absDV_correct_only R2=-0.054 p=0.386 pshift=0.387
+            log_wait R2=0.148 p=0.010 pshift=0.010
+            correct_vs_error R2=0.838 p=0.010 pshift=nan
+skip 20260922_144404: 291 completed trials, under the 500 asked for
+
+=== 20260925_103539   583 completed trials, 132 good units
+    psychometric: {'bias': 0.027, 'slope': 7.7, 'lapse': 0.007}
+    waiting time (s) on unrewarded trials, by |DV| and outcome:
+                          median  size
+      absDV      correct              
+      [0.0, 0.2) 0.0        6.41    50
+                 1.0        6.58    12
+      [0.2, 0.4) 0.0        5.34    11
+                 1.0        6.37    18
+      [0.4, 0.6) 0.0        5.18     5
+                 1.0        7.57    22
+      [0.6, 0.8) 0.0        6.08     1
+                 1.0        6.96    21
+      [0.8, 1.0) 0.0        3.90     1
+                 1.0        7.32    10
+    epoch n     |DV| (Gil's assumption)      P(correct|DV,choice)         shuffle null
+    base  93    0 sig (0 up)                 0 sig (0 up)                 0.1 exp, p95 1
+    stim  83    1 sig (0 up)                 0 sig (0 up)                 0.1 exp, p95 0
+    cue   95    7 sig (3 up)                 8 sig (2 up)                 0.1 exp, p95 1
+    chin  91    5 sig (1 up)                 9 sig (3 up)                 0.1 exp, p95 0
+    wait  83    0 sig (0 up)                 3 sig (2 up)                 0.1 exp, p95 1
+    population read-out (5-fold CV R^2, permutation p):
+      base   77 units  583 trials
+            absDV R2=-0.028 p=0.733 pshift=0.812
+            conf_norm R2=-0.051 p=1.000 pshift=0.980
+            side R2=-0.029 p=0.802 pshift=0.653
+            absDV_correct_only R2=-0.010 p=0.287 pshift=0.287
+            log_wait R2=-0.012 p=0.109 pshift=0.079
+            correct_vs_error R2=0.412 p=0.941 pshift=nan
+      stim   68 units  583 trials
+            absDV R2=0.009 p=0.030 pshift=0.020
+            conf_norm R2=0.010 p=0.030 pshift=0.010
+            side R2=0.507 p=0.010 pshift=0.010
+            absDV_correct_only R2=0.003 p=0.010 pshift=0.089
+            log_wait R2=-0.057 p=0.733 pshift=0.723
+            correct_vs_error R2=0.549 p=0.178 pshift=nan
+      cue    78 units  583 trials
+            absDV R2=0.042 p=0.010 pshift=0.010
+            conf_norm R2=0.089 p=0.010 pshift=0.010
+            side R2=0.876 p=0.010 pshift=0.010
+            absDV_correct_only R2=0.026 p=0.020 pshift=0.010
+            log_wait R2=-0.054 p=0.683 pshift=0.713
+            correct_vs_error R2=0.632 p=0.010 pshift=nan
+            absDV_minus_base R2=0.045 p=0.010 pshift=0.010
+            conf_norm_minus_base R2=0.055 p=0.010 pshift=0.010
+            correct_vs_error_minus_base R2=0.598 p=0.010 pshift=nan
+      chin   76 units  583 trials
+            absDV R2=0.021 p=0.010 pshift=0.010
+            conf_norm R2=0.107 p=0.010 pshift=0.010
+            side R2=0.899 p=0.010 pshift=0.010
+            absDV_correct_only R2=0.013 p=0.020 pshift=0.040
+            log_wait R2=0.063 p=0.010 pshift=0.010
+            correct_vs_error R2=0.705 p=0.010 pshift=nan
+            absDV_minus_base R2=0.019 p=0.010 pshift=0.020
+            conf_norm_minus_base R2=0.035 p=0.010 pshift=0.010
+            correct_vs_error_minus_base R2=0.583 p=0.030 pshift=nan
+      wait   73 units  151 trials
+            absDV R2=0.008 p=0.050 pshift=0.059
+            conf_norm R2=0.168 p=0.010 pshift=0.010
+            side R2=0.503 p=0.010 pshift=0.010
+            absDV_correct_only R2=-0.086 p=0.792 pshift=0.651
+            log_wait R2=0.072 p=0.010 pshift=0.040
+            correct_vs_error R2=0.698 p=0.010 pshift=nan
+
+wrote outputs/confidence_coding_shamir_500\summary.csv
