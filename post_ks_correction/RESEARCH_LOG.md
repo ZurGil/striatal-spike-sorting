@@ -11500,3 +11500,68 @@ Figure `outputs/confidence_coding/confidence_from_waiting.png`, per-trial values
 `outputs/confidence_coding/conf_wait_<session>.csv` and `conf_wait_pooled.csv`.
 Not yet run through the unit regressions -- that is the next step and it is the one
 that decides whether conf_norm or conf_wait is the better regressor.
+
+### 5bd.94 Pi at the leave: kappa is a result, not a guess (2026-11-22)
+
+Gil: *"assuming we know the reward rate (and this is a big if, because im not sure
+how to estimate it) ... at the leaving time, the hazard (which is function of
+reard time and condifence), is equal to the oppprtunity cost."*
+
+The big if is avoidable. His deck (slide 7, `onerule`) defines
+`pi = C S(T)/(1-C+C S(T))`, the posterior that the choice was correct given no
+reward yet. The leaving rule is `pi(T) h(T) = kappa`, and h is flat at lambda, so
+**pi at the moment of leaving must be the same number on every trial, and that
+number times lambda IS kappa**. Compute pi from a C that owes nothing to the
+policy (`conf_wait`, the isotonic calibration curve of 5bd.93) and an S read off
+the drawn delays, and kappa falls out instead of going in.
+
+**One correction to the slide's formula for this task.** The deck's pi omits the
+catch term because its simulation has none: there, correct means reward eventually.
+Here 15% of correct trials are deliberately unrewarded, so what the leaving rule
+turns on is `a = C(1-p_c)`, not C. Using the slide's version unchanged inflates pi
+from 0.049 to 0.114 and kappa from 0.034 to 0.079. Both are carried in the output;
+`pi` is the policy's, `pi_deck` the slide's.
+
+Also: S must be the smooth exponential the rat is assumed to have learned, not the
+counted survival. The program never draws past ~8 s, so the empirical S is exactly
+0 beyond that and pi collapses to exactly 0 -- an artefact of our sample, not of a
+rat that cannot have learned a hard cutoff from a few hundred draws.
+
+**Result 1 -- the central number is right.** Median pi at leaving 0.049, so
+**kappa = 0.034 /s against a measured background reward rate of 0.028 /s**, a
+factor of 1.2. Independently of 5bd.93's anchoring route, which gave 0.037. So the
+level of the threshold is recoverable and is about what the rat actually earns.
+
+**Result 2 -- it is not constant, and that is the same finding as the shallow
+slope, restated in Gil's units.** Across wait quintiles pi runs
+0.094 / 0.068 / 0.054 / 0.035 / 0.014, a 7x spread in the implied kappa (p10-p90
+0.0096 to 0.0686). The first three quintiles are within 1.7x of each other; the
+departure is in the longest waits, which is exactly where the calibration curve
+plateaus at 0.92. Algebraically pi constant <=> logit(a) linear in T with slope
+lambda, so this is 5bd.93's x2.7-3.6 attenuation seen from the other side.
+
+**Result 3 -- kappa does NOT behave like the recent reward rate, and the sign is
+backwards.** Regressing log(wait) on a leaky average of reward over the preceding
+trials, with |DV|, time-in-session and session identity in the model:
+
+    tau  20 s   beta +0.034   t +3.3
+    tau  50 s   beta +0.040   t +3.7
+    tau 120 s   beta +0.040   t +3.5
+
+Higher recent reward rate means LONGER waits. The opportunity-cost account predicts
+shorter. The satiety confound would also give a positive slope -- late in a session
+the rat earns less and waits less -- but controlling time-in-session makes the
+effect stronger, not weaker, so it is not that. This looks like engagement rather
+than opportunity cost, and it means a per-trial kappa taken from the local reward
+rate would be worse than a constant.
+
+**Consequence for the inversion Gil proposed.** Solving `pi(T) lambda = kappa` for
+C yields a confidence that is a deterministic function of T, exactly as the
+calibration curve is. The two carry the SAME information and differ only by a
+monotone relabelling of the waiting time, so for a neural regression they are near
+interchangeable. The calibration curve is preferable only because it is calibrated
+by construction, while the inversion is calibrated only insofar as the rat follows
+the policy -- which result 2 measures.
+
+`scripts/pi_at_leaving.py`, figure `outputs/confidence_coding/pi_at_leaving.png`,
+per-trial pi in `outputs/confidence_coding/pi_at_leaving.csv`.
