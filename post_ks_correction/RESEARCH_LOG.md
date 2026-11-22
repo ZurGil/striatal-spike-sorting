@@ -11399,3 +11399,104 @@ carrying transitions** -- 50,152 / 38,092 / 21,032 / 22,742 / 9,732 / 14,152 byt
 so the Bpod sync word was wired and logged throughout. The standing worry that Din6
 was still disconnected does not apply to 20261120; it is the camera work that will
 need the wire checked again, since that is what disturbs it.
+
+### 5bd.93 Confidence from the waiting time, not the psychometric (2026-11-22)
+
+Gil: *"as measurment for confidence you used the psychoemetric. the question we
+have to ask ourself is wether this is the correct why to do it. in lak and kepecs
+2014, the confidence is the value of the haazrd function right at the very first
+moment the rat start the wating time. is their a way to estimate this value?
+myabe from the anout of time the rat wait per trial. of course this is much more
+comlicated because we: A assume the rat learned the time ditribution (which is
+reasonable). B. we dont know the thredhould value per rat, but myabe there is
+still way of doing it?"*
+
+He is right that `conf_norm` is the experimenter's ideal observer rather than the
+rat's belief, and the waiting time is the rat's own report. Both unknowns turn
+out to be tractable, and they separate cleanly. `scripts/confidence_from_waiting.py`.
+
+**One correction to the premise.** Confidence is not the value of the hazard. It
+is the SCALE on it. The rat leaves when the hazard, multiplied by confidence and
+eroded by the growing belief that the trial was an error, drops through the
+opportunity cost. At t = 0 there is no erosion yet, so the quantity being
+evaluated is c*h(0) -- which is why the instinct is structurally right.
+
+**The policy, and why it collapses to a logistic.** With c = P(correct|choice),
+p_c = P(catch), a = c(1-p_c), and kappa = rho/R the opportunity cost in units of
+reward per second, the leaving time T satisfies
+
+    a S(T) h(T) / (a S(T) + 1 - a) = kappa    ->    a = kappa / (kappa + f(T) - kappa S(T))
+
+**Measured, not assumed:** the programmed delay is a shifted exponential, floor
+a0 = 0.52 s, and its hazard is FLAT at lambda = 0.69 /s -- 0.66 to 0.71 across all
+eight sessions. So S = exp(-lambda(t-a0)), f = lambda S, and the whole thing becomes
+
+    logit(a) = lambda (T - T0),    T0 = a0 - log(kappa/(lambda-kappa))/lambda
+
+  A sets the SLOPE and we know it without fitting: lambda = 0.69 /s. A prediction.
+  B moves ONLY T0. One scalar, and the curve's shape is untouched by it.
+
+A flat hazard is also the reason the rat leaves at all: waiting never becomes
+less promising, so the only thing eroding the reason to stay is the belief that
+the trial was an error. That is what makes the wait a confidence report.
+
+**Which trials show a leave, and the one that nearly wrecked this.** Three
+unrewarded classes exist. `correct + CATCH` (419 trials) is an unbiased
+p_c-sample of correct trials at any wait, weight 1/p_c. `ERROR` (402) is never
+censored, weight 1. The third -- correct, not catch, not rewarded, 385 trials --
+is NOT usable, and this was measured rather than argued. Median wait 0.9 s
+against 6.7 s on catch: a separate mode, the rat out of the port past the 0.35 s
+grace with `skipped_feedback` firing. Matched on the drawn delay, i.e. restricted
+to trials where a sub-2.5 s leave was observable at all, the short-leave rate is
+**5.0% on correct and 5.3% on error trials** -- accuracy-independent, so it carries
+no confidence. Worse, it is only VISIBLE when the drawn delay happened to be long,
+so including it makes the wait depend on the delay and breaks the censoring model:
+with those trials in, the calibration curve INVERTS and the shortest waits come out
+97% correct. The first version of this script did exactly that. Dropping them makes
+the weighting a constant 1/p_c and needs no survival model at all.
+
+**What conf_wait is.** Not the normative inversion -- the calibration curve itself,
+`P(correct | the rat waited this long)`, by weighted isotonic regression (PAVA).
+No threshold, no hazard, no psychometric, no functional form; only monotonicity.
+Calibrated by construction. Clipped to [0.50, 0.99] because confidence in the
+option you just chose cannot be below 0.5, which touches only the tail blocks.
+
+    810 usable leaves of 3238 trials.  conf_wait runs 0.76 at 3.9 s to 0.92 at 9.5 s.
+
+**A: tested, and it fails in a measurable direction.** Predicted slope 0.69 /s;
+measured slope across the central half of the waits **0.19 /s [0.08, 0.34]**, so
+attenuated x3.6. Centring each session on the grand median -- the median wait runs
+5.70 to 7.49 s across sessions against an IQR of about 2 s, and that between-session
+motivation drift is variance in T with no confidence in it -- lifts it to **0.25 /s
+[0.16, 0.39]**, x2.7. So part of the attenuation is drift and the rest is genuine
+trial-to-trial noise in the waiting decision. The rat reports confidence, about
+three times more noisily than the ideal policy.
+
+**B: solved, and the answer is good.** Anchoring the predicted line to the measured
+curve at its median gives T0 = 4.68 s, which inverts to **kappa = 0.037 rewards/s**.
+The measured background reward rate is **rho/R = 0.028 /s** -- a factor of 1.3, with
+nothing fitted on the second number. The LEVEL of waiting is near rate-optimal even
+though the SENSITIVITY is attenuated.
+
+**It is not a re-reading of the stimulus.** Pooled logistic `correct ~ |DV| + T`:
+|DV| beta +1.35 (t +16.4), T beta +0.27 (**t +4.5**). Per session, t(T) is positive
+in 7 of 8 and reaches +2.6, +2.4, +2.0, +1.9; the one negative is 20260915_103710,
+the 172-trial half with 35 usable leaves. Within |DV| terciles the wait still
+predicts correctness (panel F).
+
+**Why this matters for the neural analysis.** `corr(conf_wait, conf_norm) = +0.39`,
+`corr(conf_wait, |DV|) = +0.25` -- substantially independent. And the decisive
+property: within one session x DV x choice cell, **conf_norm has sd = 0.000 by
+construction** (it IS a function of DV and choice) while **conf_wait has sd = 0.069**.
+That spread is the rat's own trial-to-trial belief and it is the only handle that
+can test confidence coding with the stimulus held fixed. It also explains 5bd.90's
+weakest point -- conf_norm separating from |DV| on only 65 of 3238 trials.
+
+**The cost.** conf_wait exists only on the 810 unrewarded trials, 25% of the data.
+For the `chin` and `wait` epochs that is free, since those are already restricted to
+unrewarded trials; for `cue` and `stim` it is a real loss.
+
+Figure `outputs/confidence_coding/confidence_from_waiting.png`, per-trial values in
+`outputs/confidence_coding/conf_wait_<session>.csv` and `conf_wait_pooled.csv`.
+Not yet run through the unit regressions -- that is the next step and it is the one
+that decides whether conf_norm or conf_wait is the better regressor.
