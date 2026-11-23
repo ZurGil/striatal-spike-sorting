@@ -29,6 +29,7 @@ Usage:
     python camera_frame_times.py <session-id or .rec path>
                                  [--line 8]            which Din carries the pulses
                                  [--frames N]          frames the camera wrote
+                                 [--frames-csv <path>] record.py's per-grab CSV
                                  [--polarity low|high] which phase is the exposure
                                  [--out <dir>]         default: the session's own folder
                                  [--no-figure]
@@ -127,6 +128,69 @@ def read_line(path, L, bit):
     return ((dio >> bit) & 1).astype(np.int8), t0, npk
 
 
+def join_frames(pulses, csv_path, npulse):
+    """Attach a Trodes timestamp to every row of record.py's per-grab CSV.
+
+    The CSV has one row per grab ATTEMPT: grab_index, status, frame_id, timestamp_ticks.
+    ChunkFrameID is assigned by the camera at exposure, so it indexes the same events the
+    pulses do; grab_index only indexes what the host was handed, and a frame lost in
+    transport consumes no grab_index while still producing a pulse. So the key is
+    frame_id, and grab_index is kept only to break the one tie frame_id cannot.
+
+    The whole verification is one comparison:
+
+        npulse == f_last - f_first + 1
+
+    If it holds, no exposure happened outside the observed span, so pulse i is the frame
+    with ChunkFrameID f_first + i - 1 and the mapping is exact however many frames were
+    dropped and wherever they fell.
+    """
+    import pandas as pd
+    cam = pd.read_csv(csv_path)
+    need = {"grab_index", "status", "frame_id"}
+    missing = need - set(cam.columns)
+    if missing:
+        return pulses, ["%s lacks column(s) %s" % (csv_path, ", ".join(sorted(missing)))]
+
+    fid = pd.to_numeric(cam["frame_id"], errors="coerce")
+    if fid.notna().sum() == 0:
+        return pulses, ["%s has no usable frame_id values" % csv_path]
+    f_first, f_last = int(fid.min()), int(fid.max())
+    span = f_last - f_first + 1
+    written = int((cam["status"] == "written").sum())
+    incomplete = int((cam["status"] != "written").sum())
+    print("\ncamera CSV %s" % os.path.basename(csv_path))
+    print("  %d grabs logged: %d written, %d incomplete" % (len(cam), written, incomplete))
+    print("  ChunkFrameID %d .. %d  -> span %d exposures" % (f_first, f_last, span))
+    print("  pulses on the wire: %d" % npulse)
+
+    if span != npulse:
+        d = npulse - span
+        hint = ""
+        if incomplete and fid.isna().any():
+            lost = cam.loc[fid.isna(), "grab_index"].tolist()
+            hint = (" grab_index %s logged no frame_id, so %s"
+                    % (lost[:5],
+                       "they account for the difference and precede f_first"
+                       if len(lost) == abs(d) else
+                       "they only partly account for it"))
+        return pulses, [
+            "%d pulses but ChunkFrameID spans %d exposures (difference %+d) -- the camera "
+            "exposed frames the host never observed, so the offset between pulse 1 and "
+            "the first logged frame is not determined.%s" % (npulse, span, d, hint)]
+
+    # Exact: pulse i is ChunkFrameID f_first + i - 1.
+    pulses = pulses.copy()
+    pulses["frame_id"] = f_first + pulses["pulse_index"].to_numpy() - 1
+    out = cam.merge(pulses, on="frame_id", how="left")
+    unmatched = int(out["trodes_sample_exposure_start"].isna().sum())
+    if unmatched:
+        return pulses, ["%d logged grabs got no pulse -- frame_id outside the train"
+                        % unmatched]
+    print("  every logged grab matched a pulse; mapping is exact")
+    return out, []
+
+
 def main():
     args = sys.argv[1:]
     if not args:
@@ -138,6 +202,7 @@ def main():
     path = rec_path(args[0])
     line = opt("--line", 8, int)
     nframes = opt("--frames", None, int)
+    frames_csv = opt("--frames-csv", None, str)
     polarity = opt("--polarity", "high", str)
     outdir = opt("--out", os.path.dirname(path), str)
     figure = "--no-figure" not in args
@@ -224,26 +289,30 @@ def main():
                         "pulse recorded" % tail)
     if nframes is not None and nframes != start.size:
         problems.append("camera wrote %d frames but the train has %d pulses (difference "
-                        "%+d) -- use ChunkFrameID gaps to locate the missing frames"
+                        "%+d) -- give --frames-csv so ChunkFrameID can locate them"
                         % (nframes, start.size, nframes - start.size))
-
-    if nframes is None:
-        print("\nNOTE: --frames was not given, so the one check that catches a frame "
-              "dropped by the writer has not been done. A dropped frame leaves no trace "
-              "on the neural side.")
 
     # Trodes timestamps, directly comparable with spike times.
     ts_start = t0 + start.astype(np.int64)
     ts_end = t0 + end.astype(np.int64)
     import pandas as pd
     df = pd.DataFrame({
-        "frame_index": np.arange(start.size, dtype=np.int64),
+        "pulse_index": np.arange(1, start.size + 1, dtype=np.int64),
         "trodes_sample_exposure_start": ts_start,
         "trodes_sample_exposure_end": ts_end,
         "t_exposure_start_s": (ts_start - t0) / fs,
         "t_exposure_end_s": (ts_end - t0) / fs,
         "t_exposure_mid_s": ((ts_start + ts_end) / 2.0 - t0) / fs,
     })
+
+    if frames_csv:
+        df, extra = join_frames(df, frames_csv, start.size)
+        problems.extend(extra)
+    else:
+        print("\nNOTE: no --frames-csv, so nothing here can catch a frame the camera "
+              "exposed but never wrote. Such a frame still makes a pulse and leaves no "
+              "trace on the neural side; only the camera's ChunkFrameID reveals it. The "
+              "table below is pulses, not video frames.")
 
     sid = os.path.basename(path)[:-4]
     os.makedirs(outdir, exist_ok=True)
@@ -254,7 +323,7 @@ def main():
     else:
         out = os.path.join(outdir, sid + "_frame_times.parquet")
         df.to_parquet(out, index=False)
-        print("\nall checks passed; %d frames -> %s" % (len(df), out))
+        print("\nall checks passed; %d rows -> %s" % (len(df), out))
 
     if figure:
         draw(b, iv, width, start, fs, line, sid, npk, outdir, med)
