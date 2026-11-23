@@ -42,11 +42,27 @@ NLINES = 6          # only Din1..Din6 carry the Bpod state word
 MIN_DWELL_MS = 1.0  # a code held for less than this is a transition transient, not a state
 
 
+# Every rat, local scratch first then the archive. A session id is unique across
+# rats, so searching all of them is safe and means the caller never has to know
+# which rat a recording belongs to.
+RAT_ROOTS = (r"F:\Gil\Shamir", r"F:\Gil\Popper", r"F:\Gil\Begin",
+             r"Z:\Gil\Shamir_1", r"Z:\Gil\Popper", r"Z:\Gil\Begin_1")
+
+
+def dio_dir(sid):
+    """The exported .DIO folder for a session id, wherever that session lives."""
+    for root in RAT_ROOTS:
+        d = os.path.join(root, sid + ".rec", sid + ".DIO")
+        if os.path.isdir(d):
+            return d
+    return None
+
+
 def rec_path(arg):
     if arg.lower().endswith(".rec") and os.path.isfile(arg):
         return arg
     sid = os.path.basename(arg.rstrip("\\/")).replace(".rec", "")
-    for root in (r"F:\Gil\Shamir", r"Z:\Gil\Shamir_1"):
+    for root in RAT_ROOTS:
         p = os.path.join(root, sid + ".rec", sid + ".rec")
         if os.path.isfile(p):
             return p
@@ -331,9 +347,9 @@ def main():
 
     if "--compare" in args:
         ref = args[args.index("--compare") + 1]
-        d = os.path.join(r"F:\Gil\Shamir", ref + ".rec", ref + ".DIO")
-        if not os.path.isdir(d):
-            print("\n(no exported .DIO for %s on F, so no comparison)" % ref)
+        d = dio_dir(ref)
+        if d is None:
+            print("\n(no exported .DIO for %s under any rat root, so no comparison)" % ref)
             return
         sys.path.insert(0, r"D:\Gil")
         from sync_pipeline import dio_decoder as dd   # read-only; never modified
