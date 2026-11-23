@@ -1,0 +1,31 @@
+{
+  "session_id": "20260923_105129",
+  "synced_at": "2026-11-23T11:16:00",
+  "kilosort_dir": "Z:\\Gil\\Shamir_1\\20260923_105129.rec\\20260923_105129.kilosort\\kilosort4",
+  "applied": {
+    "verdicts": {
+      "dump": "outputs/review_verdicts/20260923_105129\\verdicts.json",
+      "sha1": "b58b941fc38c1e987be4b32a72cf9f631e25f239",
+      "n_documents": 341
+    },
+    "trial_selections": {
+      "dump": "outputs/review_verdicts/20260923_105129\\trial_selections.json",
+      "sha1": "f223af97e9e09da0705903f1590555b5a5eb4744",
+      "n_documents": 24
+    },
+    "merge_verdicts": {
+      "dump": "outputs/review_verdicts/20260923_105129\\merge_verdicts.json",
+      "sha1": "0f85aa19cffadd205ce723338e95ed271b3b7ab1",
+      "n_documents": 48
+    }
+  },
+  "deliberately_skipped": [],
+  "pipeline_command": [
+    "-m",
+    "sync_pipeline.process_session",
+    "--rec_folder",
+    "Z:\\Gil\\Shamir_1\\20260923_105129.rec"
+  ],
+  "verified": true,
+  "verify_exit_code": 0
+}

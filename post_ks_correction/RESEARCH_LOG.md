@@ -11565,3 +11565,72 @@ the policy -- which result 2 measures.
 
 `scripts/pi_at_leaving.py`, figure `outputs/confidence_coding/pi_at_leaving.png`,
 per-trial pi in `outputs/confidence_coding/pi_at_leaving.csv`.
+
+---
+
+## 5be. 20260923_105129 reviewed, synced, and showing responses (2026-11-23)
+
+Gil finished the review and asked for the verdicts to be extracted, synced, and
+some responses drawn.
+
+**The decisions.** 341 of 503 units carry a verdict -- 175 good, 152 mua, 14
+noise -- leaving 162 on their automatic label. 48 merge pairs judged: 42 merge,
+4 separate, 2 unsure. 24 stability windows. Dumped from the page database with
+the artifact tooling, assembled into the three collection files, and archived to
+`Z:\Gil\Shamir_1\20260923_105129.rec\20260923_105129.kilosort\review\verdicts\`.
+
+**Sync.** `scripts/sync_session.py` against the .rec on Z. All nine verdict
+checks passed, which is the point of that script -- it refuses rather than runs
+when a collection is missing or stale:
+
+    T1 fingerprints        manifests and merge verdicts all stamped 8eb05ae0e1e6
+    T2 good/mua labels     263 verdicts carried into quality_label
+    T3 noise exclusions    14 noise verdicts, all absent from units and spikes
+    T4 unjudged untouched  161 unjudged units keep their automatic label
+    T5 merges              25 merge groups applied, parents absent
+    T6 separates respected 4 pairs judged separate, none merged
+    T7 stability windows   24 restricted units match the windows trial by trial
+    T8 every verdict       341/341 reached the dataset
+    T9 spikes -> units     448 distinct unit ids, all present in units.parquet
+
+The 42 accepted merge pairs collapse into **25 groups** (chains like 370/372/380
+and 415/416/421/422 are one unit each), taking 488 units to **448**. 651 trials,
+18,177,323 spikes. `spike_clusters.npy` untouched, as always -- the merges live
+in a manifest.
+
+**Clock.** 12,114 of 12,114 Bpod events matched their Trodes TTL (100%),
+leave-one-out holdout error median 1.6e-7 ms and **max 48.7 ms**, `gaps=[]`, no
+recording gaps, and no trial overlapping one. `sync_status` reads `needs_review`
+for the usual reason: that flag describes the single global affine fit, whose
+residual is 116 ms because the two clocks genuinely drift; the conversion in use
+is local interpolation. Port roles resolved unanimously -- center Port2 (589/589),
+left Port1 (185/185), right Port3 (303/303).
+
+**Responses, which are the real sync check.** 487 completed trials, 246 rewarded,
+138 good units screened (`scripts/plot_event_responses.py`):
+
+    cue start  105 of 138 modulated at p<0.05   strongest -32.9 Hz (unit 244)
+    cue end     97 of 138 modulated at p<0.05   strongest -50.7 Hz (unit 247)
+    reward      73 of 138 modulated at p<0.05   strongest +41.3 Hz (unit 318)
+
+Unit 136 rises 3.9 -> 9.1 Hz with a peak a few tens of ms wide sitting on t = 0,
+and unit 232 drops 34.1 -> 5.7 Hz at the valve. A sharp edge exactly at zero is
+evidence about alignment that no QC number can supply: a misaligned clock smears
+it or moves it. The population panels show the same thing across all 138.
+
+Figures `outputs/responses_20260923_105129_{cue_start,cue_end,reward,population}.png`.
+
+**Incidentally confirmed from `gui_settings`:** `FeedbackDelayTau = 1.5`, so the
+programmed hazard is 1/1.5 = **0.667 /s**. 5bd.93 measured 0.69 /s off the drawn
+delays without reading the settings. That is the lambda the attenuation argument
+rests on, now confirmed against the protocol itself rather than inferred.
+`PercentCatch = 0.15`, `FeedbackDelayMin/Max = 0.5 / 8`, and `CatchError = 1` --
+Shamir has always had error catch trials; it is Popper before 2026-11-17 that
+does not.
+
+**Register.** `scripts/session_status_report.py --live` then
+`scripts/build_session_register_html.py`, republished to version 15. 20260923
+reads SAVED, REVIEW CLOSED. The scan also flagged **20260924_121751 as DRIFTED** --
+5 verdicts exist in that page's browser database and nowhere else. They are the
+five units looked at on 19 November, not a lost review, but the table is right to
+say so.
