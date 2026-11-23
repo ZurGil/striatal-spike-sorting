@@ -11634,3 +11634,61 @@ reads SAVED, REVIEW CLOSED. The scan also flagged **20260924_121751 as DRIFTED**
 5 verdicts exist in that page's browser database and nowhere else. They are the
 five units looked at on 19 November, not a lost review, but the table is right to
 say so.
+
+---
+
+## 5bf. Din7/Din8 are recorded but not exported, and why that does not matter (2026-11-23)
+
+The camera adapter is nearly done, so the question became: when the FLIR starts
+pulsing the Aux2 input, where does that land in the data? Today's extraction of
+`20261123_090039` answered most of it by accident.
+
+**Six exported Din files, eight acquired channels.** `trodesexport` wrote
+`Din1` through `Din6` and nothing else. The configuration embedded in the
+recording header shows why that is not a hardware limit:
+
+    Channel bit="5" dataType="digital" id="Controller_Din6" input="1" startByte="0"
+    Channel bit="6" dataType="digital" id="Controller_Din7" input="1" startByte="0"
+    Channel bit="7" dataType="digital" id="Controller_Din8" input="1" startByte="0"
+
+All eight digital inputs sit in the `HardwareConfiguration`, so bits 6 and 7 are
+captured into every packet. But only `Din1`..`Din6` have a `DispChannel` entry in
+the display configuration, and only six files came out.
+
+**Proof that the display configuration is what gates the export.** Surveyed the
+exported DIO folder of every archived session across all three rats, 40 sessions.
+Thirty-nine wrote six Din files. Exactly one -- Popper `20261110_114556` -- wrote
+**eight**, and its embedded display configuration is the only one listing all
+eight `DispChannel` entries. Six listed, six exported; eight listed, eight
+exported. Nothing else distinguishes it.
+
+Its `Din7` and `Din8` hold **exactly 1 record each**: the initial-state entry and
+no transitions, which is a flat unconnected line, correct for 10 November when no
+camera existed. That is also the same signature as the 732-byte files seen
+mid-export earlier today, which closes that diagnosis -- header 732 bytes,
+5 bytes per record, one record.
+
+**So the camera timestamps are never at risk.** Bits 6 and 7 go into the `.rec`
+whatever the display configuration says, and
+`scripts/check_bpod_dio_in_rec.py` reads the raw packet bytes directly -- it is
+how the Bpod word was verified live this morning before any `.dat` existed. A
+recording made with the configuration as it stands still carries the frame times;
+only the two convenience `.dat` files would be missing, and they are not the
+source of truth.
+
+**The tidy fix.** Add `Din7` and `Din8` to the DIO display in Trodes and save the
+workspace. Deliberately *not* recommending loading the Nov 10
+`temp.trodesconf` instead: its 384 `hwChan` assignments are byte-for-byte
+identical to today's recording, so the channel map is not the hazard here, but the
+channel map is the only field that was compared, and there is no reason to import
+unexamined fields into a working acquisition setup to gain two display entries.
+
+**Extraction and archive.** `20261123_090039` (Popper) exported clean -- header
+exactly 732 bytes on all six Din files, remainder 0 on every one, so the 5-byte
+record structure is intact and nothing is truncated:
+
+    Din1 10,026   Din2 6,990   Din3 3,793   Din4 4,309   Din5 1,521   Din6 2,619
+
+`probe1.dat` final at 365.0 GB, `timestamps.dat` 1.90 GB, `.rec` 406.9 GB.
+Copied to `Z:\Gil\Popper\20261123_090039.rec`, which did not previously exist.
+Nothing deleted from F.
