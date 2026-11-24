@@ -29,7 +29,9 @@ Usage:
     python camera_frame_times.py <session-id or .rec path>
                                  [--line 8]            which Din carries the pulses
                                  [--frames N]          frames the camera wrote
-                                 [--frames-csv <path>] record.py's per-grab CSV
+                                 [--frames-csv <path>] record.py's per-grab CSV, or the
+                                                       directory holding them (then the
+                                                       right one is found by fingerprint)
                                  [--polarity low|high] which phase is the exposure
                                  [--out <dir>]         default: the session's own folder
                                  [--no-figure]
@@ -126,6 +128,61 @@ def read_line(path, L, bit):
     dio = np.ascontiguousarray(mm[:, L["dio"]])
     t0 = int(np.frombuffer(mm[0, L["ts_off"]:L["ts_off"] + 4].tobytes(), np.uint32)[0])
     return ((dio >> bit) & 1).astype(np.int8), t0, npk
+
+
+def resolve_csv(arg, npulse):
+    """Find record.py's CSV for this recording, by fingerprint rather than by name.
+
+    The session name is typed by hand on the camera PC's command line (record.py's
+    --session), so the video and the recording can end up named inconsistently. That is
+    a bookkeeping problem, not a data problem: the ChunkFrameID span is a fingerprint.
+    An hour at 60 Hz is ~216,000 exposures, and two different sessions agree on that
+    count only if they were started and stopped on the very same frame, so a span equal
+    to the pulse count identifies the CSV belonging to this recording whatever it is
+    called. Prefer passing the directory and letting this pick the file: a name can be
+    mistyped, a count of a quarter of a million cannot be mistyped into agreement.
+    """
+    import glob as _glob
+    if os.path.isfile(arg):
+        return arg
+    cands = sorted(_glob.glob(os.path.join(arg, "*_frames.csv")) if os.path.isdir(arg)
+                   else _glob.glob(arg))
+    if not cands:
+        raise SystemExit("no *_frames.csv found at %s" % arg)
+    if len(cands) == 1:
+        return cands[0]
+
+    import pandas as pd
+    hits, table = [], []
+    for c in cands:
+        try:
+            fid = pd.to_numeric(pd.read_csv(c, usecols=["frame_id"])["frame_id"],
+                                errors="coerce")
+            span = (int(fid.max()) - int(fid.min()) + 1) if fid.notna().any() else 0
+        except Exception as e:
+            table.append((c, "unreadable (%s)" % e))
+            continue
+        table.append((c, "span %d" % span))
+        if span == npulse:
+            hits.append(c)
+
+    print("\nidentifying the camera CSV by fingerprint: %d candidates, %d pulses on the wire"
+          % (len(cands), npulse))
+    for c, s in table:
+        print("  %-46s %s%s" % (os.path.basename(c), s,
+                                "   <== MATCH" if c in hits else ""))
+    if len(hits) == 1:
+        print("  exactly one span equals the pulse count, so this CSV is this "
+              "recording's regardless of what it is named")
+        return hits[0]
+    if not hits:
+        raise SystemExit(
+            "no CSV has a ChunkFrameID span equal to the %d pulses in this recording. "
+            "Either the video for this session is not in %s, or frames were exposed "
+            "outside the recording window -- check the start/stop order before "
+            "trusting any pairing." % (npulse, arg))
+    raise SystemExit("%d CSVs match the pulse count, so the fingerprint cannot single "
+                     "one out -- pass the file path explicitly" % len(hits))
 
 
 def join_frames(pulses, csv_path, npulse):
@@ -306,7 +363,7 @@ def main():
     })
 
     if frames_csv:
-        df, extra = join_frames(df, frames_csv, start.size)
+        df, extra = join_frames(df, resolve_csv(frames_csv, start.size), start.size)
         problems.extend(extra)
     else:
         print("\nNOTE: no --frames-csv, so nothing here can catch a frame the camera "
