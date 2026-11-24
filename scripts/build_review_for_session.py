@@ -117,6 +117,42 @@ def sha1_of(path, chunk=1 << 20):
     return h.hexdigest()
 
 
+# The two fields step 9 writes onto EVERY unit, whether or not the underlying
+# measurement came out: cluster_points is assigned unconditionally and
+# sep_vs_noise is assigned in both branches. burst_curve is a weaker test (it
+# can be absent on a unit with no bursts), so it is not part of the check.
+MERGE_FIELDS = ("cluster_points", "sep_vs_noise")
+
+
+def review_data_is_merged(path):
+    """Has this pipeline_review_data been through step 9?
+
+    Step 9 (merge_review_data_session.py) rewrites the file IN PLACE, adding the
+    raw-bound fields to every unit. Before and after, the file is a valid review
+    file with the same units and the same waveforms -- these fields are the only
+    difference, so a page built from the pre-merge version looks complete right
+    up until it is open, when every unit's channel reads null and every scatter
+    panel reads "not yet computed".
+
+    It matters here because Z can hold either version. Where the post-KS job ran
+    to the end on the cluster, Z's copy IS the merged one and Z is rightly the
+    archive. On 20260928/29/30 the cluster could not run steps 5, 6b and 9 (no
+    standalone .trodesconf was staged with the data), so Z holds the pre-merge
+    file, step 9 was re-run on this machine, and taking Z's copy -- correct for
+    every other input -- threw that merge away without a word. For this one
+    file, then, the question is which copy is merged, not which copy is on Z.
+    """
+    try:
+        with open(path) as fh:
+            records = json.load(fh)
+    except Exception:
+        return False
+    if not isinstance(records, list) or not records:
+        return False
+    first = records[0]
+    return isinstance(first, dict) and all(f in first for f in MERGE_FIELDS)
+
+
 def find_session(sid):
     """(rat, rat_root, rec_dir, ks_dir) for the copy that actually holds the sort."""
     partial = []
@@ -204,8 +240,17 @@ def bring_in_cluster_inputs(sid, rec):
             else:
                 absent.append(name)
             continue
-        if not os.path.exists(dst) or sha1_of(src) != sha1_of(dst):
-            shutil.copy2(src, dst)
+        if os.path.exists(dst) and sha1_of(src) == sha1_of(dst):
+            extras.append(name)
+            continue
+        if (name.startswith("pipeline_review_data") and os.path.exists(dst)
+                and review_data_is_merged(dst)
+                and not review_data_is_merged(src)):
+            say("    keeping the local %s -- it has been through step 9 and "
+                "Z's copy has not" % name)
+            extras.append(name)
+            continue
+        shutil.copy2(src, dst)
         extras.append(name)
     if extras:
         say("    the cluster also built %d of the %d display inputs, taken from Z: %s"
