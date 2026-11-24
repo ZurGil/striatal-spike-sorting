@@ -29,7 +29,7 @@ wrong is losing track of *which* frame is frame *i*, and §5 is how that is chec
 | part | detail |
 |---|---|
 | camera-side connector | FLIR's own cased 6-pin Hirose GPIO cable, shipped with the `-C` model |
-| MCU-side plug | **Adam Tech MDP-007** (DigiKey 2057-MDP-007-ND), 7-position circular plug, male pins, solder cups |
+| MCU-side plug | **Adam Tech MDP-007**, 7-position circular plug, male pins, solder cups — <https://www.digikey.com/en/products/detail/adam-tech/MDP-007/10222602> (DigiKey 2057-MDP-007-ND) |
 | MCU-side socket | **Aux2** — the **right-hand** 7-pin mini-DIN on the MCU **front** panel, engraved **2** |
 | external components | **none** |
 
@@ -59,6 +59,41 @@ Only two of the camera's six wires are used.
 
                                             pin 4   +5 V  ── DO NOT CONNECT
 ```
+
+### Where the wires actually went — Gil's record of the plug he built
+
+Marked on the MDP-007 datasheet outline, **in the orientation he was looking at while
+soldering**. The plug face has three holes across the top, two in the middle row either side
+of the rectangular key, and two along the bottom.
+
+```
+                    key notch
+                   ___     ___
+                  /   \   /   \
+             .---'     '-'     '---.
+            /                       \
+           |    (o)    (o)    (o)    |     top row    — all empty
+           |                         |
+          |  (o)   [   key   ]  (B)  |     middle row — RIGHT = BLUE, Opto GND, 0 V
+           |                         |
+           |      (o)       (W)      |     bottom row — RIGHT = WHITE, Line 1, ~3.3 V
+            \                       /
+             '---.             .---'
+                  '-----------'
+
+        (B) blue = opto ground      (W) white = Line 1, the signal
+        (o) empty — one of these is +5 V
+```
+
+**This is a record, not an authority.** The two holes were chosen by *metering* — 0 V and
+~3.3 V — and that is what made them correct; the drawing only remembers where they turned out
+to be. The datasheet outline does not state whether it is drawn from the mating face or the
+solder side, so the left–right sense of this picture is Gil's orientation at the bench and
+nothing more.
+
+**It is, however, validated.** The plug built this way produced 15,191 clean pulses at
+59.9951 Hz with zero drops, so these positions are known-good for a second build. Meter them
+anyway: it costs a minute, and the failure mode is a damaged MCU.
 
 **BROWN must stay unconnected.** The whole point of using the opto-isolated output is that
 the camera's ground and the rig's ground never meet; brown is the camera's non-isolated power
