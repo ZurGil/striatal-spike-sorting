@@ -1,0 +1,16 @@
+VERDICT DUMP -- 20260924_121751
+written 2026-11-24T13:38:04 from the review tool's live database
+source  https://claude.ai/artifact/Qczrgr3CB5Un86bFdZuV5R
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       403   {'good': 204, 'mua': 180, 'noise': 19}
+merge verdicts       74   {'separate': 7, 'merge': 63, 'unsure': 4}
+trial selections     30
+
+Review finished 2026-11-24. Unit 426: Gil changed noise -> mua in the tool; the 426_434 merge was changed from merge to separate on his instruction (he said the merge click was a mistake), so 426 stays its own unit and is not in merge group 10023.
+
+sha256                                                            file
+2e481f3ab15bfe47a7d6eb62a7b0385b822ba9ac7742f36aa532bd8691900b42  verdicts.json  24357 bytes
+c605df10b39431a9d4d0268e5e867d648eb4508cfd8f491f9f9c6e6eb7e6600a  merge_verdicts.json  28063 bytes
+dce301982e8f0a96d2377ec00f8adb632999c943102d7d000a01fc6940aa38c5  trial_selections.json  14543 bytes
+99e719417313a86b87ec059f4efe0307a4c8851664e71a936eee6f83034b2065  manual_verdicts.csv  9056 bytes

@@ -54,11 +54,12 @@
   "verdicts": 341
  },
  "20260924_121751": {
-  "_note": "published 2026-11-17 from the backfill, review not started yet. 543 units, all 4235 co-located pairs compared, page 4.61 MiB, 46 files live.",
-  "merge_verdicts": 0,
-  "trial_selections": 0,
+  "_note": "read from the artifact database 2026-11-24 13:22 and again 13:35; Gil reported the review finished. Unit 426 noise -> mua by Gil; the 426_434 merge withdrawn on his instruction. Dumped to Z and synced the same day.",
+  "merge_verdicts": 74,
+  "read_at": "2026-11-24T13:35:00-06:00",
+  "trial_selections": 30,
   "url": "https://claude.ai/artifact/Qczrgr3CB5Un86bFdZuV5R",
-  "verdicts": 5
+  "verdicts": 403
  },
  "20260925_103539": {
   "_note": "Gil said the verdicts were done on 2026-11-19 and asked for the sync. 371 of 543 units carry a verdict (177 good, 178 mua, 16 noise); the 172 without keep their automatic label. 61 pairs judged: 58 merge, 3 unsure, no separates -- 30 merge groups after transitive closure. 20 stability windows. Also 18 hand-drawn reassignment regions in the reassignments collection, which have NO apply step yet and did not reach synced/. Dumped and synced the same day; T6 flags three unsure pairs that his own accepted merges join transitively.",
