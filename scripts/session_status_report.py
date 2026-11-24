@@ -55,6 +55,9 @@ ARTIFACTS = {
     "20260923_105129": "https://claude.ai/artifact/563NiJTGm4V51f4ZxwRAEb",
     "20260924_121751": "https://claude.ai/artifact/Qczrgr3CB5Un86bFdZuV5R",
     "20260925_103539": "https://claude.ai/artifact/92TL4UrUA8aLebcDnXyCzw",
+    "20260928_091523": "https://claude.ai/artifact/Ybre8gR2rqsM57zSqkpDEU",
+    "20260929_092327": "https://claude.ai/artifact/4pPhBpgEcjnHZZaSRrutct",
+    "20260930_091521": "https://claude.ai/artifact/LJDk69kkBPHfQBDDm9BbLa",
 }
 EXTRA_TOOLS = {
     "20260916_110311": [("Merge Adjudicator",
