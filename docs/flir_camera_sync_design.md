@@ -1,5 +1,22 @@
 # Adding a FLIR camera to the rig, synced to the neural data
 
+> **SUPERSEDED — this is the design phase. For what is actually on the rig, read
+> [`camera_sync_built.md`](camera_sync_built.md).**
+>
+> Three things in this document turned out wrong, and all three are documented in the
+> as-built reference instead:
+>
+> - **Din7 on the rear digital header** was abandoned. Din1–6 are the only live inputs;
+>   the pulse goes into **Aux2** (front 7-pin mini-DIN) and lands on **Din8**.
+> - **The external 2.2 k / 4.7 k resistor divider** is not in the signal path. The MCU has
+>   its own 10 k pull-up. The board must not be reconnected, even partly.
+> - **The pulse is not inverted.** This document predicts ~1.667 ms high / 15 ms low. The
+>   **HIGH phase is the exposure** (9.9584 ms measured against a reported 10002 µs) and the
+>   rising edge opens the shutter.
+>
+> Kept because the reasoning, the sources and the rejected alternatives (Bonsai+Bpod, the
+> Line0 reverse direction) are all still worth having.
+
 Design decisions and the reasoning, so the implementation on the camera PC does
 not have to re-derive them.
 

@@ -11692,3 +11692,78 @@ record structure is intact and nothing is truncated:
 `probe1.dat` final at 365.0 GB, `timestamps.dat` 1.90 GB, `.rec` 406.9 GB.
 Copied to `Z:\Gil\Popper\20261123_090039.rec`, which did not previously exist.
 Nothing deleted from F.
+
+---
+
+## 5bg. The camera sync documented as built, and the one thing that still depended on a typed name (2026-11-23)
+
+Gil asked for everything about the camera written down in one place — cable through to sync,
+with a drawing of the adapter, and the agreement with the camera-PC session recorded so he can
+ask about it later. Two outputs, same content:
+
+- **`docs/camera_sync_built.md`** — the repo reference.
+- **`https://claude.ai/artifact/XfkHV1U5QqsS5nLR7z3gMt`** — the page he opens at the rig,
+  with an SVG of the adapter.
+
+`docs/flir_camera_sync_design.md` now carries a banner naming the three things in it that are
+wrong (Din7 on the rear header, the resistor divider, the predicted inverted pulse) and
+pointing at the as-built document. It is kept for its sources and rejected alternatives.
+
+**The drawing deliberately does not number the solder cups.** Mini-DIN footprints mirror
+between a PCB-layout view and a front-panel view, and the seven-pin field is left-right
+symmetric, so a mirrored solder still *looks* right. The positions were never established
+from the datasheet and did not need to be: each contact is one post through the insulator, so
+the cup behind a pin *is* that pin, and the identification is by voltage — ~3.3 V is the
+input, 0 V is ground, ~5 V is the pin to leave empty. A drawing asserting hole positions would
+have been the one piece of this documentation capable of causing damage, so it asserts the
+procedure instead.
+
+**The last real risk was the session name, and it was not a wiring problem.** The camera
+session answered where the video lands (`D:\camera_recording\sessions`, 1.98 TB free,
+~1.8 GB/h) and, asked what happens on a name collision, found that `ffmpeg -y` plus a CSV
+opened in `"w"` mode meant **relaunching with a reused session name silently destroyed the
+earlier video and its frame log** — no warning, no trace, discoverable only by going to look
+for data that no longer existed. Fixed the same day: it now refuses to start if either output
+exists. That is the best catch of the day and it came out of asking a boring question about
+overwrite behaviour.
+
+What remained was that `--session` is typed by hand off the Trodes screen. A video paired with
+the wrong recording does not look wrong, so this is the kind of step that is done correctly
+for a month and then wrong once. The camera session offered to build a Trodes-side name
+reader; I declined it — a cross-machine dependency added the night before first use, to solve
+a problem that does not need solving that way.
+
+**The pulse train is a fingerprint.** An hour at 60 Hz is ~216,000 exposures, and two sessions
+agree on that count only if they were started and stopped on the very same frame. So
+`--frames-csv` now accepts a *directory*: it reads the ChunkFrameID span of every
+`*_frames.csv` in it and selects the one matching this recording's pulse count, whatever the
+file is called. The verification check and the pairing proof are the same number — nothing new
+had to be computed.
+
+Tested on `test.rec` (15,191 pulses) against three candidates: the true match at span 15,191
+was selected, a near-miss at 15,190 (one frame lost at the start) and a decoy at 5,000 were
+both rejected, and the join then ran clean on the selected file. With the matching CSV removed
+it refuses and prints the span table so the discrepancy is visible. Commit `8dec017`.
+
+**A measurement I had been asking Gil for turned out to be unnecessary.** I wanted a 30 s
+recording with the camera idle, to learn what Din8 reads when nothing is acquiring. He was away
+from the rig and asked whether I could do it myself; driving the Trodes GUI unattended on the
+machine whose MCU had tripped its protection that afternoon was not a trade worth making for a
+convenience measurement. It is moot anyway: with the order **Trodes record ON → camera ON …
+camera OFF → Trodes record OFF**, every real recording contains its own idle measurement in
+the quiet lead-in and tail, and the lead-in/tail guard already refuses anything with less than
+two frame periods of silence at each end. Better than the test would have been, because a
+clean run also *proves* the camera started after and stopped before the neural recording —
+which is the condition that makes pulse *i* = frame *i* true in the first place.
+
+**And the exposure question was being asked wrongly.** I had put it to Gil as 10002 µs vs
+15000 µs and 6.98 dB vs 12.9 dB. His answer: *"it should be whatever best for the video. I
+can't tell how it will look like by knowing the numbers."* He is right. The camera session
+shot the candidates and sent him a side-by-side image to choose from. The only constraint from
+this side is that the pulse width *is* the exposure: up to 15 ms is safe (1.67 ms gap = 50
+samples at 30 kHz), past ~15.5 ms edge detection degrades, past 16.67 ms the camera silently
+drops its frame rate. Within that bound it is an image-quality decision, not a sync decision.
+
+**Archive, same day.** `20261123_090039` copied to `Z:\Gil\Popper\20261123_090039.rec` —
+all 11 files, recursive size diff clean, `.rec` 406,857,052,994 B. The 190-byte mismatch seen
+mid-copy was `/J` preallocation, not a truncated file. Nothing deleted from F (760 GB free).
