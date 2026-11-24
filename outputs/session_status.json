@@ -178,10 +178,18 @@
       "row_id": "20260911_100049",
       "n_units": 466,
       "thresholds": "9.2 / 7.0",
-      "artifact": null,
+      "artifact": "https://claude.ai/artifact/1WbhVoKjkHcovYVGujoV4E",
       "tools": [],
       "verdicts_dir": null,
-      "review_tool": null,
+      "review_tool": {
+        "build": "20261124_0929",
+        "layout": "build",
+        "path": "Z:\\Gil\\Shamir_1\\20260911_100049.rec\\20260911_100049.kilosort\\review\\tool\\build_20261124_0929",
+        "n_builds": 1,
+        "page": true,
+        "merge_candidates": true,
+        "raw_shards": 19
+      },
       "cluster_info": true,
       "superseded_by": null,
       "joins": null,
@@ -1833,5 +1841,5 @@
       "state_why": "no verdicts anywhere"
     }
   ],
-  "live_source": "outputs/artifact_live_counts.json"
+  "live_source": "D:\\Gil\\spike_sorting_agent\\outputs\\artifact_live_counts.json"
 }

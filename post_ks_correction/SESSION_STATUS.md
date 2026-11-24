@@ -12,7 +12,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Popper | `20261112_082028` | 442 | 9.0 / 8.0 | yes (pre-`build_` layout, traces in the page db) | 260 | 140 | 120 | 0 | 31 | 18 | yes | yes | yes (`synced`) | pass (100% matched, 29 ms worst-case, 1085/1085 trials) | **NO ERROR CATCH** (CatchError=0; error wait 1.13s vs 6.61s on correct catch) | no | **SAVED, PARTIAL** |
 | Shamir | `20260901_085606` | 155 | 9.2 / 7.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | pass (100% matched, 48 ms worst-case, 733/733 trials) | ok (15.7% catch, error wait 5.27s) | no | **NOT REVIEWED** |
-| Shamir | `20260911_100049` | 466 | 9.2 / 7.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | pass (100% matched, 33 ms worst-case, 1023/1023 trials) | ok (15.3% catch, error wait 5.86s) | no | **NOT REVIEWED** |
+| Shamir | `20260911_100049` | 466 | 9.2 / 7.0 | yes (20261124_0929) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | pass (100% matched, 33 ms worst-case, 1023/1023 trials) | ok (15.3% catch, error wait 5.86s) | no | **NOT REVIEWED** |
 | Shamir | `20260914_122553` | 454 | 9.0 / 8.0 | yes (20261117_0948) | 264 | 137 | 127 | 0 | 31 | 29 | yes | yes | yes (`synced`) | pass (100% matched, 33 ms worst-case, 547/547 trials) | ok (13.3% catch, error wait 4.96s) | no | **SAVED, REVIEW CLOSED** |
 | Shamir | `20260915_084812 [from concat]` | 465 | 9.0 / 8.0 | **no** | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes (`synced_from_concat`) | pass (100% matched, 40 ms worst-case, 360/360 trials) | ok (15.0% catch, error wait 5.45s) | no | **HALF OF A JOIN** |
 | Shamir | `20260915_084812_103710_concat` | 465 | 9.0 / 8.0 | **no** | 322 | 161 | 159 | 2 | 33 | 26 | yes | yes | yes, through its halves (`20260915_084812`, `20260915_103710`) | pass (100% matched, 40 ms worst-case, 360/360 trials) | ok (15.0% catch, error wait 5.45s) | yes | **SAVED, REVIEW CLOSED** |
@@ -67,8 +67,8 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 - NOT REVIEWED -- no verdicts anywhere
 - 466 units, Kilosort thresholds 9.2 / 7.0
 - Bpod sync: **done** -- `synced`
-- review tool built on Z: **no** -- `build_review_for_session.py 20260911_100049` has not been run
-- review page: **none built yet**
+- review tool built on Z: `Z:\Gil\Shamir_1\20260911_100049.rec\20260911_100049.kilosort\review\tool\build_20261124_0929` (1 build kept) -- page yes, merge candidates yes, 19 raw-trace shard(s)
+- review page: https://claude.ai/artifact/1WbhVoKjkHcovYVGujoV4E
 - nothing saved on Z for this session yet
 - verdicts applied into `cluster_info.tsv`: **no**
 

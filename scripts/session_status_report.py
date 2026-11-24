@@ -45,6 +45,7 @@ RATS = [("Popper", r"Z:\Gil\Popper"),
 # written down.
 ARTIFACTS = {
     "20261112_082028": "https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG",
+    "20260911_100049": "https://claude.ai/artifact/1WbhVoKjkHcovYVGujoV4E",
     "20260916_110311": "https://claude.ai/artifact/FS2ySxRCF6ecGRduMmA2Ap",
     "20260915_084812_103710_concat": "https://claude.ai/artifact/9wCjhAQncHPDuSYijKwgMb",
     "20260914_122553": "https://claude.ai/artifact/JgJrGazBZmQ6KtjsRGhsn8",
