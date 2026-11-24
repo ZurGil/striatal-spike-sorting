@@ -138,20 +138,38 @@ def find_session(sid):
 
 
 def bring_in_cluster_inputs(sid, rec):
-    """Copy the cluster's four outputs into outputs/, with Z as the authority."""
+    """Make the four raw-bound inputs current in outputs/, with Z as the authority.
+
+    The question this answers is "do I have the four inputs", NOT "did a cluster job
+    put them on Z". Those came apart twice:
+
+      * sessions sorted before the RIS era (20260911_100049) had every one of these
+        computed on this PC, so they sit in `outputs/` and there is no
+        `cluster_outputs` on Z at all. Refusing on the absent folder refused a
+        session whose inputs were complete and present;
+      * 20260928/29/30 have a `cluster_outputs` that is missing two of the four,
+        because step 5 needs a standalone `.trodesconf` that was never shipped with
+        the data, and step 6b reads step 5's lookup. There the refusal is right --
+        but it has to name what is actually absent, not the folder.
+
+    So: Z wins wherever Z has the file, a local copy stands where Z does not, and the
+    build stops only on an input that exists in neither place. Nothing here can
+    substitute for a genuinely absent one -- they are computed from the raw .dat.
+    """
     src_dir = os.path.join(rec, sid + ".kilosort", "cluster_outputs")
-    if not os.path.isdir(src_dir):
-        raise SystemExit(
-            "no cluster_outputs beside the sort (%s).\nThe post-KS job either never "
-            "ran for this session or its results were never brought home. Nothing "
-            "here can substitute for them: they are computed from the raw .dat."
-            % src_dir)
-    missing, brought, already = [], [], []
+    on_z = os.path.isdir(src_dir)
+    if not on_z:
+        say("    no cluster_outputs on Z -- this session's inputs were computed here")
+    missing, brought, already, local_only = [], [], [], []
     for pattern in CLUSTER_INPUTS:
         name = pattern % sid
         src, dst = os.path.join(src_dir, name), os.path.join(OUT, name)
-        if not os.path.exists(src):
-            missing.append(name)
+        if not (on_z and os.path.exists(src)):
+            # Not on Z. A local copy is the input then; only neither is fatal.
+            if os.path.exists(dst):
+                local_only.append(name)
+            else:
+                missing.append(name)
             continue
         if os.path.exists(dst):
             if sha1_of(src) == sha1_of(dst):
@@ -163,18 +181,28 @@ def bring_in_cluster_inputs(sid, rec):
         brought.append(name)
     if missing:
         raise SystemExit(
-            "the post-KS job's output is incomplete for %s -- missing:\n  %s\n"
-            "Re-run the missing step on the cluster while the raw .dat is still "
-            "staged; see scripts/ris_run_postks.sh for the exact commands."
+            "the post-KS job's output is incomplete for %s -- these are on neither Z "
+            "nor this machine:\n  %s\n"
+            "Each is computed from the raw .dat, so re-run the missing step on the "
+            "cluster while the data is staged; see scripts/ris_run_postks.sh for the "
+            "exact commands. Note that step 6b reads step 5's lookup, so a missing "
+            "unit_trodes_channel_lookup takes raw_separation_full down with it, and "
+            "step 5 needs a standalone <sid>.trodesconf staged alongside the data."
             % (sid, "\n  ".join(missing)))
-    say("    %d already current, %d copied from Z" % (len(already), len(brought)))
+    say("    %d already current, %d copied from Z%s"
+        % (len(already), len(brought),
+           ", %d taken from the local copy (not on Z)" % len(local_only)
+           if local_only else ""))
 
     extras, absent = [], []
     for pattern in CLUSTER_EXTRAS:
         name = pattern % sid
         src, dst = os.path.join(src_dir, name), os.path.join(OUT, name)
-        if not os.path.exists(src):
-            absent.append(name)
+        if not (on_z and os.path.exists(src)):
+            if os.path.exists(dst):
+                extras.append(name)
+            else:
+                absent.append(name)
             continue
         if not os.path.exists(dst) or sha1_of(src) != sha1_of(dst):
             shutil.copy2(src, dst)
