@@ -85,15 +85,27 @@ of the rectangular key, and two along the bottom.
         (o) empty — one of these is +5 V
 ```
 
-**This is a record, not an authority.** The two holes were chosen by *metering* — 0 V and
-~3.3 V — and that is what made them correct; the drawing only remembers where they turned out
-to be. The datasheet outline does not state whether it is drawn from the mating face or the
-solder side, so the left–right sense of this picture is Gil's orientation at the bench and
-nothing more.
+### Which way round the drawing is — settled, all three views
 
-**It is, however, validated.** The plug built this way produced 15,191 clean pulses at
-59.9951 Hz with zero drops, so these positions are known-good for a second build. Meter them
-anyway: it costs a minute, and the failure mode is a damaged MCU.
+Confirmed by Gil, 2026-11-23. The drawing above is correct for **two** of the three ways you
+can look at this connection, and mirrored for the third:
+
+| you are looking at | drawing above |
+|---|---|
+| the **jack** on the MCU, face on, while metering | **as drawn** |
+| the **adapter from the solder side** — the cups, the way you solder it | **as drawn** |
+| the **adapter from the pin side** — the face that enters the jack | **mirrored** |
+
+That is ordinary mating geometry rather than a quirk: a plug and a socket mirror when they
+mate, so the plug's rear is the same handedness as the socket's face. It also means the view
+you solder in and the view you meter in are the same one, which is why the procedure works.
+
+**And it is validated, not inferred.** The plug built this way produced 15,191 clean pulses
+at 59.9951 Hz with zero drops. The connection works; these are the holes it works with.
+
+**Meter it anyway on any future build.** Not because this record is doubtful — it isn't — but
+because it costs one minute and the failure mode is 5 V on a 3.3 V input, which the manual
+says damages the system.
 
 **BROWN must stay unconnected.** The whole point of using the opto-isolated output is that
 the camera's ground and the rig's ground never meet; brown is the camera's non-isolated power
