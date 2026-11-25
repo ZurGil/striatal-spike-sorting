@@ -35,7 +35,10 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
 import confidence_coding_quick_check as C  # noqa: E402
 
-SESSIONS = ["20260916_110311", "20260917_100043", "20260918_100248"]
+# The same sessions the check and the figure use. This was a hand-written list of
+# three, frozen in October, which silently answered the depth question on a third
+# of the data every time the main analysis grew.
+SESSIONS = list(C.DEFAULT_SESSIONS)
 SPLIT_MM = 4.70        # dorsal / ventral boundary, below the brain surface
 N_SUB = 10             # subsample repeats for the equal-n decode
 EPOCHS_DECODE = ["cue", "chin"]

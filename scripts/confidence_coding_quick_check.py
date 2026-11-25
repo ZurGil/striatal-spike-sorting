@@ -66,14 +66,20 @@ SESSIONS = {
     "20260917_100043": r"Z:/Gil/Shamir_1/20260917_100043.rec/20260917_100043.kilosort/synced",
     "20260918_100248": r"Z:/Gil/Shamir_1/20260918_100248.rec/20260918_100248.kilosort/synced",
     "20260922_144404": r"Z:/Gil/Shamir_1/20260922_144404.rec/20260922_144404.kilosort/synced",
+    "20260923_105129": r"Z:/Gil/Shamir_1/20260923_105129.rec/20260923_105129.kilosort/synced",
+    "20260924_121751": r"Z:/Gil/Shamir_1/20260924_121751.rec/20260924_121751.kilosort/synced",
     "20260925_103539": r"Z:/Gil/Shamir_1/20260925_103539.rec/20260925_103539.kilosort/synced",
+    "20260930_091521": r"Z:/Gil/Shamir_1/20260930_091521.rec/20260930_091521.kilosort/synced",
     "20261112_082028": r"Z:/Gil/Popper/without_error_catch_trials_before_20261117/20261112_082028.rec/20261112_082028.kilosort/synced",
-    # Synced long ago but never reviewed: its "good" labels are Kilosort's, not Gil's.
-    # Kept out of the default set and run only when asked, because pooling a
-    # hand-curated unit population with an automatic one hides which is which.
+    # Synced but never reviewed: the "good" labels are Kilosort's, not Gil's. Kept out
+    # of the default set and run only when asked, because pooling a hand-curated unit
+    # population with an automatic one hides which is which.
     "20260911_100049": r"Z:/Gil/Shamir_1/20260911_100049.rec/20260911_100049.kilosort/synced",
+    # Also sorted at Th 9.2/7.0 rather than 9.0/8.0, so its unit population is not
+    # drawn from the same procedure as the rest even once it is reviewed.
+    "20260901_085606": r"Z:/Gil/Shamir_1/20260901_085606.rec/20260901_085606.kilosort/synced",
 }
-UNREVIEWED = {"20260911_100049"}
+UNREVIEWED = {"20260911_100049", "20260901_085606"}
 
 # Which animal each session belongs to. Pooling per-unit counts across rats answers
 # no question -- Gil, 2026-11-18, after one Popper session with 27 of 62 units
@@ -87,8 +93,12 @@ RAT = {
     "20260917_100043": "Shamir_1",
     "20260918_100248": "Shamir_1",
     "20260922_144404": "Shamir_1",
+    "20260923_105129": "Shamir_1",
+    "20260924_121751": "Shamir_1",
     "20260925_103539": "Shamir_1",
+    "20260930_091521": "Shamir_1",
     "20260911_100049": "Shamir_1",
+    "20260901_085606": "Shamir_1",
     "20261112_082028": "Popper",
 }
 DEFAULT_RAT = "Shamir_1"
