@@ -24,6 +24,17 @@
 #                                said DONE (RESEARCH_LOG 5bd.46).
 #   <sid>.channelmap_probe1.dat  the map's source, so the map can be re-audited there
 #   <sid>_custom_neuropixels_map.json   the map itself, built here
+#   <sid>.trodesconf             carved out of the .rec's own header by
+#                                extract_trodesconf_from_rec.py. ALSO NOT OPTIONAL, and
+#                                it used to be missing: post-KS step 5 (the Trodes
+#                                channel lookup) and step 6b (the raw separation
+#                                metric, which reads step 5's CSV) both need it, and
+#                                step 9 then has nothing to show. They fail AFTER the
+#                                GPU hours are spent and quietly enough that the
+#                                session looks sorted and the review page looks
+#                                finished. ris_submit_postks.sh only warns about it,
+#                                so the only reliable place to get it right is here.
+#                                A few hundred KB beside 300 GiB.
 #   dio_Controller_Din{1..6}.dat six small files, for sync later
 #
 # VERIFICATION, before a single job is submitted
@@ -59,6 +70,8 @@ case "$RAT" in
   *) echo "unknown rat $RAT"; exit 2 ;;
 esac
 MAPS="/d/Gil/probe_maps/${RAT}"
+HERE_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE_OUT="$(cd "$HERE_SCRIPTS/.." && pwd)/outputs"
 REMOTE="/scratch1/fs1/akepecs/zur"
 CODE="/storage2/fs1/akepecs/Active/Gil_Zur/code"
 LOG="/d/Gil/spike_sorting_agent/outputs/ris_upload_batch_$(date +%Y%m%d_%H%M).log"
@@ -167,8 +180,23 @@ for sid in "${SIDS[@]}"; do
   KS="$ARCH/${sid}.rec/${sid}.kilosort"
   DIO="$ARCH/${sid}.rec/${sid}.DIO"
   MAP="$MAPS/${sid}_custom_neuropixels_map.json"
+
+  # The Trodes config has to be carved out of the .rec HERE -- the compute node never
+  # sees the .rec. Do it before the file list is checked, so a session missing it is
+  # fixed rather than skipped. If the carve fails the extractor says why and exits
+  # non-zero; the file then shows up as MISSING below and the session is skipped
+  # instead of being sorted into a half-finished state.
+  TCONF="$HERE_OUT/${sid}.trodesconf"
+  if [ ! -s "$TCONF" ]; then
+    say "    carving ${sid}.trodesconf out of the .rec header"
+    "$PY" "$HERE_SCRIPTS/extract_trodesconf_from_rec.py" "$sid" --rat "$RAT" \
+      --out "$TCONF" 2>&1 | sed 's/^/      /' | tee -a "$LOG"
+  else
+    say "    ${sid}.trodesconf already carved ($(stat -c%s "$TCONF") bytes)"
+  fi
+
   files=("$KS/${sid}.probe1.dat" "$KS/${sid}.timestamps.dat"
-         "$KS/${sid}.channelmap_probe1.dat" "$MAP")
+         "$KS/${sid}.channelmap_probe1.dat" "$MAP" "$TCONF")
   for i in 1 2 3 4 5 6; do files+=("$DIO/${sid}.dio_Controller_Din${i}.dat"); done
 
   missing=0

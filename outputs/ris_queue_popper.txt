@@ -1,0 +1,38 @@
+# Popper sort queue -- the post-CatchError era only.
+#
+# WHY THE LIST STARTS AT 17 NOVEMBER
+# ----------------------------------
+# The Bpod task changed on 2026-11-17. Measured, not guessed: GUI.CatchError is 0 in
+# every trial of every session from Nov 09 to Nov 16 (including the one-trial
+# Nov 16 Session2) and 1 in every trial of every session from Nov 17 to Nov 24. It
+# never switches mid-session anywhere, and no other GUI field moves across that
+# boundary. So Nov 17 Session1, trial 1, is the first trial of the new task, and the
+# six usable Popper recordings are:
+#
+#     20261117_084903   20261118_090757   20261119_084707
+#     20261120_090017   20261123_090039   20261124_125219
+#
+# Everything from Nov 16 back is a different task and is not worth GPU hours.
+#
+# ORDER
+#   today's session first, because it is the one being waited on, then backwards in
+#   time. The serial pipeline keeps at most two on scratch and will not stage the
+#   next until a slot opens.
+#
+# THRESHOLDS
+#   ris_submit_all.sh defaults -- Th_universal 9.0, Th_learned 8.0, Kilosort 4.0.24.
+#   The same figures every Shamir session since 20260924 was sorted with, so this
+#   batch is internally uniform AND uniform with current practice, which is what
+#   cross-session unit tracking needs.
+#
+# Run it with:
+#   bash scripts/ris_serial_pipeline.sh --rat Popper --queue outputs/ris_queue_popper.txt
+
+20261124_125219
+20261123_090039
+20261120_090017
+
+# Not queued, but ready if wanted (maps built, geometry checked, archive verified):
+# 20261119_084707
+# 20261118_090757
+# 20261117_084903

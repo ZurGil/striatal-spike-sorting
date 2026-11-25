@@ -121,10 +121,17 @@ if [ ! -s "${TS}" ] && ! ls "$(dirname "${DATA}")"/concat_*.json >/dev/null 2>&1
 fi
 
 # The Trodes config, needed by step 5 (the channel lookup) and therefore by step 6b,
-# which reads step 5's CSV. stage_session_to_ris.ps1 extracts it from the .rec header and
-# ships it -- but a CONCATENATED session has no .rec at all, so for those it has to be
-# taken from either part and dropped in by hand. Warn rather than refuse: the other four
+# which reads step 5's CSV. ris_upload_batch.sh -- the route that is actually used --
+# carves it out of the .rec header with extract_trodesconf_from_rec.py and ships it
+# beside probe1.dat, and stage_session_to_ris.ps1 does the same for the mounted-share
+# route. A CONCATENATED session has no .rec at all, so for those it has to be taken
+# from either part and dropped in by hand. Warn rather than refuse: the other four
 # steps, bombcell included, do not need it and are worth running regardless.
+#
+# This stayed a warning for a long time while nothing on the upload path supplied the
+# file, which is the worst of both worlds -- two steps failed on every session and the
+# only trace was a line in a job log nobody reads. The supply side is fixed now; the
+# warning is kept for the concatenated case, which genuinely has no .rec to carve.
 if [ ! -s "${SDIR}/${SESSION}.rec/${SESSION}.trodesconf" ] \
    && [ ! -s "${SCRATCH}/${SESSION}/${SESSION}.trodesconf" ]; then
     echo "WARNING: no ${SESSION}.trodesconf anywhere." >&2
