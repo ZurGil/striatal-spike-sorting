@@ -72,7 +72,7 @@ WAVEFORMS = {
     "20260916_110311": "Z:/Gil/Shamir_1/20260916_110311.rec/20260916_110311.kilosort/waveforms_curated_z",
     "20260917_100043": "Z:/Gil/Shamir_1/20260917_100043.rec/20260917_100043.kilosort/waveforms_cluster",
     "20260918_100248": "Z:/Gil/Shamir_1/20260918_100248.rec/20260918_100248.kilosort/waveforms_cluster",
-    "20261112_082028": "Z:/Gil/Popper/20261112_082028.rec/20261112_082028.kilosort/waveforms",
+    "20261112_082028": "Z:/Gil/Popper/without_error_catch_trials_before_20261117/20261112_082028.rec/20261112_082028.kilosort/waveforms",
 }
 
 RADIUS = 60.0        # um, channels included around a unit's peak site

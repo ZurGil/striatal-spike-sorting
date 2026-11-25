@@ -67,7 +67,7 @@ SESSIONS = {
     "20260918_100248": r"Z:/Gil/Shamir_1/20260918_100248.rec/20260918_100248.kilosort/synced",
     "20260922_144404": r"Z:/Gil/Shamir_1/20260922_144404.rec/20260922_144404.kilosort/synced",
     "20260925_103539": r"Z:/Gil/Shamir_1/20260925_103539.rec/20260925_103539.kilosort/synced",
-    "20261112_082028": r"Z:/Gil/Popper/20261112_082028.rec/20261112_082028.kilosort/synced",
+    "20261112_082028": r"Z:/Gil/Popper/without_error_catch_trials_before_20261117/20261112_082028.rec/20261112_082028.kilosort/synced",
     # Synced long ago but never reviewed: its "good" labels are Kilosort's, not Gil's.
     # Kept out of the default set and run only when asked, because pooling a
     # hand-curated unit population with an automatic one hides which is which.

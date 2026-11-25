@@ -2,7 +2,7 @@
 """Trial-locked responses of the good units: every one screened, the strongest drawn.
 
     python scripts/plot_event_responses.py 20261112_082028 \
-        --synced Z:\\Gil\\Popper\\20261112_082028.rec\\20261112_082028.kilosort\\synced
+        --synced Z:\\Gil\\Popper\\without_error_catch_trials_before_20261117\\20261112_082028.rec\\20261112_082028.kilosort\\synced
 
 WHAT THIS IS FOR
 ----------------
