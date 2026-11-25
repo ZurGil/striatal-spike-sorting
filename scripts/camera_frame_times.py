@@ -163,7 +163,9 @@ def resolve_csv(arg, npulse):
             table.append((c, "unreadable (%s)" % e))
             continue
         table.append((c, "span %d" % span))
-        if span == npulse:
+        # npulse - 1 is as good a match as npulse: the exposure under way when the
+        # camera is stopped makes a pulse that never becomes a frame (see last_run)
+        if span in (npulse, npulse - 1):
             hits.append(c)
 
     print("\nidentifying the camera CSV by fingerprint: %d candidates, %d pulses on the wire"
@@ -221,7 +223,11 @@ def join_frames(pulses, csv_path, npulse):
     print("  ChunkFrameID %d .. %d  -> span %d exposures" % (f_first, f_last, span))
     print("  pulses on the wire: %d" % npulse)
 
-    if span != npulse:
+    trailing = npulse - span
+    if trailing == 1:
+        print("  one pulse more than exposures logged -- the stop cut off the exposure "
+              "already under way, so the last pulse has no frame. Mapping is unaffected.")
+    if trailing not in (0, 1):
         d = npulse - span
         hint = ""
         if incomplete and fid.isna().any():
@@ -232,9 +238,10 @@ def join_frames(pulses, csv_path, npulse):
                        if len(lost) == abs(d) else
                        "they only partly account for it"))
         return pulses, [
-            "%d pulses but ChunkFrameID spans %d exposures (difference %+d) -- the camera "
-            "exposed frames the host never observed, so the offset between pulse 1 and "
-            "the first logged frame is not determined.%s" % (npulse, span, d, hint)]
+            "%d pulses but ChunkFrameID spans %d exposures (difference %+d; 0 or +1 is "
+            "correct) -- the camera exposed frames the host never observed, so the offset "
+            "between pulse 1 and the first logged frame is not determined.%s"
+            % (npulse, span, d, hint)]
 
     # Exact: pulse i is ChunkFrameID f_first + i - 1.
     pulses = pulses.copy()
@@ -246,6 +253,51 @@ def join_frames(pulses, csv_path, npulse):
                         % unmatched]
     print("  every logged grab matched a pulse; mapping is exact")
     return out, []
+
+
+def last_run(rise, fall, fs):
+    """Keep only the final contiguous pulse train, and say what was dropped.
+
+    A camera run that is started, stopped and started again leaves TWO trains in one
+    recording, separated by however long the operator took to restart. That happened on
+    20261124_125219: a 117-pulse block at 47.3 s (a ~2 s start killed by a launcher bug),
+    15.33 s of silence, then the real 1,000,052-pulse run from 64.5 s. Counting the whole
+    line gives 1,000,169, which is wrong by exactly the length of the aborted run, and the
+    gap between the two reads as catastrophic pulse loss -- so without this the session is
+    refused outright even though its real train is perfect.
+
+    Only the LAST block can be the session's video, because the writer that produced the
+    surviving .mp4 was the last one started.
+
+    Returns (rise, fall, prev_edge, dropped), where prev_edge is the last edge before the
+    kept block (0 if none) so the caller measures the quiet lead-in against the silence
+    that actually precedes the train, not against the start of the recording.
+    """
+    if rise.size < 3:
+        return rise, fall, 0, []
+    per = np.diff(rise)
+    med = float(np.median(per))
+    cut = np.flatnonzero(per > 5 * med)
+    if cut.size == 0:
+        return rise, fall, 0, []
+
+    bounds = np.concatenate(([0], cut + 1, [rise.size]))
+    dropped = []
+    for a, b in zip(bounds[:-2], bounds[1:-1]):
+        blk = rise[a:b]
+        dropped.append((int(blk.size), float(blk[0] / fs), float(blk[-1] / fs)))
+    first = rise[bounds[-2]]
+    prev_edge = int(max(rise[bounds[-2] - 1],
+                        fall[fall < first].max() if np.any(fall < first) else 0))
+
+    print("\n%d separate pulse trains on this line -- the camera was started more than "
+          "once. Keeping the LAST one; the earlier runs wrote no video that survives."
+          % (len(dropped) + 1))
+    for k, (n, t_a, t_b) in enumerate(dropped, 1):
+        print("  dropped run %d: %d pulses, %.3f..%.3f s into the recording"
+              % (k, n, t_a, t_b))
+    print("  keeping: %d pulses from %.3f s" % (rise.size - bounds[-2], first / fs))
+    return rise[rise >= first], fall[fall >= first], prev_edge, dropped
 
 
 def main():
@@ -282,6 +334,8 @@ def main():
           % (line, rise.size, fall.size, b.mean()))
     if rise.size < 3:
         raise SystemExit("Din%d is not carrying a pulse train -- nothing to do" % line)
+
+    rise, fall, prev_edge, dropped_runs = last_run(rise, fall, fs)
 
     # Exposure start is the edge that begins the active phase. Measured on this rig the
     # HIGH phase is the exposure: the camera reported ExposureTime = 10002 us while the
@@ -328,7 +382,9 @@ def main():
     # the same instantaneously. Only the absence of transitions distinguishes them, so
     # the test is whether there is a quiet lead-in before the train starts.
     all_edges = np.sort(np.concatenate([rise, fall]))
-    lead_in = float(all_edges[0]) / fs
+    # measured from the end of the previous run where there was one, so a restart is
+    # judged on the silence that actually precedes the kept train
+    lead_in = float(all_edges[0] - prev_edge) / fs
     tail = float(npk - all_edges[-1]) / fs
     period = med / 1000.0
     print("\nquiet lead-in before the first edge : %.3f s (%.1f frame periods)"
@@ -344,10 +400,23 @@ def main():
         problems.append("the train runs to the last packet (tail %.3f s) -- the recording "
                         "stopped before the camera did, so the final frames may have no "
                         "pulse recorded" % tail)
-    if nframes is not None and nframes != start.size:
-        problems.append("camera wrote %d frames but the train has %d pulses (difference "
-                        "%+d) -- give --frames-csv so ChunkFrameID can locate them"
-                        % (nframes, start.size, nframes - start.size))
+    # One pulse more than frames is CORRECT, not a fault. record.py tests its stop flag
+    # at the top of the grab loop, so when it exits the sensor -- which free-runs on its
+    # own clock -- finishes the exposure already under way and that exposure is never
+    # drained to the host. It makes a pulse and no frame, always at the END of the train.
+    # Confirmed from record.py's own start/stop ordering, 2026-11-24: acquisition begins
+    # only after the writer is armed, so no pulse can precede frame 1 either.
+    if nframes is not None:
+        extra = start.size - nframes
+        if extra == 1:
+            print("\n  %d pulses for %d frames written -- the final exposure was cut off "
+                  "by the stop and never reached the host. Expected; pulse i is frame i."
+                  % (start.size, nframes))
+        elif extra != 0:
+            problems.append("camera wrote %d frames but the train has %d pulses "
+                            "(difference %+d; 0 or +1 is correct) -- give --frames-csv "
+                            "so ChunkFrameID can locate them"
+                            % (nframes, start.size, extra))
 
     # Trodes timestamps, directly comparable with spike times.
     ts_start = t0 + start.astype(np.int64)
