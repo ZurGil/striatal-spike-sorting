@@ -116,18 +116,52 @@ def layout(path):
     raise SystemExit("could not lock the packet grid: sentinel or timestamp check failed")
 
 
-def read_line(path, L, bit):
-    """The bit plane for one Din line, plus the Trodes timestamp of every packet."""
-    npk = int((os.path.getsize(path) - L["hdr"]) // L["packet"])
-    mm = np.memmap(path, dtype=np.uint8, mode="r", offset=L["hdr"],
-                   shape=(npk, L["packet"]))
-    # Verify the grid across the whole file, not just the probe window at the front.
-    step = max(1, npk // 200000)
-    if not np.all(mm[::step, 0] == SENTINEL):
-        raise SystemExit("the 0x55 sentinel fails somewhere in the file -- refusing to read")
-    dio = np.ascontiguousarray(mm[:, L["dio"]])
-    t0 = int(np.frombuffer(mm[0, L["ts_off"]:L["ts_off"] + 4].tobytes(), np.uint32)[0])
-    return ((dio >> bit) & 1).astype(np.int8), t0, npk
+def read_line(path, L, bit, chunk_packets=1 << 17):
+    """The bit plane for one Din line, plus the Trodes timestamp of the first packet.
+
+    Read in bounded sequential chunks rather than striding a memmap over the file.
+    The memmap version pulled one byte out of every 856 across the whole recording,
+    which faults in every page of it; Windows keeps mapped file pages in the process
+    working set, so on Popper 20261125_092028 (363 GB) it reached a 46.6 GB working
+    set with 3.0 GB of 64 GB left, was still almost entirely page-faulting after 25
+    minutes (33 s of CPU), and could only have finished by holding all 363 GB
+    resident. Reading forward in chunks keeps resident memory at the chunk size and
+    the pages are free to be dropped behind us, so the cost is the disk read and
+    nothing else. Sessions were ~100 GB when this was written and the strided read
+    was never the plan for a four-hour recording.
+
+    The sentinel is now checked on *every* packet on the way past, which is both
+    stronger than the 200k-sample check it replaces and free, since each byte is
+    already in cache when we touch the DIO byte beside it. A failure names the
+    packet it happened at instead of saying "somewhere in the file".
+    """
+    packet = L["packet"]
+    npk = int((os.path.getsize(path) - L["hdr"]) // packet)
+    out = np.empty(npk, dtype=np.int8)
+    t0, done = None, 0
+    with open(path, "rb", buffering=0) as f:
+        f.seek(L["hdr"])
+        while done < npk:
+            n = min(chunk_packets, npk - done)
+            buf = f.read(n * packet)
+            n = len(buf) // packet
+            if n == 0:
+                # The file was shorter than its size implied -- a recording still being
+                # written can do this. Stop at what was actually read; the caller's
+                # lead-in/tail checks then run against the real end of the data.
+                break
+            g = np.frombuffer(buf, dtype=np.uint8, count=n * packet).reshape(n, packet)
+            bad = np.flatnonzero(g[:, 0] != SENTINEL)
+            if bad.size:
+                raise SystemExit("the 0x55 sentinel fails at packet %d -- refusing to read"
+                                 % (done + int(bad[0])))
+            if t0 is None:
+                t0 = int(g[0, L["ts_off"]:L["ts_off"] + 4].copy().view(np.uint32)[0])
+            out[done:done + n] = (g[:, L["dio"]] >> bit) & 1
+            done += n
+    if not done:
+        raise SystemExit("no whole packets could be read from %s" % path)
+    return out[:done], t0, done
 
 
 def resolve_csv(arg, npulse):
