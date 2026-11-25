@@ -1,0 +1,16 @@
+VERDICT DUMP -- 20260930_091521
+written 2026-11-25T11:48:57 from the review tool's live database
+source  https://claude.ai/artifact/LJDk69kkBPHfQBDDm9BbLa
+        collections verdicts, merge_verdicts, trial_selections
+
+unit verdicts       411   {'good': 258, 'mua': 135, 'noise': 18}
+merge verdicts      102   {'merge': 96, 'separate': 2, 'unsure': 4}
+trial selections     67
+
+Gil reported this review finished on 2026-11-25 and asked for the extraction, sync and a neural-response figure. 411 of 594 units carry a verdict (258 good, 135 mua, 18 noise); the 183 without keep their automatic label. 102 pairs judged: 96 merge, 2 separate, 4 unsure -- 53 merge groups after transitive closure. 67 stability windows. 2 hand-drawn reassignment regions are in the reassignments collection, which still has no apply step and did not reach synced/.
+
+sha256                                                            file
+b095a6395e8dca2e47ddb639f8ccce3353aec0f449f5143ef6e1aca487dae01b  verdicts.json  24891 bytes
+01df3c6ed45a90e2dd35ecd83196d7cad4d8d389b6160ab06c908707b9b987e9  merge_verdicts.json  38601 bytes
+1cff7544ad98c3d3397b8bb64f0adfb22a9415e4defbee7581b1e92da6019286  trial_selections.json  34086 bytes
+75c49c4b2f7e0893bbf112e50e0d86a9a34914ad6f0f2f424fa61da752259598  manual_verdicts.csv  9286 bytes

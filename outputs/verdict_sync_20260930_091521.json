@@ -1,0 +1,33 @@
+{
+  "session_id": "20260930_091521",
+  "synced_at": "2026-11-25T11:47:58",
+  "kilosort_dir": "Z:/Gil/Shamir_1/20260930_091521.rec\\20260930_091521.kilosort\\kilosort4",
+  "applied": {
+    "verdicts": {
+      "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20260930_091521\\verdicts.json",
+      "sha1": "b59dfcbcc3aa7584fc7bf0e749fbc5b03b1b4c13",
+      "n_documents": 411
+    },
+    "trial_selections": {
+      "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20260930_091521\\trial_selections.json",
+      "sha1": "27d0f7d916a73bfa40d402319f1cf32407992f59",
+      "n_documents": 67
+    },
+    "merge_verdicts": {
+      "dump": "D:\\Gil\\spike_sorting_agent\\outputs\\review_verdicts\\20260930_091521\\merge_verdicts.json",
+      "sha1": "cdc7cdf722324cf54c105ec7c9fbb3eb7c2233a5",
+      "n_documents": 102
+    }
+  },
+  "deliberately_skipped": [],
+  "pipeline_command": [
+    "-m",
+    "sync_pipeline.process_session",
+    "--rec_folder",
+    "Z:/Gil/Shamir_1/20260930_091521.rec"
+  ],
+  "verified": true,
+  "verify_exit_code": 0,
+  "verify_note": "The run's own verification failed T7 on unit 321: a stability window drawn at 1795625522753 on a unit called noise 8.5 s later (1795625531318). A noise unit is deliberately absent from units.parquet, so no row can exist for its window. T7's default was fixed to count such a window as superseded and name the unit rather than fail; verify_verdicts_in_dataset.py was then re-run unchanged in every other respect and all 9 checks passed. synced/ itself was not rebuilt and the dumps are byte for byte the ones applied (sha1s above still hold).",
+  "verified_at": "2026-11-25T11:51:08"
+}

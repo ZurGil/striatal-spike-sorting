@@ -1,0 +1,405 @@
+clock from D:\Gil\spike_sorting_agent\outputs\session_timeline_20260930_091521.json: trodes_absolute_seconds
+wrote Z:/Gil/Shamir_1/20260930_091521.rec\20260930_091521.kilosort\kilosort4\unit_trial_selection.json
+  clustering fingerprint: sha1=ec723b1af3a96679 n_spikes=38204705 n_clusters=594
+  66 unit(s) restricted:
+     unit 14    17.4-10167.1s, 12914.5-13911.0s
+     unit 18    13.9-10878.9s, 11861.1-12473.3s, 13056.9-13927.9s
+     unit 43    13.9-515.6s, 5028.2-13927.9s
+     unit 51    13.9-800.3s, 4957.0-13927.9s
+     unit 55    13.9-3519.3s
+     unit 68    5398.3-6679.5s, 10195.6-10580.0s
+     unit 76    13.9-2594.0s, 5156.3-7661.7s, 8971.4-13927.9s
+     unit 80    13.9-2679.4s, 4985.5-7789.8s, 9042.6-13927.9s
+     unit 91    13.9-8909.4s, 10259.5-13927.9s
+     unit 94    13.9-1994.1s, 3168.6-13684.3s
+     unit 95    13.9-9524.1s, 10029.0-13927.9s
+     unit 96    13.9-9271.6s, 10336.4-13927.9s
+     unit 97    13.9-9161.9s, 10325.4-13927.9s
+     unit 99    13.9-9282.6s, 10051.0-13927.9s
+     unit 100   13.9-9392.4s, 10358.3-13927.9s
+     unit 103   13.9-9469.2s, 10325.4-13927.9s
+     unit 105   13.9-9480.2s, 10369.3-10720.6s
+     unit 106   270.7-1917.2s, 4815.1-9107.0s, 12070.7-13927.9s
+     unit 107   13.9-1269.6s, 1983.1-2586.8s, 3871.1-9238.7s, 10797.4-12872.0s
+     unit 109   13.9-2235.6s
+     unit 110   204.9-1917.2s, 4606.5-9019.2s, 12004.8-13927.9s
+     unit 112   13.9-2751.5s, 3662.5-12937.9s, 13805.0-13927.9s
+     unit 128   13.9-5265.1s, 9579.0-13927.9s
+     unit 177   775.6-1302.5s
+     unit 194   13.9-11247.4s, 12861.0-13927.9s
+     unit 198   13.9-7032.4s, 8184.9-13927.9s
+     unit 215   13.9-8404.5s
+     unit 237   5945.7-13927.9s
+     unit 252   13.9-11126.7s
+     unit 257   13.9-9447.3s, 11401.1-13927.9s
+     unit 259   13.9-9293.6s, 11928.0-13927.9s
+     unit 262   5824.9-13927.9s
+     unit 263   13.9-5089.5s
+     unit 264   13.9-8635.0s
+     unit 272   2674.6-2817.3s, 7175.1-13927.9s
+     unit 273   18.3-2389.2s, 7548.3-13927.9s
+     unit 275   13.9-1829.4s
+     unit 276   13.9-1906.2s, 4848.0-6296.9s, 7888.6-10380.3s
+     unit 279   13.9-2081.9s, 4595.5-6242.1s, 7537.3-12981.8s
+     unit 280   13.9-2092.9s, 4705.3-6154.2s, 7273.9-13311.1s
+     unit 281   13.9-3190.5s, 4902.9-13927.9s
+     unit 282   13.9-3223.5s, 4957.8-13927.9s
+     unit 287   13.9-3289.3s, 4979.7-13927.9s
+     unit 291   9414.3-13927.9s
+     unit 292   9359.4-13805.0s
+     unit 295   13706.2-13914.8s
+     unit 300   13.9-2081.9s
+     unit 301   13.9-2103.8s, 6077.4-10325.4s, 13486.7-13927.9s
+     unit 303   1807.5-6154.2s
+     unit 305   13.9-3750.3s
+     unit 306   13.9-3278.3s
+     unit 309   13.9-3827.2s, 6582.3-9688.7s
+     unit 310   13.9-4310.2s, 5287.1-8020.3s
+     unit 311   18.3-4002.8s, 6296.9-10665.7s
+     unit 318   10226.6-13927.9s
+     unit 321   7998.3-13927.9s
+     unit 420   12674.4-13927.9s
+     unit 421   12926.9-13927.9s
+     unit 553   5824.9-9688.7s
+     unit 561   13.9-10029.0s
+     unit 565   13.9-5528.6s
+     unit 567   13.9-10830.3s
+     unit 570   1489.1-13927.9s
+     unit 584   13.9-11939.0s
+     unit 586   13.9-11302.3s
+     unit 592   5363.9-13927.9s
+
+sync_pipeline will now pick this up automatically on the next run of this session. session_meta.json will report unit_trial_selection.status='applied'.
+from the review tool's verdicts: 96 pair(s) accepted -> 53 merge group(s); 6 pair(s) decided otherwise (not merges, nothing to write).
+   parents 14 + 18  label good
+   parents 34 + 37  label good
+   parents 56 + 60  label good
+   parents 67 + 68  label good
+   parents 69 + 74 + 79 + 82  label good
+   parents 75 + 76 + 78 + 80  label good
+   parents 96 + 97  label good
+   parents 100 + 103 + 105  label good
+   parents 107 + 113  label good
+   parents 117 + 119  label good
+   parents 146 + 147 + 150 + 157  label good
+   parents 149 + 151 + 155 + 161  label good
+   parents 159 + 160  label good
+   parents 162 + 164 + 167  label good
+   parents 172 + 174 + 175  label good
+   parents 179 + 181 + 183 + 184 + 186  label good
+   parents 194 + 195 + 197  label good
+   parents 199 + 200  label good
+   parents 215 + 216  label good
+   parents 228 + 231  label good
+   parents 230 + 233  label good
+   parents 259 + 264 + 269  label good
+   parents 263 + 268  label good
+   parents 276 + 280  label good
+   parents 300 + 301 + 302 + 308  label good
+   parents 318 + 319 + 324  label good
+   parents 337 + 338 + 339 + 340 + 342  label good
+   parents 357 + 363  label good
+   parents 358 + 362  label good
+   parents 360 + 370 + 371  label good
+   parents 366 + 367  label good
+   parents 383 + 384  label good
+   parents 398 + 409  label good
+   parents 414 + 424 + 426  label good
+   parents 441 + 445 + 447  label good
+   parents 460 + 462 + 463 + 470 + 471 + 474  label good
+   parents 465 + 468  label good
+   parents 466 + 469  label good
+   parents 486 + 489  label good
+   parents 493 + 494  label good
+   parents 500 + 506  label good
+   parents 501 + 505  label good
+   parents 511 + 513 + 516 + 520  label good
+   parents 523 + 524 + 527  label good
+   parents 534 + 537  label good
+   parents 542 + 544 + 547 + 548  label good
+   parents 555 + 557 + 559  label good
+   parents 562 + 566  label good
+   parents 565 + 572  label good
+   parents 568 + 570 + 571 + 573  label good
+   parents 576 + 584  label good
+   parents 577 + 579 + 582  label good
+   parents 578 + 583  label good
+wrote Z:/Gil/Shamir_1/20260930_091521.rec\20260930_091521.kilosort\kilosort4\unit_merges.json
+  clustering fingerprint: sha1=ec723b1af3a96679 n_spikes=38204705 n_clusters=594
+  stability selection read from: Z:/Gil/Shamir_1/20260930_091521.rec\20260930_091521.kilosort\kilosort4\unit_trial_selection.json
+  53 merge(s):
+     unit 10000  = 14 + 18              keeps 13.9-10878.9s, 11861.1-12473.3s, 12914.5-13927.9s  label good
+     unit 10001  = 34 + 37              keeps every trial (no parent had a selection)  label good
+     unit 10002  = 56 + 60              keeps every trial (no parent had a selection)  label good
+     unit 10003  = 67 + 68              keeps 13.9-13927.9s  label good  [the whole session: parent(s) 67 were never restricted, so the union is everything]
+     unit 10004  = 69 + 74 + 79 + 82    keeps every trial (no parent had a selection)  label good
+     unit 10005  = 75 + 76 + 78 + 80    keeps 13.9-13927.9s  label good  [the whole session: parent(s) 75, 78 were never restricted, so the union is everything]
+     unit 10006  = 96 + 97              keeps 13.9-9271.6s, 10325.4-13927.9s  label good
+     unit 10007  = 100 + 103 + 105      keeps 13.9-9480.2s, 10325.4-13927.9s  label good
+     unit 10008  = 107 + 113            keeps 13.9-13927.9s  label good  [the whole session: parent(s) 113 were never restricted, so the union is everything]
+     unit 10009  = 117 + 119            keeps every trial (no parent had a selection)  label good
+     unit 10010  = 146 + 147 + 150 + 157 keeps every trial (no parent had a selection)  label good
+     unit 10011  = 149 + 151 + 155 + 161 keeps every trial (no parent had a selection)  label good
+     unit 10012  = 159 + 160            keeps every trial (no parent had a selection)  label good
+     unit 10013  = 162 + 164 + 167      keeps every trial (no parent had a selection)  label good
+     unit 10014  = 172 + 174 + 175      keeps every trial (no parent had a selection)  label good
+     unit 10015  = 179 + 181 + 183 + 184 + 186 keeps every trial (no parent had a selection)  label good
+     unit 10016  = 194 + 195 + 197      keeps 13.9-13927.9s  label good  [the whole session: parent(s) 195, 197 were never restricted, so the union is everything]
+     unit 10017  = 199 + 200            keeps every trial (no parent had a selection)  label good
+     unit 10018  = 215 + 216            keeps 13.9-13927.9s  label good  [the whole session: parent(s) 216 were never restricted, so the union is everything]
+     unit 10019  = 228 + 231            keeps every trial (no parent had a selection)  label good
+     unit 10020  = 230 + 233            keeps every trial (no parent had a selection)  label good
+     unit 10021  = 259 + 264 + 269      keeps 13.9-13927.9s  label good  [the whole session: parent(s) 269 were never restricted, so the union is everything]
+     unit 10022  = 263 + 268            keeps 13.9-13927.9s  label good  [the whole session: parent(s) 268 were never restricted, so the union is everything]
+     unit 10023  = 276 + 280            keeps 13.9-2092.9s, 4705.3-6296.9s, 7273.9-13311.1s  label good
+     unit 10024  = 300 + 301 + 302 + 308 keeps 13.9-13927.9s  label good  [the whole session: parent(s) 302, 308 were never restricted, so the union is everything]
+     unit 10025  = 318 + 319 + 324      keeps 13.9-13927.9s  label good  [the whole session: parent(s) 319, 324 were never restricted, so the union is everything]
+     unit 10026  = 337 + 338 + 339 + 340 + 342 keeps every trial (no parent had a selection)  label good
+     unit 10027  = 357 + 363            keeps every trial (no parent had a selection)  label good
+     unit 10028  = 358 + 362            keeps every trial (no parent had a selection)  label good
+     unit 10029  = 360 + 370 + 371      keeps every trial (no parent had a selection)  label good
+     unit 10030  = 366 + 367            keeps every trial (no parent had a selection)  label good
+     unit 10031  = 383 + 384            keeps every trial (no parent had a selection)  label good
+     unit 10032  = 398 + 409            keeps every trial (no parent had a selection)  label good
+     unit 10033  = 414 + 424 + 426      keeps every trial (no parent had a selection)  label good
+     unit 10034  = 441 + 445 + 447      keeps every trial (no parent had a selection)  label good
+     unit 10035  = 460 + 462 + 463 + 470 + 471 + 474 keeps every trial (no parent had a selection)  label good
+     unit 10036  = 465 + 468            keeps every trial (no parent had a selection)  label good
+     unit 10037  = 466 + 469            keeps every trial (no parent had a selection)  label good
+     unit 10038  = 486 + 489            keeps every trial (no parent had a selection)  label good
+     unit 10039  = 493 + 494            keeps every trial (no parent had a selection)  label good
+     unit 10040  = 500 + 506            keeps every trial (no parent had a selection)  label good
+     unit 10041  = 501 + 505            keeps every trial (no parent had a selection)  label good
+     unit 10042  = 511 + 513 + 516 + 520 keeps every trial (no parent had a selection)  label good
+     unit 10043  = 523 + 524 + 527      keeps every trial (no parent had a selection)  label good
+     unit 10044  = 534 + 537            keeps every trial (no parent had a selection)  label good
+     unit 10045  = 542 + 544 + 547 + 548 keeps every trial (no parent had a selection)  label good
+     unit 10046  = 555 + 557 + 559      keeps every trial (no parent had a selection)  label good
+     unit 10047  = 562 + 566            keeps every trial (no parent had a selection)  label good
+     unit 10048  = 565 + 572            keeps 13.9-13927.9s  label good  [the whole session: parent(s) 572 were never restricted, so the union is everything]
+     unit 10049  = 568 + 570 + 571 + 573 keeps 13.9-13927.9s  label good  [the whole session: parent(s) 568, 571, 573 were never restricted, so the union is everything]
+     unit 10050  = 576 + 584            keeps 13.9-13927.9s  label good  [the whole session: parent(s) 576 were never restricted, so the union is everything]
+     unit 10051  = 577 + 579 + 582      keeps every trial (no parent had a selection)  label good
+     unit 10052  = 578 + 583            keeps every trial (no parent had a selection)  label good
+
+spike_clusters.npy was NOT modified -- Phy and bombcell will still show the parents.
+Re-run sync_pipeline for this session to apply it; session_meta.json will report
+unit_merges.status='applied'.
+411 manual verdict(s) in D:\Gil\spike_sorting_agent\outputs\review_verdicts\20260930_091521\verdicts.json
+  199 changed, 212 already agreed, 183 unit(s) left on their automatic label
+     unit 8     good  -> mua
+     unit 12    good  -> mua
+     unit 14    mua   -> good
+     unit 18    mua   -> good
+     unit 21    good  -> mua
+     unit 29    mua   -> good
+     unit 31    good  -> mua
+     unit 39    good  -> mua
+     unit 40    good  -> mua
+     unit 41    mua   -> good
+     unit 43    mua   -> good
+     unit 45    good  -> mua
+     unit 48    good  -> mua
+     unit 51    mua   -> good
+     unit 52    good  -> mua
+     unit 60    mua   -> good
+     unit 62    good  -> mua
+     unit 64    good  -> mua
+     unit 65    good  -> mua
+     unit 66    good  -> mua
+     unit 68    mua   -> good
+     unit 69    good  -> mua
+     unit 74    good  -> mua
+     unit 75    mua   -> good
+     unit 80    mua   -> good
+     unit 81    mua   -> good
+     unit 83    good  -> mua
+     unit 87    good  -> mua
+     unit 103   mua   -> good
+     unit 107   mua   -> good
+     unit 109   mua   -> good
+     unit 110   mua   -> good
+     unit 111   good  -> mua
+     unit 112   mua   -> good
+     unit 113   mua   -> good
+     unit 124   good  -> mua
+     unit 125   mua   -> good
+     unit 126   mua   -> good
+     unit 128   mua   -> good
+     unit 129   good  -> mua
+     ... and 159 more
+  kept the pre-verdict table at Z:/Gil/Shamir_1/20260930_091521.rec\20260930_091521.kilosort\kilosort4\cluster_info.tsv.preverdicts
+wrote Z:/Gil/Shamir_1/20260930_091521.rec\20260930_091521.kilosort\kilosort4\cluster_info.tsv
+Re-run sync_pipeline for this session to carry the verdicts into units.parquet.
+2026-11-25 11:48:08,110 INFO sync_pipeline: Auto-matched Bpod file: Z:\Gil\Shamir_1\bpod\Shamir01_Dual2AFC_nat_Sep30_2026_Session1.mat
+2026-11-25 11:48:08,219 INFO sync_pipeline: === Processing session 20260930_091521.rec ===
+2026-11-25 11:48:19,091 INFO sync_pipeline: Bpod: nTrials=1086
+2026-11-25 11:48:19,104 INFO sync_pipeline.bpod_loader: Custom.ChoiceLeft has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,104 INFO sync_pipeline.bpod_loader: Custom.ChoiceCorrect has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,104 INFO sync_pipeline.bpod_loader: Custom.Feedback has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,104 INFO sync_pipeline.bpod_loader: Custom.FeedbackTime has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,104 INFO sync_pipeline.bpod_loader: Custom.FixBroke has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,104 INFO sync_pipeline.bpod_loader: Custom.EarlyWithdrawal has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.FixDur has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.MT has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.OdorFracA has length 1092 (> nTrials=1086) — truncating to the first 1086 trials (likely pre-generated look-ahead trial parameters for trials not yet run).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.OdorID has length 1092 (> nTrials=1086) — truncating to the first 1086 trials (likely pre-generated look-ahead trial parameters for trials not yet run).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.OdorPair has length 1092 (> nTrials=1086) — truncating to the first 1086 trials (likely pre-generated look-ahead trial parameters for trials not yet run).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.ST has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.ResolutionTime has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.Rewarded has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.TrialNumber has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.AuditoryTrial has length 1092 (> nTrials=1086) — truncating to the first 1086 trials (likely pre-generated look-ahead trial parameters for trials not yet run).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.ClickTask has length 1092 (> nTrials=1086) — truncating to the first 1086 trials (likely pre-generated look-ahead trial parameters for trials not yet run).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.LeftRewarded has length 1092 (> nTrials=1086) — truncating to the first 1086 trials (likely pre-generated look-ahead trial parameters for trials not yet run).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.AudSound has length 1092 (> nTrials=1086) — truncating to the first 1086 trials (likely pre-generated look-ahead trial parameters for trials not yet run).
+2026-11-25 11:48:19,105 WARNING sync_pipeline.bpod_loader: Custom.AudFracHigh has length 2, expected nTrials=1086 (and doesn't match either the 'last trial incomplete' or 'look-ahead buffer' pattern) — skipping this field in the trials table.
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.DV has length 1092 (> nTrials=1086) — truncating to the first 1086 trials (likely pre-generated look-ahead trial parameters for trials not yet run).
+2026-11-25 11:48:19,105 WARNING sync_pipeline.bpod_loader: Custom.PulsePalParamStimulus is 2D with shape (18, 9) — first dimension doesn't relate to nTrials=1086 in a recognized way; skipping (likely a session-level parameter table, not one row per trial).
+2026-11-25 11:48:19,105 WARNING sync_pipeline.bpod_loader: Custom.PulsePalParamFeedback is 2D with shape (18, 9) — first dimension doesn't relate to nTrials=1086 in a recognized way; skipping (likely a session-level parameter table, not one row per trial).
+2026-11-25 11:48:19,105 INFO sync_pipeline.bpod_loader: Custom.StimDelay has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,106 INFO sync_pipeline.bpod_loader: Custom.FeedbackDelay has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,106 INFO sync_pipeline.bpod_loader: Custom.MinSampleAud has length 1085 (nTrials-1) — padding the last trial with NaN (this field is likely written only on trial completion, and the session appears to have ended mid-trial).
+2026-11-25 11:48:19,106 INFO sync_pipeline.bpod_loader: Custom.AuditoryOmega has length 1092 (> nTrials=1086) — truncating to the first 1086 trials (likely pre-generated look-ahead trial parameters for trials not yet run).
+2026-11-25 11:48:19,193 INFO sync_pipeline.bpod_loader: Bpod: TrialSettings.GUI — 121 field(s) constant this session (saved to session_meta.json['gui_settings']), 1 field(s) vary across trials (added as columns: ['GUI_LeftBiasAud']), 4 duplicate an existing column (skipped), 3 non-scalar (skipped).
+2026-11-25 11:48:19,458 INFO sync_pipeline: Bpod: 19400 named state-event occurrences across all trials
+2026-11-25 11:48:20,106 INFO sync_pipeline: Bpod: 22584 raw poke events (Port*In/Out); inferred port roles: {'center': 'Port2 (100% of 1005)', 'left': 'Port1 (100% of 291)', 'right': 'Port3 (100% of 341)'}
+2026-11-25 11:48:20,112 INFO sync_pipeline: Bpod: 632/1086 trials TrialCompleted (rat poked a side port at all, regardless of reward outcome — see TASK_TIMELINE.md for the full branch trace).
+2026-11-25 11:48:20,549 INFO sync_pipeline: Trodes: decoded 20491 TTL events
+2026-11-25 11:48:23,702 INFO sync_pipeline: Sync: status=needs_review n_matched=19400/19400 match_fraction=1.000 global_fit_median_resid=520.357ms interval_diff_corr=0.999995
+2026-11-25 11:48:23,702 INFO sync_pipeline: Sync: actual time conversion uses local interpolation (held-out error: median=0.000ms, max=28.709ms)
+2026-11-25 11:48:25,384 INFO sync_pipeline: Bpod: next_poke_in_bpod computed against state 'stay_Cin' (2/1086 trials have no later poke-in in this session, typically the tail end).
+2026-11-25 11:48:25,394 INFO sync_pipeline: Trial windows: fixed buffer_s=10.0s after each trial's last recorded state. 1085/1086 trials' windows run past the next trial's own start (spikes there will appear under both trial_id's rows in spikes.parquet).
+2026-11-25 11:48:25,504 INFO sync_pipeline.units_spikes: Excluding 22 cluster(s) labeled 'noise' from the units table.
+2026-11-25 11:48:25,506 INFO sync_pipeline: Units: 572 clusters (excluding noise)
+2026-11-25 11:48:28,718 INFO sync_pipeline.unit_merges: Loaded 53 merge(s) from Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\kilosort4\unit_merges.json (spike_clusters.npy is NOT modified).
+2026-11-25 11:48:30,154 INFO sync_pipeline: Unit merges: 53 merge(s) applied in memory, 144 parent unit(s) -> 53 merged unit(s); units table now 481 rows (was 572). spike_clusters.npy on disk is UNCHANGED — Phy/bombcell will still show the parents.
+2026-11-25 11:48:30,154 INFO sync_pipeline:   unit 10000 = 14 + 18  (99566 + 674306 spikes)  label good [manual]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10001 = 34 + 37  (107023 + 10894 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10002 = 56 + 60  (110401 + 11764 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10003 = 67 + 68  (72481 + 7710 spikes)  label good [manual]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10004 = 69 + 74 + 79 + 82  (32641 + 30334 + 28157 + 370329 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10005 = 75 + 76 + 78 + 80  (64874 + 32871 + 242675 + 8925 spikes)  label good [manual]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10006 = 96 + 97  (60792 + 19382 spikes)  label good [manual]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10007 = 100 + 103 + 105  (49771 + 395938 + 344104 spikes)  label good [manual]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10008 = 107 + 113  (114732 + 23222 spikes)  label good [manual]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10009 = 117 + 119  (255417 + 290366 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10010 = 146 + 147 + 150 + 157  (104460 + 1933 + 8759 + 3811 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10011 = 149 + 151 + 155 + 161  (60818 + 18358 + 61626 + 333076 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10012 = 159 + 160  (154232 + 278030 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10013 = 162 + 164 + 167  (305381 + 323083 + 58859 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10014 = 172 + 174 + 175  (68707 + 34904 + 8139 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10015 = 179 + 181 + 183 + 184 + 186  (1709 + 935 + 2297 + 12580 + 16188 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10016 = 194 + 195 + 197  (1840 + 13443 + 403 spikes)  label good [manual]
+2026-11-25 11:48:30,155 INFO sync_pipeline:   unit 10017 = 199 + 200  (120148 + 142629 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10018 = 215 + 216  (42833 + 33193 spikes)  label good [manual]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10019 = 228 + 231  (47092 + 28157 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10020 = 230 + 233  (122803 + 116923 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10021 = 259 + 264 + 269  (27390 + 11591 + 63876 spikes)  label good [manual]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10022 = 263 + 268  (39224 + 167673 spikes)  label good [manual]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10023 = 276 + 280  (117010 + 203427 spikes)  label good [manual]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10024 = 300 + 301 + 302 + 308  (8730 + 247192 + 6875 + 66885 spikes)  label good [manual]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10025 = 318 + 319 + 324  (3193 + 79143 + 146439 spikes)  label good [manual]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10026 = 337 + 338 + 339 + 340 + 342  (546 + 6463 + 358 + 1583 + 28722 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10027 = 357 + 363  (69386 + 41572 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10028 = 358 + 362  (4945 + 2740 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10029 = 360 + 370 + 371  (5114 + 8617 + 3986 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10030 = 366 + 367  (188790 + 458614 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10031 = 383 + 384  (18735 + 2966 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10032 = 398 + 409  (70235 + 35806 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10033 = 414 + 424 + 426  (164254 + 32128 + 107693 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,156 INFO sync_pipeline:   unit 10034 = 441 + 445 + 447  (806 + 10704 + 2845 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10035 = 460 + 462 + 463 + 470 + 471 + 474  (2395 + 4147 + 795 + 5023 + 14252 + 22102 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10036 = 465 + 468  (1916 + 5086 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10037 = 466 + 469  (2468 + 7708 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10038 = 486 + 489  (2183 + 3269 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10039 = 493 + 494  (6550 + 23907 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10040 = 500 + 506  (6177 + 621 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10041 = 501 + 505  (14990 + 1889 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10042 = 511 + 513 + 516 + 520  (14211 + 978 + 552 + 1001 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10043 = 523 + 524 + 527  (4439 + 8676 + 429 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10044 = 534 + 537  (319 + 3761 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10045 = 542 + 544 + 547 + 548  (198697 + 5884 + 730 + 1260 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10046 = 555 + 557 + 559  (149 + 893 + 3686 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10047 = 562 + 566  (2156 + 1784 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10048 = 565 + 572  (152127 + 235315 spikes)  label good [manual]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10049 = 568 + 570 + 571 + 573  (214653 + 344460 + 165678 + 245832 spikes)  label good [manual]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10050 = 576 + 584  (358032 + 171689 spikes)  label good [manual]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10051 = 577 + 579 + 582  (64030 + 6569 + 99176 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:30,157 INFO sync_pipeline:   unit 10052 = 578 + 583  (92438 + 143300 spikes)  label good [manual]  [keeps every trial]
+2026-11-25 11:48:49,538 INFO sync_pipeline: Dropped-packet gaps: none — every sample from first to last is present.
+2026-11-25 11:48:52,480 INFO sync_pipeline.units_spikes: Loaded per-unit stability selection from Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\kilosort4\unit_trial_selection.json: 66 unit(s) restricted (every other unit keeps every trial).
+2026-11-25 11:48:52,480 INFO sync_pipeline: Stability selection: re-keyed onto merged unit ids (66 entries before, 58 after). A merged unit uses the frozen union stored in the manifest, not a union recomputed from its parents.
+2026-11-25 11:48:52,562 INFO sync_pipeline: Stability selection: 58 of 481 units restricted, 20072 (unit, trial) pairs excluded. Every other unit keeps all 1086 trials.
+2026-11-25 11:48:57,176 INFO sync_pipeline.units_spikes: load_spike_arrays: converted 38204705 spike sample indices to true absolute Trodes-clock seconds via '20260930_091521.timestamps.dat' (row 0 of probe1.dat = absolute sample 416555 = 13.8852s — this offset would have been silently dropped before this fix).
+2026-11-25 11:49:10,322 INFO sync_pipeline: Spikes: 61759454 spikes assigned across 1086 valid trials
+2026-11-25 11:49:10,848 INFO sync_pipeline: Spikes calibration exposure: median local_calib_gap_s=3.22s, 34.3% of spikes have gap>5s, 9.8% have gap>15s (see spikes.local_calib_gap_s per-spike; a wide gap flags reduced timing confidence, it does not by itself mean the spike's converted time is wrong — see README).
+2026-11-25 11:49:51,423 INFO sync_pipeline: Wrote session output to Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced
+Loading MATLAB file: Z:\Gil\Shamir_1\bpod\Shamir01_Dual2AFC_nat_Sep30_2026_Session1.mat
+
+============================================================
+ CONVERSION SUCCESSFUL
+============================================================
+Input:  Z:\Gil\Shamir_1\bpod\Shamir01_Dual2AFC_nat_Sep30_2026_Session1.mat
+Output: Z:\Gil\Shamir_1\bpod\Shamir01_Dual2AFC_nat_Sep30_2026_Session1.pkl
+============================================================
+
+session: 20260930_091521.rec
+n_trials: 1086
+n_units: 481
+n_spikes: 61759454
+sync_status: needs_review
+n_trials_sync_valid: 1086
+output_dir: Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced
+qc_plot: Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced\sync_qc.png
+trials_path: Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced\trials.parquet
+units_path: Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced\units.parquet
+spikes_path: Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced\spikes.parquet
+state_events_path: Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced\state_events.parquet
+poke_events_path: Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced\poke_events.parquet
+unit_merges_path: Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced\unit_merges.parquet
+unit_merges_status: applied
+unit_trial_selection_path: Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\synced\unit_trial_selection.parquet
+unit_trial_selection_status: applied
+session        20260930_091521
+synced/        Z:/Gil/Shamir_1/20260930_091521.rec\20260930_091521.kilosort\synced
+dumps          D:\Gil\spike_sorting_agent\outputs\review_verdicts\20260930_091521
+decisions      411 unit verdicts | 102 merge pairs (96 accepted -> 53 groups) | 66 stability windows
+dataset        units.parquet 481 rows | trials.parquet 1086 rows | spikes.parquet 481 distinct unit ids
+
+==============================================================================
+T1   PASS      fingerprints                       manifests and merge verdicts all stamped ec723b1af3a9
+T2   PASS      good/mua labels                    254 verdicts carried into quality_label
+T3   PASS      noise exclusions                   18 noise verdicts, all absent from units and spikes
+T4   PASS      unjudged units untouched           178 unjudged units keep their automatic label
+T5   PASS      merges                             53 merge group(s) applied, parents absent, labels as scored
+T6   PASS      separates respected                2 pair(s) judged separate, none merged (1 unsure pair(s) reunited transitively, allowed)
+         units 318 and 324 judged unsure but ended up in the same merge [318, 319, 324] -- abstention, not a veto; allowed
+T7   FAILED    stability windows                  66 restricted unit(s) match the windows trial by trial
+         unit 321 has a stability window but no rows in unit_trial_selection.parquet
+T8   PASS      every verdict accounted for        411/411 unit verdicts reached the dataset
+T9   PASS      spikes reference real units        481 distinct unit ids in spikes.parquet, all present in units.parquet
+==============================================================================
+RESULT: 1 of 9 checks FAILED -- synced/ does NOT match the verdicts.
+  verdicts           411 document(s)  sha1 b59dfcbcc3aa
+  trial_selections    67 document(s)  sha1 27d0f7d916a7
+  merge_verdicts     102 document(s)  sha1 cdc7cdf72232
+
+--- stability windows -> unit_trial_selection.json
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\write_unit_trial_selection.py 20260930_091521 Z:/Gil/Shamir_1/20260930_091521.rec D:\Gil\spike_sorting_agent\outputs\review_verdicts\20260930_091521\trial_selections.json --ks_subdir kilosort4
+
+--- merges -> unit_merges.json
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\write_unit_merges.py 20260930_091521 Z:/Gil/Shamir_1/20260930_091521.rec D:\Gil\spike_sorting_agent\outputs\review_verdicts\20260930_091521\merge_verdicts.json --from_verdicts --ks_subdir kilosort4
+
+--- unit verdicts -> cluster_info.tsv group column
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\apply_unit_verdicts.py 20260930_091521 Z:/Gil/Shamir_1/20260930_091521.rec D:\Gil\spike_sorting_agent\outputs\review_verdicts\20260930_091521\verdicts.json --ks_subdir kilosort4
+
+stamped D:\Gil\spike_sorting_agent\outputs\verdict_sync_20260930_091521.json
+
+--- sync_pipeline
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe -m sync_pipeline.process_session --rec_folder Z:/Gil/Shamir_1/20260930_091521.rec
+
+--- verifying that every verdict reached synced/
+    C:\Users\Adam\anaconda3\envs\phy2_ky\python.exe D:\Gil\spike_sorting_agent\scripts\verify_verdicts_in_dataset.py 20260930_091521 --rec Z:/Gil/Shamir_1/20260930_091521.rec --dumps D:\Gil\spike_sorting_agent\outputs\review_verdicts\20260930_091521 --ks_subdir kilosort4
+
+VERIFICATION FAILED (exit 1). synced/ was written but does NOT match your verdicts -- read the FAILED lines above before using it. The stamp at D:\Gil\spike_sorting_agent\outputs\verdict_sync_20260930_091521.json records verified=false.

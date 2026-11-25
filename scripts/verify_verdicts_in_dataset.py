@@ -383,7 +383,7 @@ def main():
     R.add("T6", "separates respected", not bad, detail, bad + abstained)
 
     # --- T7 stability windows ------------------------------------------------------
-    bad = []
+    bad, superseded = [], []
     sel_path = os.path.join(synced, "unit_trial_selection.parquet")
     if selections and not os.path.exists(sel_path):
         bad.append("%d stability window(s) set but %s does not exist -- this pipeline "
@@ -413,11 +413,22 @@ def main():
             if len(rows) != len(trials):
                 bad.append("unit %d has %d rows, expected one per trial (%d)"
                            % (u, len(rows), len(trials)))
+        superseded = []
         for u, info in sorted(selections.items()):
             target = u
             if u in parents_of:
                 # the parent is gone; its windows live on in the merged unit's frozen
                 # union, which T5 already checked exists. Covered there, not here.
+                continue
+            if verdicts.get(u) == "noise":
+                # A window drawn on a unit that was LATER called noise. The unit is
+                # deliberately absent from the dataset (T3 is what checks that), so
+                # there is no row for its window to match and demanding one turns a
+                # normal order of work -- look at the drift, then decide the unit is
+                # rubbish -- into a failed verification. Counted and named rather
+                # than skipped silently, because a window nobody can account for is
+                # exactly what this check exists to catch.
+                superseded.append(u)
                 continue
             rows = sel[sel["unit_id"] == target]
             if rows.empty:
@@ -443,8 +454,12 @@ def main():
                     bad.append("unit %d: the tool counted %s trials inside the windows, "
                                "the dataset selects %d (differ by %d, tolerance %d)"
                                % (u, tool_n, int(want.sum()), delta, TRIAL_COUNT_TOLERANCE))
-    R.add("T7", "stability windows", not bad,
-          "%d restricted unit(s) match the windows trial by trial" % len(selections), bad)
+    detail = ("%d restricted unit(s) match the windows trial by trial"
+              % (len(selections) - len(superseded)))
+    if superseded:
+        detail += (" (%d window(s) superseded by a noise verdict: %s)"
+                   % (len(superseded), ", ".join(str(u) for u in superseded)))
+    R.add("T7", "stability windows", not bad, detail, bad)
 
     # --- T8 accounting -------------------------------------------------------------
     # Every decision must be explained by one of the checks above. This is the check
