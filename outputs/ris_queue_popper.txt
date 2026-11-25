@@ -1,23 +1,30 @@
-# Popper sort queue -- the post-CatchError era only.
+# Popper sort queue -- the post-CatchError era only.  Chosen by Gil, 2026-11-24.
 #
 # WHY THE LIST STARTS AT 17 NOVEMBER
 # ----------------------------------
-# The Bpod task changed on 2026-11-17. Measured, not guessed: GUI.CatchError is 0 in
-# every trial of every session from Nov 09 to Nov 16 (including the one-trial
-# Nov 16 Session2) and 1 in every trial of every session from Nov 17 to Nov 24. It
-# never switches mid-session anywhere, and no other GUI field moves across that
-# boundary. So Nov 17 Session1, trial 1, is the first trial of the new task, and the
-# six usable Popper recordings are:
+# Popper's Bpod task changed on 2026-11-17. The single field that moved is
+# GUI.CatchError, 0 -> 1. Three independent checks, all agreeing:
 #
-#     20261117_084903   20261118_090757   20261119_084707
-#     20261120_090017   20261123_090039   20261124_125219
+#   1. Every trial of every session. CatchError is 0 in all of Nov 09, 10, 11, 12,
+#      13, 16 S1 and 16 S2, and 1 in all of Nov 17, 18, 19, 20, 23, 24. It never
+#      switches within a session anywhere.
+#   2. SessionData.Settings -- the saved parameter file as loaded at session start.
+#      Comparing Nov 16 S2's against Nov 17 S1's, EXACTLY ONE field differs, and it
+#      is GUI.CatchError.
+#   3. First Popper session vs today's, all fields, all trials. Only CatchError
+#      moved as a setting. FeedbackDelay, StimDelay and LeftBiasAud differ too, but
+#      they take a different value on nearly every trial by design and their bounds
+#      (FeedbackDelayMin/Max/Tau, StimDelayMin/Max) are identical throughout.
+#
+# When: Nov 16 Session2 is a ONE-TRIAL session at 14:19 that still reads 0, so the
+# change was made after that and before the Nov 17 session started. Not mid-session.
+#
+# Against Shamir: all 36 Shamir sessions, Sep through Nov, have CatchError = 1. So
+# Popper was the odd one out and the change brought it onto Shamir's task. Popper
+# today still differs from Shamir in two unrelated fields --
+# IncorrectChoiceFeedbackType (1 vs 2) and MaxSessionTime (380 vs 360).
 #
 # Everything from Nov 16 back is a different task and is not worth GPU hours.
-#
-# ORDER
-#   today's session first, because it is the one being waited on, then backwards in
-#   time. The serial pipeline keeps at most two on scratch and will not stage the
-#   next until a slot opens.
 #
 # THRESHOLDS
 #   ris_submit_all.sh defaults -- Th_universal 9.0, Th_learned 8.0, Kilosort 4.0.24.
@@ -28,11 +35,10 @@
 # Run it with:
 #   bash scripts/ris_serial_pipeline.sh --rat Popper --queue outputs/ris_queue_popper.txt
 
+20261117_084903
+20261118_090757
 20261124_125219
-20261123_090039
-20261120_090017
 
-# Not queued, but ready if wanted (maps built, geometry checked, archive verified):
-# 20261119_084707
-# 20261118_090757
-# 20261117_084903
+# Not queued:
+# 20261119_084707   20261120_090017   20261123_090039   -- ready if wanted
+# 20261109..20261116 -- the OLD task, do not sort

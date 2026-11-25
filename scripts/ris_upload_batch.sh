@@ -203,6 +203,47 @@ for sid in "${SIDS[@]}"; do
   for f in "${files[@]}"; do
     [ -s "$f" ] || { say "    MISSING locally: $f"; missing=1; }
   done
+
+  # A HALF-COPIED ARCHIVE FILE LOOKS PERFECT TO EVERY CHECK BELOW.
+  # robocopy /J preallocates the destination to the full size before it writes a
+  # byte, so an interrupted copy leaves a file on Z with exactly the right length
+  # and zeros in the part that never arrived. The size comparison passes, and the
+  # nine-block md5 passes too -- because it compares Z against the cluster, and
+  # faithfully uploading zeros makes both sides agree. 20261124_125219 was left in
+  # exactly that state on 2026-11-24, zeros from 25% on.
+  # Neural data is never all-zero for a megabyte, so reading the last block settles
+  # it for the cost of one seek.
+  if [ "$missing" = 0 ]; then
+    zt=$("$PY" - "$KS/${sid}.probe1.dat" <<'PY'
+import sys
+B = 1024 * 1024
+try:
+    with open(sys.argv[1], "rb") as fh:
+        fh.seek(0, 2); n = fh.tell()
+        fh.seek(max(0, n - B))
+        print("ZERO" if fh.read(B).count(0) == min(B, n) else "ok")
+except Exception as e:
+    # A copy still in flight holds the file open exclusively on Windows, which is
+    # itself a reason not to upload it. Anything unreadable fails closed.
+    print("UNREADABLE %s" % e)
+PY
+    )
+    case "$zt" in
+      ok) ;;
+      ZERO)
+        say "    REFUSING $sid: the last megabyte of probe1.dat is entirely zeros."
+        say "    That is a preallocated, half-written copy -- the size is right and the"
+        say "    block check would pass, because it would compare zeros against zeros."
+        say "    Finish the archive copy first, forcing the overwrite:"
+        say "      robocopy <F>\\${sid}.kilosort <Z>\\${sid}.kilosort ${sid}.probe1.dat /IS /J"
+        missing=1 ;;
+      *)
+        say "    REFUSING $sid: could not read the tail of probe1.dat -- $zt"
+        say "    A copy still running holds it open, which is reason enough to wait."
+        missing=1 ;;
+    esac
+  fi
+
   if [ "$missing" = 1 ]; then say "    skipping $sid"; BAD+=("$sid"); continue; fi
 
   gb=$(( $(stat -c%s "$KS/${sid}.probe1.dat") / 1073741824 ))
