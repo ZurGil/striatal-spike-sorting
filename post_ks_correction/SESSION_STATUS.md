@@ -10,7 +10,8 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 
 | rat | session | units | Th u/l | tool ready | decided | good | mua | noise | merges | windows | on Z | verdicts applied | Bpod synced | sync check | catch trials | joined | state |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Popper | `20261112_082028` | 442 | 9.0 / 8.0 | yes (pre-`build_` layout, traces in the page db) | 260 | 140 | 120 | 0 | 31 | 18 | yes | yes | yes (`synced`) | pass (100% matched, 29 ms worst-case, 1085/1085 trials) | **NO ERROR CATCH** (CatchError=0; error wait 1.13s vs 6.61s on correct catch) | no | **SAVED, PARTIAL** |
+| Popper | `20261117_084903` | 474 | 9.0 / 8.0 | yes (20261125_1153) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (11.0% catch, error wait 6.54s) | no | **NOT REVIEWED** |
+| Popper | `20261118_090757` | 465 | 9.0 / 8.0 | yes (20261125_0930) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | -- | no | **NOT REVIEWED** |
 | Shamir | `20260901_085606` | 155 | 9.2 / 7.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | pass (100% matched, 48 ms worst-case, 733/733 trials) | ok (15.7% catch, error wait 5.27s) | no | **NOT REVIEWED** |
 | Shamir | `20260911_100049` | 466 | 9.2 / 7.0 | yes (20261124_0929) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | yes (`synced`) | pass (100% matched, 33 ms worst-case, 1023/1023 trials) | ok (15.3% catch, error wait 5.86s) | no | **NOT REVIEWED** |
 | Shamir | `20260914_122553` | 454 | 9.0 / 8.0 | yes (20261117_0948) | 264 | 137 | 127 | 0 | 31 | 29 | yes | yes | yes (`synced`) | pass (100% matched, 33 ms worst-case, 547/547 trials) | ok (13.3% catch, error wait 4.96s) | no | **SAVED, REVIEW CLOSED** |
@@ -27,7 +28,7 @@ three collections to `<session>.kilosort/review/verdicts/` on Z.
 | Shamir | `20260925_103539` | 543 | 9.0 / 8.0 | yes (20261118_1310) | 371 | 177 | 178 | 16 | 61 | 20 | yes | yes | yes (`synced`) | pass (100% matched, 21 ms worst-case, 1090/1090 trials) | ok (15.4% catch, error wait 6.08s) | no | **SAVED, REVIEW CLOSED** |
 | Shamir | `20260928_091523` | 613 | 9.0 / 8.0 | yes (20261124_1231) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (16.4% catch, error wait 5.47s) | no | **NOT REVIEWED** |
 | Shamir | `20260929_092327` | 611 | 9.0 / 8.0 | yes (20261124_1232) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.2% catch, error wait 6.18s) | no | **NOT REVIEWED** |
-| Shamir | `20260930_091521` | 594 | 9.0 / 8.0 | yes (20261124_1237) | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (15.1% catch, error wait 5.43s) | no | **NOT REVIEWED** |
+| Shamir | `20260930_091521` | 594 | 9.0 / 8.0 | yes (20261124_1237) | 411 | 258 | 135 | 18 | 102 | 67 | yes | yes | yes (`synced`) | pass (100% matched, 29 ms worst-case, 1086/1086 trials) | ok (15.1% catch, error wait 5.43s) | no | **SAVED, REVIEW CLOSED** |
 | Begin | `20260805_103305` | 73 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (9.3% catch, error wait 2.46s) | no | **NOT REVIEWED** |
 | Begin | `20260807_125640` | 95 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (14.7% catch, error wait 3.53s) | no | **NOT REVIEWED** |
 | Begin | `20260814_122755` | 94 | 9.0 / 8.0 | **no** | 0 | 0 | 0 | 0 | 0 | 0 | no | no | no | -- | ok (13.9% catch, error wait 6.34s) | no | **NOT REVIEWED** |
@@ -39,18 +40,25 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 
 ## Per session
 
-### 20261112_082028  (Popper)
+### 20261117_084903  (Popper)
 
-- SAVED, PARTIAL -- 260 of 442 units decided, all of them on Z
-- 442 units, Kilosort thresholds 9.0 / 8.0
-- Bpod sync: **done** -- `synced`
-- review tool built on Z: `Z:\Gil\Popper\20261112_082028.rec\20261112_082028.kilosort\review` (1 build kept) -- page yes, merge candidates yes, 0 raw-trace shard(s)
-- review page: https://claude.ai/artifact/M54x4TFQzUXJZJWwMcycSG
-- Correlogram Atlas: https://claude.ai/artifact/69cKEsVzCAXDxrAz1KVtD5
-- on Z: 260 unit verdicts (good 140, mua 120), 31 merge verdicts (merge 27, separate 3, unsure 1), 18 trial selections
-- `Z:\Gil\Popper\20261112_082028.rec\20261112_082028.kilosort\review\verdicts`
-- snapshots: snapshot_2026-11-13_1017_mid_review, snapshot_2026-11-13_1346_260_units
-- verdicts applied into `cluster_info.tsv`: yes
+- NOT REVIEWED -- no verdicts anywhere
+- 474 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (19 Bpod files available for this rat)
+- review tool built on Z: `Z:\Gil\Popper\20261117_084903.rec\20261117_084903.kilosort\review\tool\build_20261125_1153` (1 build kept) -- page yes, merge candidates yes, 19 raw-trace shard(s)
+- review page: **none built yet**
+- nothing saved on Z for this session yet
+- verdicts applied into `cluster_info.tsv`: **no**
+
+### 20261118_090757  (Popper)
+
+- NOT REVIEWED -- no verdicts anywhere
+- 465 units, Kilosort thresholds 9.0 / 8.0
+- Bpod sync: not done (19 Bpod files available for this rat)
+- review tool built on Z: `Z:\Gil\Popper\20261118_090757.rec\20261118_090757.kilosort\review\tool\build_20261125_0930` (1 build kept) -- page yes, merge candidates yes, 19 raw-trace shard(s)
+- review page: **none built yet**
+- nothing saved on Z for this session yet
+- verdicts applied into `cluster_info.tsv`: **no**
 
 ### 20260901_085606  (Shamir)
 
@@ -98,7 +106,7 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 - SAVED, REVIEW CLOSED -- Gil called this review finished: 322 of 465 units carry a verdict, all of them on Z; the other 143 were left on their automatic label
 - 465 units, Kilosort thresholds 9.0 / 8.0
 - **the sort of record for 2026-09-15**, joining `20260915_084812` + `20260915_103710`
-- Bpod sync: not done (49 Bpod files available for this rat)
+- Bpod sync: not done (50 Bpod files available for this rat)
 
   **What this session actually is**
 
@@ -123,7 +131,7 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 - SUPERSEDED -- part of 20260915_084812_103710_concat, which is the sort of record for this day. Not for review, and its unit ids do not correspond to the joint sort's.
 - 447 units, Kilosort thresholds 9.0 / 8.0
 - **superseded by** `20260915_084812_103710_concat` -- do not mix unit ids between them
-- Bpod sync: not done (49 Bpod files available for this rat)
+- Bpod sync: not done (50 Bpod files available for this rat)
 - review tool built on Z: `Z:\Gil\Shamir_1\20260915_103710.rec\20260915_103710.kilosort\review` (1 build kept) -- page yes, merge candidates yes, 0 raw-trace shard(s)
 - review page: **none built yet**
 - nothing saved on Z for this session yet
@@ -222,7 +230,7 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 
 - NOT REVIEWED -- no verdicts anywhere
 - 613 units, Kilosort thresholds 9.0 / 8.0
-- Bpod sync: not done (49 Bpod files available for this rat)
+- Bpod sync: not done (50 Bpod files available for this rat)
 - review tool built on Z: `Z:\Gil\Shamir_1\20260928_091523.rec\20260928_091523.kilosort\review\tool\build_20261124_1231` (1 build kept) -- page yes, merge candidates yes, 25 raw-trace shard(s)
 - review page: https://claude.ai/artifact/Ybre8gR2rqsM57zSqkpDEU
 - nothing saved on Z for this session yet
@@ -232,7 +240,7 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 
 - NOT REVIEWED -- no verdicts anywhere
 - 611 units, Kilosort thresholds 9.0 / 8.0
-- Bpod sync: not done (49 Bpod files available for this rat)
+- Bpod sync: not done (50 Bpod files available for this rat)
 - review tool built on Z: `Z:\Gil\Shamir_1\20260929_092327.rec\20260929_092327.kilosort\review\tool\build_20261124_1232` (1 build kept) -- page yes, merge candidates yes, 25 raw-trace shard(s)
 - review page: https://claude.ai/artifact/4pPhBpgEcjnHZZaSRrutct
 - nothing saved on Z for this session yet
@@ -240,13 +248,14 @@ group column in `cluster_info.tsv`. A session can have one without the other.
 
 ### 20260930_091521  (Shamir)
 
-- NOT REVIEWED -- no verdicts anywhere
+- SAVED, REVIEW CLOSED -- Gil called this review finished: 411 of 594 units carry a verdict, all of them on Z; the other 183 were left on their automatic label
 - 594 units, Kilosort thresholds 9.0 / 8.0
-- Bpod sync: not done (49 Bpod files available for this rat)
+- Bpod sync: **done** -- `synced`
 - review tool built on Z: `Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\review\tool\build_20261124_1237` (1 build kept) -- page yes, merge candidates yes, 24 raw-trace shard(s)
 - review page: https://claude.ai/artifact/LJDk69kkBPHfQBDDm9BbLa
-- nothing saved on Z for this session yet
-- verdicts applied into `cluster_info.tsv`: **no**
+- on Z: 411 unit verdicts (good 258, mua 135, noise 18), 102 merge verdicts (merge 96, separate 2, unsure 4), 67 trial selections
+- `Z:\Gil\Shamir_1\20260930_091521.rec\20260930_091521.kilosort\review\verdicts`
+- verdicts applied into `cluster_info.tsv`: yes
 
 ### 20260805_103305  (Begin)
 
