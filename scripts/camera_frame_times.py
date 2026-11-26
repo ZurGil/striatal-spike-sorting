@@ -34,7 +34,14 @@ Usage:
                                                        right one is found by fingerprint)
                                  [--polarity low|high] which phase is the exposure
                                  [--out <dir>]         default: the session's own folder
+                                 [--raw]               ignore the exported DIO .dat and
+                                                       read the raw packets
                                  [--no-figure]
+
+The exported <session>.DIO/<session>.dio_Controller_Din<n>.dat is used when it exists,
+because it is the same line already extracted by Trodes and reading it takes seconds
+instead of a full pass over the recording. The raw-packet reader is the fallback, and
+--raw forces it; both produce the same bit plane and therefore the same answer.
 """
 import os
 import re
@@ -162,6 +169,88 @@ def read_line(path, L, bit, chunk_packets=1 << 17):
     if not done:
         raise SystemExit("no whole packets could be read from %s" % path)
     return out[:done], t0, done
+
+
+def exported_dio_dat(rec, line):
+    """The exported .dat for one Din line, if trodesexport wrote one. Else None."""
+    sess = os.path.dirname(rec)
+    sid = os.path.basename(rec)[:-4]
+    p = os.path.join(sess, sid + ".DIO", "%s.dio_Controller_Din%d.dat" % (sid, line))
+    return p if os.path.isfile(p) else None
+
+
+def read_line_from_export(rec, dat, L, bit):
+    """The same bit plane, rebuilt from the exported DIO .dat instead of the raw packets.
+
+    `trodesexport --dio` writes one file per Din line that is in the display
+    configuration, holding the initial level and then every state change as
+    <time uint32><state uint8>. That is a complete description of the line, produced by
+    Trodes from the very packets read_line would re-read, so it is not a weaker source --
+    it is the same information already extracted, at four thousandths of the bytes. On
+    Popper 20261125_092028 the Din8 .dat is 8.4 MB against a 363 GB recording, and the
+    count takes seconds rather than an hour of sequential disk.
+
+    This is only possible when the workspace had the line added to the DIO display and
+    was saved. Across the first forty archived sessions exactly one exported eight Din
+    files; from 20261124 on, Popper exports all eight, so the camera line is normally
+    here now. The raw-packet path stays the authority for a recording that is still open
+    or a session where the workspace was never saved, which is why both exist.
+
+    Rebuilding the full per-packet bit plane rather than returning edges is deliberate:
+    every downstream check -- the partial-pulse trimming, the restart handling in
+    last_run, the lead-in and tail measurement, the figure -- then runs on exactly the
+    shape it was written and tested against, so the two sources cannot drift apart in
+    what they conclude.
+    """
+    size = os.path.getsize(rec)
+    npk = int((size - L["hdr"]) // L["packet"])
+    with open(rec, "rb") as f:
+        f.seek(L["hdr"])
+        g = np.frombuffer(f.read(L["packet"]), dtype=np.uint8)
+    if g[0] != SENTINEL:
+        raise SystemExit("the first packet fails the 0x55 sentinel -- refusing to read")
+    t0 = int(g[L["ts_off"]:L["ts_off"] + 4].copy().view(np.uint32)[0])
+
+    raw = open(dat, "rb").read()
+    i = raw.find(b"<End settings>")
+    if i < 0:
+        raise SystemExit("%s has no <End settings> marker" % dat)
+    off = i + len(b"<End settings>")
+    while off < len(raw) and raw[off] in (13, 10):
+        off += 1
+    body = raw[off:]
+    n = len(body) // 5
+    if n < 3:
+        raise SystemExit("%s holds %d state change(s) -- nothing to count" % (dat, n))
+    if len(body) % 5:
+        raise SystemExit("%s has %d byte(s) left over after %d whole 5-byte records -- "
+                         "refusing to read a truncated export"
+                         % (dat, len(body) % 5, n))
+    a = np.frombuffer(body[:n * 5], dtype=np.uint8).reshape(n, 5)
+    t = np.ascontiguousarray(a[:, 0:4]).view(np.uint32).ravel().astype(np.int64)
+    s = a[:, 4]
+
+    # The export is a state *change* list, so these two must hold or the file is not what
+    # it claims and the reconstruction below would be silently wrong.
+    if not np.all(np.diff(t) > 0):
+        raise SystemExit("%s has non-monotonic timestamps -- refusing to read" % dat)
+    if not np.all(np.isin(s, (0, 1))):
+        raise SystemExit("%s holds a state that is neither 0 nor 1" % dat)
+    if not np.all(np.diff(s.astype(np.int16)) != 0):
+        raise SystemExit("%s has two consecutive records at the same state, so it is not "
+                         "a state-change list -- refusing to read" % dat)
+
+    idx = np.clip(t - t0, 0, npk)
+    if idx[0] > 0:
+        # The first record is the level the line was already at, so before it the line
+        # held that same level.
+        idx = np.insert(idx, 0, 0)
+        s = np.insert(s, 0, s[0])
+    counts = np.diff(np.append(idx, npk))
+    b = np.repeat(s, counts).astype(np.int8)
+    if b.size != npk:
+        raise SystemExit("rebuilt %d samples for a %d packet recording" % (b.size, npk))
+    return b, t0, npk
 
 
 def resolve_csv(arg, npulse):
@@ -357,9 +446,22 @@ def main():
     print("  packet %d B, DIO byte %d, timestamp byte %d, %d channels at %g Hz"
           % (L["packet"], L["dio"], L["ts_off"], L["nch"], fs))
 
-    b, t0, npk = read_line(path, L, bit)
-    print("  %d whole packets = %.1f s, first Trodes timestamp %d" % (npk, npk / fs, t0))
-    print("  sentinel 0x55 verified across the file")
+    # Prefer the exported .dat for this line when Trodes wrote one: it is the same
+    # information, already extracted, and it turns an hour of sequential disk into
+    # seconds. --raw forces the packet reader, which is what to use if the export is
+    # ever in doubt.
+    dat = None if "--raw" in args else exported_dio_dat(path, line)
+    if dat:
+        b, t0, npk = read_line_from_export(path, dat, L, bit)
+        print("  %d whole packets = %.1f s, first Trodes timestamp %d" % (npk, npk / fs, t0))
+        print("  Din%d read from the export, %s (%.1f MB), bit plane rebuilt from its "
+              "state changes" % (line, os.path.basename(dat),
+                                 os.path.getsize(dat) / 1e6))
+    else:
+        b, t0, npk = read_line(path, L, bit)
+        print("  %d whole packets = %.1f s, first Trodes timestamp %d" % (npk, npk / fs, t0))
+        print("  Din%d read from the raw packets; sentinel 0x55 verified on every one"
+              % line)
 
     d = np.diff(b)
     rise = np.flatnonzero(d == 1) + 1

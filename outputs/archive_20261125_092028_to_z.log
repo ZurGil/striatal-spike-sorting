@@ -1,0 +1,13 @@
+﻿[2026-11-25 16:44:45] watching F:\Gil\Popper\20261125_092028.rec
+[2026-11-25 18:34:47] trodesexport is no longer running
+[2026-11-25 18:34:47] still changing -- 643.0 GiB so far
+[2026-11-25 18:35:47] sizes unchanged (1/3)
+[2026-11-25 18:36:47] sizes unchanged (2/3)
+[2026-11-25 18:37:47] sizes unchanged (3/3)
+[2026-11-25 18:37:47] export finished: 13 file(s), 643.0 GiB
+[2026-11-25 18:37:47] all expected pieces present, including 8 DIO file(s)
+[2026-11-25 18:37:47] space free on Z: 31,198.0 GiB
+[2026-11-25 18:37:47] copying to Z:\Gil\Popper\20261125_092028.rec (no /MIR, no /PURGE: nothing on Z is removed or overwritten in place)
+[2026-11-25 20:14:47] robocopy exit code 1 (0 = nothing to do, 1 = files copied; both are success)
+[2026-11-25 20:14:47] verified: 13 file(s), 643.0 GiB, every size matches on Z
+[2026-11-25 20:14:47] F: is NOT touched. Freeing it is Gil's call.
