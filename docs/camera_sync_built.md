@@ -463,9 +463,37 @@ judgement is made on the silence that actually precedes the kept train.
 
 This is why the camera PC's session log can hold more session names than there are
 recordings, and why the ChunkFrameID fingerprint in §5.3 rather than the typed name is what
-pairs a video to a recording. Today's `20261125_092028` had the same thing happen one level
-up: an earlier attempt named `20261125_091447` was stopped at 8,031 frames and deleted before
-the real session started, leaving no `.rec` at all.
+pairs a video to a recording.
+
+**Three independent accounts of the same 1.95 s.** The Din8 measurement puts it at
+47.276–49.209 s. Gil reported, live and unprompted that day, seeing the camera go on and off
+for about two seconds and then run steady. The camera session had already written it up as a
+resolved blip. Nothing had to be reconciled — but it is worth noting that the aborted run is
+visible in the neural recording *at all*, because the 117 pulses carry the same 9.9590 ms
+exposure fingerprint as the real train, which is what identifies them as the camera rather
+than noise on the line.
+
+**Probable cause, explicitly not proven.** The camera session's terminal tool had a bug that
+auto-sent Ctrl-C about two seconds after launching a background process, apparently triggered
+by ffmpeg's verbose startup banner; it had already killed two `test.rec` rehearsals that day,
+which is why the launch method was changed to a plain background launch with log redirection —
+and that changed method is what produced the 1,000,051-frame run. The timing fits exactly.
+It stays unproven because that first attempt's own logs were deleted before the retry, so
+there is nothing left to confirm it against. Recorded at that strength deliberately: a
+plausible cause written down as a fact is how the Din7 dead end in §9 cost a day.
+
+**The two extra session names are different failures.** Worth keeping apart, because they
+have the same symptom — an extra session name with no usable train — and different fixes:
+
+| | `20261124_125219`, the 117-pulse abort | `20261125_091447` |
+|---|---|---|
+| what happened | camera ran ~2 s, died, relaunched cleanly | Gil judged the recording had not started properly on the Trodes side |
+| where the evidence is | in the `.rec`, on Din8, as a dropped train | nowhere: 8,031 frames deleted, **no `.rec` ever archived** |
+| cause | probably the terminal tool's Ctrl-C bug, unproven | Gil's call, unrelated |
+| what the tool does | `last_run` drops it and names it | nothing to do; the session does not exist |
+
+The first kind is the one to watch for, because it leaves a real train on the line that a
+naive count would include.
 
 ### The dangerous case
 
