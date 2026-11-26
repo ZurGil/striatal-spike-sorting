@@ -43,13 +43,17 @@ def bpod_trials(mat_path):
     rd = sd.RawData
     nt = int(sd.nTrials)
     tstart = np.atleast_1d(sd.TrialStartTimestamp).astype(float)
-    names = np.atleast_1d(rd.OriginalStateNamesByNumber[0])
+    # No name table is read here on purpose. This script matches NUMBERS against the
+    # numbers on the wire, and Bpod writes `OriginalStateNamesByNumber` per trial, so
+    # reading trial 1's table and holding it for the session would be an assumption the
+    # matching does not need. `check_bpod_dio_in_rec.bpod_state_table` is the one place
+    # that resolves names, and it reads the table per trial.
     out = []
     for t in range(nt):
         s = np.atleast_1d(rd.OriginalStateData[t]).astype(int)
         ts = np.atleast_1d(rd.OriginalStateTimestamps[t]).astype(float)
         out.append((s, tstart[t] + ts[:len(s)]))
-    return out, tstart, names, nt
+    return out, tstart, nt
 
 
 def dio_trials(codes, times):
@@ -102,7 +106,7 @@ def main():
 
     bits, code, idx, t = C.decode(dio, L, fs, ts[0])
     dtr = dio_trials(code[idx], t)
-    btr, btstart, names, nt = bpod_trials(mat)
+    btr, btstart, nt = bpod_trials(mat)
 
     print("%s" % os.path.basename(path))
     print("  window: %.1f s starting %.1f s into the recording (Trodes clock "

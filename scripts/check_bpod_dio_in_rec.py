@@ -170,20 +170,46 @@ def bpod_state_table(mat_path):
     state NUMBERS -- the very numbers that go out on the six lines -- and
     `OriginalStateTimestamps` are their boundaries, so a state's duration is the gap to
     the next one. `OriginalStateNamesByNumber` names them.
+
+    That name table is written PER TRIAL (Bpod's `AddTrialEvents.m` stores
+    `BpodSystem.StateMatrix.StateNames` on every trial), and a state's number is fixed at
+    its first mention during the build -- which can be a forward reference from another
+    state's `StateChangeConditions`, not its own `AddState` call. Since `stateMatrix.m`
+    puts 27 of its 60 `AddState` calls inside conditionals, a name is not guaranteed by
+    construction to hold the same number on every trial, so this reads the table per
+    trial instead of taking trial 1's for the whole session, and says so when one moves.
+
+    Measured on 22 cached sessions across Begin01, Shamir01 and Popper (19,000+ trials):
+    one single table of 40 names, identical on every trial, no name ever taking two
+    numbers. So the per-trial read changes no answer today -- it is here so that a
+    protocol which does shift a number reports it rather than mislabelling the wire.
     """
     import scipy.io as sio
     m = sio.loadmat(mat_path, squeeze_me=True, struct_as_record=False)
     rd = m["SessionData"].RawData
     nt = int(m["SessionData"].nTrials)
-    names = np.atleast_1d(rd.OriginalStateNamesByNumber[0])
+    tables = [np.atleast_1d(x) for x in np.atleast_1d(rd.OriginalStateNamesByNumber)]
     dur = collections.defaultdict(list)
+    seen = collections.defaultdict(set)      # number -> {every name it was given}
+    first = {}                               # number -> the name it had on first sight
     for t in range(nt):
         s = np.atleast_1d(rd.OriginalStateData[t]).astype(int)
         ts = np.atleast_1d(rd.OriginalStateTimestamps[t]).astype(float)
+        nm = tables[t] if t < len(tables) else tables[0]
         for k in range(min(len(s), len(ts) - 1)):
-            dur[int(s[k])].append((ts[k + 1] - ts[k]) * 1000.0)
-    return {k: (names[k - 1] if k <= len(names) else "?", np.array(v))
-            for k, v in dur.items()}, nt
+            num = int(s[k])
+            dur[num].append((ts[k + 1] - ts[k]) * 1000.0)
+            label = str(nm[num - 1]) if 1 <= num <= len(nm) else "?"
+            seen[num].add(label)
+            first.setdefault(num, label)
+    moved = {k: sorted(v) for k, v in seen.items() if len(v) > 1}
+    if moved:
+        print("  WARNING: a state number is named differently on different trials -- the")
+        print("  name<->number mapping is not stable in this session, so any label below")
+        print("  is only the name that number held on its FIRST occurrence:")
+        for k, v in sorted(moved.items()):
+            print("    number %2d was %s" % (k, ", ".join(v)))
+    return {k: (first[k], np.array(v)) for k, v in dur.items()}, nt
 
 
 def main():
