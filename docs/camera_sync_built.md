@@ -204,6 +204,34 @@ Practical consequences:
   the channel map is the only field that was compared, and there's no reason to import
   unexamined fields into a working acquisition setup for two display entries.
 
+#### Done, 2026-11-24 — and it is now the fast path
+
+Gil added Din7 and Din8 to the DIO display and saved the workspace. From `20261124_125219`
+onward every Popper session exports **eight** Din files, so the camera line comes out in
+`<session>.DIO/<session>.dio_Controller_Din8.dat`.
+
+This stopped being a convenience the moment the recordings got long. The file holds the
+initial level and then every state change as `<time uint32><state uint8>`, 8.4 MB for a
+3 h 55 m session against a 363 GB `.rec`. `camera_frame_times.py` now prefers it and
+rebuilds the bit plane from the state changes: **3.3 seconds instead of an hour** of
+sequential disk. `--raw` forces the packet reader, which stays the authority for a
+recording that is still open or a session whose workspace was never saved.
+
+It is not a weaker source — it is the same line Trodes extracted from the very packets the
+raw reader would re-read. Checked rather than argued: the rebuilt plane was compared against
+the raw DIO byte in 16 windows of 500,000 packets spread across the whole of
+`20261125_092028`, 6.85 GB read, and **zero samples differed out of 8,000,000**. The first
+window held no edges at all, correctly, because it lies inside the 52 s lead-in; the last
+held 749, correct for a 10.4 s tail.
+
+One defect this exposed, now fixed. `read_line` used to pull the DIO byte out of a
+`np.memmap` with a strided copy, which faults in every page of the file, and Windows keeps
+mapped pages in the working set. On 363 GB it reached a **46.6 GB working set with 3.0 GB of
+64 GB free** and had spent 33 s of CPU in 25 minutes — almost pure page-faulting, and it
+could only have finished by holding all 363 GB resident. It now reads forward in 112 MB
+chunks. Sessions were ~100 GB when that code was written, where a strided whole-file copy is
+survivable; four hours is where it stops being.
+
 ### Packet layout — re-derive it, never assume it
 
 The script measures the geometry from each recording's own embedded XML. For the current rig
@@ -384,6 +412,60 @@ Tested against `test.rec` (15,191 pulses) with three candidates in a folder: the
 at span 15,191 was selected; a near-miss at 15,190 (one frame lost at the start) and a decoy
 at 5,000 were both rejected. With the correct file removed it refuses and prints the span
 table so the mismatch is visible.
+
+### 5.4 One extra pulse at the tail is the signature of a clean stop
+
+Both real sessions came out at **pulses = frames + 1**, and that is the expected result, not
+a discrepancy to explain away.
+
+| session | pulses on Din8 | frames written | ChunkFrameID span | diff |
+|---|---|---|---|---|
+| `20261124_125219` | 1,000,052 | 1,000,051 | 94256632..95256682 = 1,000,051 | +1 |
+| `20261125_092028` | 844,279 | 844,278 | 95264716..96108993 = 844,278 | +1 |
+
+**Why.** Confirmed against `record.py` itself, not inferred. The stop flag is tested only at
+the *top* of the grab loop, so when it trips the loop breaks straight into the `finally` that
+calls `EndAcquisition()`, with no `GetNextImage()` in between. Nothing disarms the sensor
+before that point — it is still free-running. An exposure that starts in the window between
+loop exit and `EndAcquisition()` therefore **pulses Line1 and is never retrieved**.
+
+**Why the other end cannot do this.** The mirror argument matters more, because a missed
+*first* exposure would put every frame one period — 16.7 ms — late against the neural data,
+invisibly. `configure_camera()` (including `LineSource = ExposureActive`) and the ffmpeg and
+CSV writers are all armed **before** `BeginAcquisition()`, and the first `GetNextImage()`
+follows it immediately. The writer is always live before the sensor can emit a single pulse,
+so there is no unobserved free-run period at the front.
+
+So `+1` means the stop was clean. What would *not* be benign is `+1` together with a short
+lead-in, or any count that disagrees with the ChunkFrameID span by more than one, or a gap
+inside the train.
+
+**The measurements that make it stick**, both sessions: zero intervals longer than 1.5× the
+median anywhere in the train, so no pulse is missing in the middle; a lead-in of hundreds to
+thousands of frame periods, so the camera was not already running; a tail well clear of the
+end of the file; and the camera's own ChunkFrameID span equal to the frames written, so the
+writer lost nothing between exposing and writing.
+
+**Two clocks that had never been compared agree to 7 ppm.** On `20261125_092028` the camera's
+chunk timestamps give 59.9955 Hz and the Trodes 30 kHz clock gives 59.9951 Hz, across
+3 h 55 m. Both sessions measure −82 ppm against the modal interval and a 9.9590 ms exposure,
+reproducing the September bench numbers in §4 exactly.
+
+### Two trains on one line — `20261124_125219`
+
+That session has **two** pulse trains: an aborted run of 117 pulses from 47.276 s to 49.209 s
+into the recording, then the real one starting at 64.542 s. `last_run` keeps the last and
+names what it dropped, which is right here — but notice that the *count* is what confirms it
+chose correctly. The kept train is 1,000,052 pulses against 1,000,051 frames written; had the
+surviving video come from the first train the camera would have reported 117 frames, not a
+million. The lead-in is then measured from the end of the dropped run, 15.323 s, so the
+judgement is made on the silence that actually precedes the kept train.
+
+This is why the camera PC's session log can hold more session names than there are
+recordings, and why the ChunkFrameID fingerprint in §5.3 rather than the typed name is what
+pairs a video to a recording. Today's `20261125_092028` had the same thing happen one level
+up: an earlier attempt named `20261125_091447` was stopped at 8,031 frames and deleted before
+the real session started, leaving no `.rec` at all.
 
 ### The dangerous case
 
